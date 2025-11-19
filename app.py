@@ -27,8 +27,8 @@ if 'data' not in st.session_state:
 # Utility function to map channel to type
 def get_channel_type(channel):
     """Map channel to Online/Offline"""
-    online_channels = ['web', 'mobile', 'app', 'online', 'website', 'ecommerce', 'e-commerce']
-    offline_channels = ['store', 'retail', 'pos', 'shop', 'physical', 'offline', 'branch']
+    online_channels = ['LINE Shopping', 'Lazada', 'Shopee', 'TikTok']
+    offline_channels = ['Siam Center']
     
     channel_lower = str(channel).lower()
     for oc in online_channels:
