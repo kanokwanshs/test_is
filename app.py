@@ -1,6 +1,99 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import streamlit as st
+import pandas as pd
+import os
+
+# ---------------------------
+#  OPTION 1 — Upload CSV Files
+# ---------------------------
+def load_from_upload():
+    st.sidebar.subheader("📁 Upload CSV Files")
+
+    uploaded_files = st.sidebar.file_uploader(
+        "Upload all 7 CSV files",
+        accept_multiple_files=True,
+        type=["csv"]
+    )
+
+    if not uploaded_files:
+        return None
+
+    required_files = {
+        "distribution_centers.csv": None,
+        "user.csv": None,
+        "product.csv": None,
+        "inventory_item.csv": None,
+        "order.csv": None,
+        "order_item.csv": None,
+        "event.csv": None,
+    }
+
+    # map file names
+    for f in uploaded_files:
+        name = f.name.lower()
+        if name in required_files:
+            required_files[name] = pd.read_csv(f)
+
+    # check missing
+    missing = [k for k,v in required_files.items() if v is None]
+    if missing:
+        st.sidebar.error(f"Missing files: {', '.join(missing)}")
+        return None
+
+    return required_files
+
+
+# ---------------------------
+#  OPTION 2 — Load from data/ folder
+# ---------------------------
+def load_from_folder(path="data"):
+
+    st.sidebar.write(f"Looking for CSV inside: `{path}`")
+
+    def safe_read(file):
+        fp = f"{path}/{file}"
+        if not os.path.exists(fp):
+            st.error(f"❌ File not found: {fp}")
+            return None
+        return pd.read_csv(fp)
+
+    return {
+        "distribution_centers.csv": safe_read("distribution_centers.csv"),
+        "user.csv": safe_read("user.csv"),
+        "product.csv": safe_read("product.csv"),
+        "inventory_item.csv": safe_read("inventory_item.csv"),
+        "order.csv": safe_read("order.csv"),
+        "order_item.csv": safe_read("order_item.csv"),
+        "event.csv": safe_read("event.csv")
+    }
+
+
+# ---------------------------
+#  SIDEBAR — Pick Load Method
+# ---------------------------
+st.sidebar.title("Data Source")
+mode = st.sidebar.radio("Load data from:", ["Upload CSV", "GitHub folder /data"])
+
+if mode == "Upload CSV":
+    data = load_from_upload()
+else:
+    data = load_from_folder("data")
+
+# Stop app if data missing
+if data is None or any(v is None for v in data.values()):
+    st.warning("Please upload CSV files or check /data folder structure")
+    st.stop()
+
+# Assign variables like before
+df_dc       = data["distribution_centers.csv"]
+df_user     = data["user.csv"]
+df_product  = data["product.csv"]
+df_inventory= data["inventory_item.csv"]
+df_order    = data["order.csv"]
+df_order_item = data["order_item.csv"]
+df_event    = data["event.csv"]
 
 from etl import load_data, merge_data
 from features import build_features
