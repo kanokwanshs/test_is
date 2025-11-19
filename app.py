@@ -30,7 +30,7 @@ def get_channel_type(channel):
     online_channels = ['line shopping', 'lazada', 'shopee', 'tiktok']
     offline_channels = ['siam center']
     
-for oc in online_channels:
+    for oc in online_channels:
         # ตรวจสอบว่าชื่อช่องทาง 'oc' มีอยู่ในสตริง 'channel_lower' หรือไม่
         if oc in channel_lower:
             return 'Online'
