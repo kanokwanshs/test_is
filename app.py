@@ -27,16 +27,18 @@ if 'data' not in st.session_state:
 # Utility function to map channel to type
 def get_channel_type(channel):
     """Map channel to Online/Offline"""
-    online_channels = ['LINE Shopping', 'Lazada', 'Shopee', 'TikTok']
-    offline_channels = ['Siam Center']
+    online_channels = ['line shopping', 'lazada', 'shopee', 'tiktok']
+    offline_channels = ['siam center']
     
-    channel_lower = str(channel).lower()
-    for oc in online_channels:
+for oc in online_channels:
+        # ตรวจสอบว่าชื่อช่องทาง 'oc' มีอยู่ในสตริง 'channel_lower' หรือไม่
         if oc in channel_lower:
             return 'Online'
+    
     for of in offline_channels:
         if of in channel_lower:
             return 'Offline'
+            
     return 'Other'
 
 # File upload options
