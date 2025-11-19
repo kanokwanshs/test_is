@@ -8,21 +8,22 @@ from features import build_features
 from models import build_churn_model
 
 # ---------------------------
-# OPTION 1 — Upload CSV Files
+# Load via upload
 # ---------------------------
 def load_from_upload():
     st.sidebar.subheader("📁 Upload CSV Files")
 
-    uploaded_files = st.sidebar.file_uploader(
+    uploaded = st.sidebar.file_uploader(
         "Upload all 7 CSV files",
-        accept_multiple_files=True,
-        type=["csv"]
+        type="csv",
+        accept_multiple_files=True
     )
 
-    if not uploaded_files:
+    if not uploaded:
         return None
 
-    required = {
+    # map filenames → keys that merge_data expects
+    map_key = {
         "distribution_centers.csv": "dc",
         "user.csv": "user",
         "product.csv": "product",
@@ -32,12 +33,12 @@ def load_from_upload():
         "event.csv": "event",
     }
 
-    data = {v: None for v in required.values()}
+    data = {v: None for v in map_key.values()}
 
-    for f in uploaded_files:
+    for f in uploaded:
         name = f.name.lower()
-        if name in required:
-            key = required[name]
+        if name in map_key:
+            key = map_key[name]
             data[key] = pd.read_csv(f)
 
     missing = [k for k, v in data.items() if v is None]
@@ -49,11 +50,10 @@ def load_from_upload():
 
 
 # ---------------------------
-# OPTION 2 — Load from folder
+# Load from /data folder
 # ---------------------------
 def load_from_folder(path="data"):
-
-    required = {
+    map_key = {
         "distribution_centers.csv": "dc",
         "user.csv": "user",
         "product.csv": "product",
@@ -65,10 +65,10 @@ def load_from_folder(path="data"):
 
     data = {}
 
-    for file, key in required.items():
+    for file, key in map_key.items():
         fp = f"{path}/{file}"
         if not os.path.exists(fp):
-            st.error(f"❌ File not found: {fp}")
+            st.error(f"❌ Missing: {fp}")
             data[key] = None
         else:
             data[key] = pd.read_csv(fp)
@@ -77,32 +77,33 @@ def load_from_folder(path="data"):
 
 
 # ---------------------------
-# UI LOAD
+# Sidebar select
 # ---------------------------
 st.sidebar.title("Data Source")
-mode = st.sidebar.radio("Load data from:", ["Upload CSV", "GitHub folder /data"])
+mode = st.sidebar.radio("Load from:", ["Upload CSV", "GitHub /data folder"])
 
 data = load_from_upload() if mode == "Upload CSV" else load_from_folder("data")
 
 if data is None or any(v is None for v in data.values()):
-    st.warning("Please upload CSV files or check /data folder structure")
+    st.warning("Upload all 7 CSV files or ensure /data folder exists.")
     st.stop()
 
+
 # ---------------------------
-# MERGE NORMALIZED DATA
+# Merge all tables
 # ---------------------------
 df = merge_data(data)
 
 # ---------------------------
-# FEATURES
+# Feature engineering
 # ---------------------------
 df_feat, rfm, demand = build_features(df)
 
-st.set_page_config(page_title="Ecommerce Enterprise Dashboard", layout="wide")
+st.title("📊 Ecommerce Enterprise Dashboard")
 
-st.title("📊 Ecommerce Enterprise Analytics Dashboard")
-
-# Tabs
+# ======================
+# CRM & Sales
+# ======================
 tab1, tab2, tab3, tab4 = st.tabs([
     "📦 Sales & CRM",
     "📈 Inventory Forecast",
@@ -110,41 +111,26 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Marketing Analytics"
 ])
 
-# ======================
-# CRM & Sales
-# ======================
 with tab1:
     st.subheader("Customer RFM Segmentation")
     fig1 = px.scatter(rfm, x="frequency", y="monetary", size="recency", color="recency")
     st.plotly_chart(fig1, use_container_width=True)
 
-    st.subheader("Churn Prediction Model")
+    st.subheader("Churn Model")
     model, report = build_churn_model(rfm)
     st.json(report)
 
-
-# ======================
-# Inventory
-# ======================
 with tab2:
-    st.subheader("Monthly Product Demand")
+    st.subheader("Monthly Demand")
     fig2 = px.line(demand, x="month", y="demand", color="product_id")
     st.plotly_chart(fig2, use_container_width=True)
 
-
-# ======================
-# Accounting
-# ======================
 with tab3:
-    st.subheader("Revenue")
+    st.subheader("Revenue Trend")
     rev = df_feat.groupby("order_date")["total_revenue"].sum().reset_index()
     fig3 = px.line(rev, x="order_date", y="total_revenue")
     st.plotly_chart(fig3, use_container_width=True)
 
-
-# ======================
-# Marketing
-# ======================
 with tab4:
     st.subheader("Channel Performance")
     ch = df_feat.groupby("channel")["sale_price"].sum().reset_index()
