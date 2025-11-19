@@ -245,36 +245,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Marketing Analytics"
 ])
 
-# --- 1. DATE RANGE FILTER (New) ---
-min_date = df_master['created_at'].min().date() if not df_master['created_at'].empty else datetime.now().date()
-max_date = df_master['created_at'].max().date() if not df_master['created_at'].empty else datetime.now().date()
-
-# ตั้งค่า Max Date เผื่อถึงปี 2025
-max_filter_date = max(max_date, datetime(2025, 12, 31).date()) 
-
-st.sidebar.subheader("📅 Date Range Filter")
-date_range = st.sidebar.date_input(
-    "Select Date Range",
-    value=[min_date, max_date],
-    min_value=min_date,
-    max_value=max_filter_date
-)
-
-# กรองข้อมูลตามช่วงวันที่ที่เลือก
-if len(date_range) == 2:
-    start_date, end_date = date_range
-    df_master_filtered = df_master[
-        (df_master['created_at'].dt.date >= start_date) & 
-        (df_master['created_at'].dt.date <= end_date)
-    ].copy()
-else:
-    # หากเลือกไม่ครบ 2 วัน ให้ใช้ข้อมูลทั้งหมด หรือ 1 วันถ้าเลือก
-    df_master_filtered = df_master.copy()
-
-# ตรวจสอบว่าข้อมูลมีอยู่หรือไม่หลังจากการกรอง
-if df_master_filtered.empty:
-    st.warning("⚠️ No data available in the selected date range.")
-    st.stop()
 # ==========================================
 # TAB 1: CUSTOMER ANALYTICS
 # ==========================================
