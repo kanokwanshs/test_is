@@ -5,7 +5,4 @@ scikit-learn
 plotly
 matplotlib
 seaborn
-xgboost
-lightgbm
 scipy
-pydeck
