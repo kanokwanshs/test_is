@@ -1,24 +1,26 @@
-import pandas as pd
+import os
 
-def load_data(data_path="data"):
+def load_data(data_path, uploaded=None):
 
-    df_dc       = pd.read_csv(f"{data_path}/distribution_centers.csv")
-    df_user     = pd.read_csv(f"{data_path}/user.csv")
-    df_product  = pd.read_csv(f"{data_path}/product.csv")
-    df_inventory = pd.read_csv(f"{data_path}/inventory_item.csv")
-    df_order    = pd.read_csv(f"{data_path}/order.csv")
-    df_order_item = pd.read_csv(f"{data_path}/order_item.csv")
-    df_event    = pd.read_csv(f"{data_path}/event.csv")
+    if uploaded is not None:
+        return uploaded   # ใช้ไฟล์ upload แทน
+
+    def safe_read(file):
+        fp = os.path.join(data_path, file)
+        if not os.path.exists(fp):
+            return None
+        return pd.read_csv(fp)
 
     return {
-        "dc": df_dc,
-        "user": df_user,
-        "product": df_product,
-        "inventory": df_inventory,
-        "order": df_order,
-        "order_item": df_order_item,
-        "event": df_event
+        "distribution_centers.csv": safe_read("distribution_centers.csv"),
+        "user.csv": safe_read("user.csv"),
+        "product.csv": safe_read("product.csv"),
+        "inventory_item.csv": safe_read("inventory_item.csv"),
+        "order.csv": safe_read("order.csv"),
+        "order_item.csv": safe_read("order_item.csv"),
+        "event.csv": safe_read("event.csv"),
     }
+
 
 
 def merge_data(d):
