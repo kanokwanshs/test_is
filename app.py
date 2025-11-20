@@ -1508,85 +1508,121 @@ with tab1:
                         color_discrete_sequence=px.colors.sequential.Agsunset)
             st.plotly_chart(fig, use_container_width=True)
 
-        # Segment metrics
-        st.subheader("Segment Performance Metrics (RFM)")
-        seg_metrics = rfm_df.groupby('Customer_Segment').agg(
-            Customers=('user_id', 'count'),
-            Avg_Recency=('Recency', 'mean'),
-            Avg_Frequency=('Frequency', 'mean'),
-            Avg_Monetary=('Monetary', 'mean')
-        ).round(2)
-        seg_metrics.columns = ['Customers', 'Avg Recency (Days)', 'Avg Orders', 'Avg Revenue (฿)']
-        st.dataframe(seg_metrics.sort_values('Customers', ascending=False), use_container_width=True)
-
-        # ----------------------------------------------------
-        # 6. PROMOTION DAY ANALYSIS (1.1, 2.2, ... 12.12 on Online Channels only)
+    # ----------------------------------------------------
+        # 5. CUSTOMER VALUE SEGMENTATION (RFM Analysis)
         # ----------------------------------------------------
         st.markdown("---")
-        st.subheader("2️⃣ Customer Behavior: Promotion Days (X.X) vs Normal Days (Online Only)")
+        st.subheader("1️⃣ Customer Value Segmentation: RFM Analysis")
+        st.markdown("ใช้ **RFM (Recency, Frequency, Monetary) Analysis** เพื่อแบ่งกลุ่มลูกค้าเชิงพฤติกรรม")
+        
 
-        df_promo = df_filtered.copy()
+        # ตรวจสอบว่ามีข้อมูลเหลืออยู่หรือไม่หลังการกรอง
+        if len(df_filtered) == 0:
+            st.warning("⚠️ ไม่พบข้อมูลคำสั่งซื้อที่ตรงตามเงื่อนไขการกรอง (Global Filters) ไม่สามารถคำนวณ RFM ได้")
+            # กำหนด rfm_df ให้เป็น DataFrame ว่างเปล่าที่มีคอลัมน์ที่จำเป็น เพื่อป้องกัน NameError ในภายหลัง หากมีโค้ดที่ไม่เกี่ยวข้องกับ RFM อยู่ข้างล่าง
+            rfm_df = pd.DataFrame(columns=['user_id', 'Recency', 'Frequency', 'Monetary', 'R_Score', 'F_Score', 'M_Score', 'Customer_Segment'])
         
-        # 1. Filter ONLY Online Channels for promotion analysis
-        df_promo = df_promo[df_promo['channel_type'] == 'Online'].copy()
-        
-        if df_promo.empty:
-            st.warning("ไม่พบข้อมูลคำสั่งซื้อในช่องทางออนไลน์ในช่วงเวลาที่เลือกสำหรับการวิเคราะห์โปรโมชัน")
         else:
-            df_promo['order_day'] = df_promo['created_at'].dt.day
-            df_promo['order_month_num'] = df_promo['created_at'].dt.month # Use a new column for month number
-            
-            # Define promotion day condition: Day == Month (1.1, 2.2, ..., 12.12)
-            df_promo['is_promotion_day'] = df_promo.apply(
-                lambda row: 'Promotion Day (X.X)' if row['order_day'] == row['order_month_num'] else 'Normal Day',
-                axis=1
-            )
-        
-            # Use drop_duplicates for order-level analysis (Sales and Orders)
-            df_promo_order = df_promo.drop_duplicates(subset=['order_id'])
-        
-            # Aggregate sales by day type
-            promo_sales = df_promo_order.groupby('is_promotion_day').agg(
-                total_sales=('sale_price', 'sum'),
-                total_orders=('order_id', 'nunique')
-            ).reset_index()
-        
-            # Calculate number of unique days for accurate average
-            # We need 'order_date' column to be date objects, which was defined earlier
-            df_promo_order['order_date'] = pd.to_datetime(df_promo_order['order_date'])
-            day_counts = df_promo_order.groupby('is_promotion_day')['order_date'].nunique().reset_index()
-            day_counts.columns = ['is_promotion_day', 'num_days']
-            
-            promo_sales = promo_sales.merge(day_counts, on='is_promotion_day')
-            
-            # Calculate average sales per day for comparison
-            promo_sales['Avg_Daily_Sales'] = promo_sales['total_sales'] / promo_sales['num_days']
-            promo_sales['Avg_Daily_Orders'] = promo_sales['total_orders'] / promo_sales['num_days']
-        
-            col1, col2 = st.columns(2)
-        
-            with col1:
-                fig_sales = px.bar(promo_sales,
-                                x='is_promotion_day',
-                                y='Avg_Daily_Sales',
-                                title="ยอดขายเฉลี่ยต่อวัน: วันโปรโมชัน vs วันปกติ",
-                                labels={'Avg_Daily_Sales': 'ยอดขายเฉลี่ยต่อวัน (฿)', 'is_promotion_day': 'ประเภทวัน'},
-                                color='is_promotion_day',
-                                color_discrete_map={'Promotion Day (X.X)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
-                st.plotly_chart(fig_sales, use_container_width=True)
-        
-            with col2:
-                fig_orders = px.bar(promo_sales,
-                                x='is_promotion_day',
-                                y='Avg_Daily_Orders',
-                                title="จำนวนคำสั่งซื้อเฉลี่ยต่อวัน",
-                                labels={'Avg_Daily_Orders': 'จำนวนคำสั่งซื้อเฉลี่ยต่อวัน', 'is_promotion_day': 'ประเภทวัน'},
-                                color='is_promotion_day',
-                                color_discrete_map={'Promotion Day (X.X)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
-                st.plotly_chart(fig_orders, use_container_width=True)
-                
-            st.dataframe(promo_sales.round(2), use_container_width=True)
+            # Define the most recent date in the filtered dataset
+            current_date = df_filtered['created_at'].max()
 
+            # Calculate R, F, M
+            rfm_df = df_filtered.groupby('user_id').agg(
+                Recency=('created_at', lambda x: (current_date - x.max()).days),
+                Frequency=('order_id', 'nunique'),
+                Monetary=('sale_price', 'sum')
+            ).reset_index()
+
+            # ตรวจสอบจำนวนลูกค้าที่เหลืออยู่ (ป้องกัน NameError ในกรณีที่ df_filtered มีข้อมูลแต่ไม่เหลือ user_id หลัง group by)
+            if len(rfm_df) == 0:
+                 st.warning("⚠️ ไม่พบลูกค้าที่ไม่ซ้ำกันที่ตรงตามเงื่อนไขการกรอง ไม่สามารถคำนวณ RFM ได้")
+            
+            else:
+                # --- การให้คะแนน RFM อย่างแข็งแกร่งที่สุด (Scoring with Individual Fallbacks) ---
+                # (ใช้ฟังก์ชัน calculate_score ที่คุณได้สร้างไว้ก่อนหน้านี้)
+                
+                def calculate_score(series, is_recency=False):
+                    unique_count = series.nunique()
+                    k = min(5, unique_count)
+                    
+                    if k < 2:
+                        return 3
+                    else:
+                        labels = list(range(1, k + 1))
+                        qcut_labels = list(reversed(labels)) if is_recency else labels
+                        
+                        score = pd.qcut(series, k, labels=qcut_labels, duplicates='drop').astype(int)
+                        
+                        if k < 5:
+                            score_multiplier = 5 / k 
+                            score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
+                        
+                        return score
+
+                # Apply the robust scoring function to each dimension
+                rfm_df['R_Score'] = calculate_score(rfm_df['Recency'], is_recency=True)
+                rfm_df['F_Score'] = calculate_score(rfm_df['Frequency'], is_recency=False)
+                rfm_df['M_Score'] = calculate_score(rfm_df['Monetary'], is_recency=False)
+
+                # --- Segmentation Mapping (Logic remains the same, assumes 5-point scale) ---
+                def rfm_segment(df):
+                    if df['R_Score'] >= 4 and df['F_Score'] >= 4:
+                        return 'Champions'
+                    elif df['R_Score'] >= 3 and df['F_Score'] >= 3:
+                        return 'Loyal Customers'
+                    elif df['R_Score'] <= 2 and df['F_Score'] >= 3:
+                        return 'At Risk'
+                    elif df['R_Score'] <= 2 and df['F_Score'] <= 2:
+                        return 'Churned'
+                    else:
+                        return 'Potential/New'
+
+                rfm_df['Customer_Segment'] = rfm_df.apply(rfm_segment, axis=1)
+
+        # ----------------------------------------------------
+        # 6. VISUALIZATION (Outside the calculation block, but safe)
+        # ----------------------------------------------------
+        
+        # ตรวจสอบอีกครั้งก่อนทำ Visualization
+        if 'Customer_Segment' in rfm_df.columns and len(rfm_df) > 0:
+            
+            # Visualization
+            col1, col2 = st.columns(2)
+
+            with col1:
+                seg_dist = rfm_df['Customer_Segment'].value_counts()
+                fig = px.pie(values=seg_dist.values,
+                            names=seg_dist.index,
+                            title="Customer Distribution by RFM Segment",
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.sequential.Agsunset)
+                st.plotly_chart(fig, use_container_width=True)
+
+            with col2:
+                seg_value = rfm_df.groupby('Customer_Segment')['Monetary'].sum().sort_values(ascending=True)
+                fig = px.bar(x=seg_value.values,
+                            y=seg_value.index,
+                            orientation='h',
+                            title="Total Revenue by RFM Segment",
+                            labels={'x': 'Revenue (฿)', 'y': 'Segment'},
+                            color=seg_value.index,
+                            color_discrete_sequence=px.colors.sequential.Agsunset)
+                st.plotly_chart(fig, use_container_width=True)
+
+            # Segment metrics
+            st.subheader("Segment Performance Metrics (RFM)")
+            seg_metrics = rfm_df.groupby('Customer_Segment').agg(
+                Customers=('user_id', 'count'),
+                Avg_Recency=('Recency', 'mean'),
+                Avg_Frequency=('Frequency', 'mean'),
+                Avg_Monetary=('Monetary', 'mean')
+            ).round(2)
+            seg_metrics.columns = ['Customers', 'Avg Recency (Days)', 'Avg Orders', 'Avg Revenue (฿)']
+            st.dataframe(seg_metrics.sort_values('Customers', ascending=False), use_container_width=True)
+        else:
+             if len(df_filtered) > 0 and len(rfm_df) > 0:
+                 st.error("❌ เกิดข้อผิดพลาดในการสร้างคอลัมน์ 'Customer_Segment'")
+             # ไม่ต้องแสดงข้อความซ้ำ เพราะแสดงข้อความเตือนไปแล้วในบล็อก if len(df_filtered) == 0
 
         # ----------------------------------------------------
         # 7. CUSTOMER RETENTION & CHURN
