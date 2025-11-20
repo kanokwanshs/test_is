@@ -1502,24 +1502,29 @@ with tab1:
 
         # --- ส่วนที่แก้ไข: การให้คะแนน RFM อย่างแข็งแกร่ง (Robust Scoring) ---
         
+# --- ส่วนที่แก้ไขเพิ่มเติม: การให้คะแนน RFM อย่างแข็งแกร่ง (Robust Scoring) ---
+        
         # 1. Determine the number of unique customers
         num_customers = len(rfm_df)
         
         # 2. Determine the maximum number of unique bins we can create (max_k)
-        # We need to find the smallest number of unique values across R, F, M 
         if num_customers > 0:
             max_r = rfm_df['Recency'].nunique()
             max_f = rfm_df['Frequency'].nunique()
             max_m = rfm_df['Monetary'].nunique()
-            max_k = min(5, max_r, max_f, max_m) # Max bins we can use is 5, or min unique count
+            # max_k ต้องมีค่าอย่างน้อย 2 สำหรับ qcut ที่จะทำงานได้อย่างสมเหตุสมผล 
+            # ถ้ามีค่าไม่ซ้ำกันน้อยกว่า 2 ให้ใช้ fallback
+            max_k = min(5, max_r, max_f, max_m)
+            
         else:
             max_k = 0
 
-        if max_k >= 2: # Use dynamic qcut if at least 2 unique values exist
-            # Generate labels dynamically based on max_k
+        # ใช้ qcut เฉพาะเมื่อมีจำนวนค่าที่ไม่ซ้ำกัน (Unique Values) เพียงพอ
+        if max_k >= 2: 
+            # 2a. Dynamic qcut (ถ้าข้อมูลหลากหลายพอ)
             labels = list(range(1, max_k + 1))
             
-            # Recency Score (High Recency = Low Days = High Score, so labels must be reversed)
+            # Recency Score (High Recency = Low Days = High Score, labels reversed)
             r_labels = list(reversed(labels)) 
             rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], max_k, labels=r_labels, duplicates='drop').astype(int)
             
@@ -1527,21 +1532,20 @@ with tab1:
             rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'], max_k, labels=labels, duplicates='drop').astype(int)
             rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], max_k, labels=labels, duplicates='drop').astype(int)
 
-            # Pad scores back to 5-point scale for consistency in segmentation logic
-            # This is optional but keeps the segmentation rule simple (4 or 5 is good)
-            score_multiplier = 5 / max_k if max_k > 0 else 1
+            # 2b. Pad scores back to 5-point scale (optional but keeps segmentation logic simple)
+            score_multiplier = 5 / max_k 
             rfm_df['R_Score'] = (rfm_df['R_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
             rfm_df['F_Score'] = (rfm_df['F_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
             rfm_df['M_Score'] = (rfm_df['M_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
             
         else:
-            # Fallback: If data is too homogeneous or small, assign all to average score (3)
+            # 3. Fallback: If data is too homogeneous (max_k < 2), assign a neutral score (3)
+            # This handles cases where all Frequency values are 1, or Recency is 0, etc.
             rfm_df['R_Score'] = 3
             rfm_df['F_Score'] = 3
             rfm_df['M_Score'] = 3
 
-        # --- จบส่วนที่แก้ไข ---
-
+        # --- จบส่วนที่แก้ไขเพิ่มเติม ---
 
         # Segmentation Mapping (Logic remains the same, assumes 5-point scale)
         def rfm_segment(df):
