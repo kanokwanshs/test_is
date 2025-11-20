@@ -1540,16 +1540,16 @@ with tab1:
 
             except ValueError as e:
             # This handles extreme edge cases where qcut still fails, though rare with 'duplicates="drop"'
-            st.warning(f"⚠️ Warning: qcut failed for {series.name}. Falling back to score 3.")
-            score = pd.Series(3, index=series.index)
+                st.warning(f"⚠️ Warning: qcut failed for {series.name}. Falling back to score 3.")
+                score = pd.Series(3, index=series.index)
         
             # If the number of actual bins is less than 5, scale the score to a 5-point system
             if actual_bins < 5: # Changed k to actual_bins for scaling robustness
-            # Scale the score to 5 points (e.g., if 3 bins, score 1 -> 1, 2 -> 3, 3 -> 5)
-            score_multiplier = 5 / actual_bins
-            score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
+                # Scale the score to 5 points (e.g., if 3 bins, score 1 -> 1, 2 -> 3, 3 -> 5)
+                score_multiplier = 5 / actual_bins
+                score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
         
-        return score
+            return score
         # ----------------------------------------------------
         # 6. VISUALIZATION (Now safe because RFM is calculated above)
         # ----------------------------------------------------
