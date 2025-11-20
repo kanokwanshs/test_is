@@ -1428,7 +1428,7 @@ with tab1:
     # --- Choropleth Map Placeholder/Visualization ---
     # Trigger image for conceptual visualization: 
 
-[Image of a Choropleth Map of Thailand showing provinces colored by customer density]
+# [Image of a Choropleth Map of Thailand showing provinces colored by customer density]
 
     if selected_city_filter == 'All' and not geo_density.empty:
         st.markdown("##### 📍 Top 10 จังหวัดตามจำนวนลูกค้า (หลังกรอง) - จำลองแผนที่ความหนาแน่น")
