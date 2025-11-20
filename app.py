@@ -1275,8 +1275,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Marketing Analytics"
 ])
 
-# Thai provinces to regions mapping (Reusable)
+# app.py - ส่วน TAB 1: CUSTOMER ANALYTICS (REVISED FOR INTERACTIVITY & PROMO DATES)
+
+# Thai provinces to regions mapping (Reusable) - (Remains the same as before)
 province_to_region = {
+    # ... (Mapping data remains here) ...
     'Bangkok':'Central','Samut Prakan':'Central','Nonthaburi':'Central','Pathum Thani':'Central','Phra Nakhon Si Ayutthaya':'Central',
     'Ang Thong':'Central','Lop Buri':'Central','Sing Buri':'Central','Chai Nat':'Central','Saraburi':'Central','Chon Buri':'Central',
     'Rayong':'Central','Chanthaburi':'Central','Trat':'Central','Chachoengsao':'Central','Prachin Buri':'Central','Nakhon Nayok':'Central',
@@ -1303,22 +1306,27 @@ def get_region(city):
     return 'Other'
 
 # Add region to master data once
-df_master['region'] = df_master['city'].apply(get_region)
-
+if 'region' not in df_master.columns:
+    df_master['region'] = df_master['city'].apply(get_region)
 
 # ==========================================
-# TAB 1: CUSTOMER ANALYTICS (MODIFIED)
+# TAB 1: CUSTOMER ANALYTICS (NEW INTERACTIVE VERSION)
 # ==========================================
 with tab1:
-    st.header("👥 Customer Analytics")
+    st.header("👥 Customer Analytics (Interactive)")
 
-    # Date Range Filter
-    st.subheader("📅 Analysis Period")
+    # ----------------------------------------------------
+    # 1. GLOBAL FILTERS (Date, Channel, Status)
+    # ----------------------------------------------------
+    st.subheader("⚙️ Global Filters")
+
+    # Date Range Filter Logic
     col1, col2, col3 = st.columns([2, 2, 1])
 
+    min_date = df_master['created_at'].min().date()
+    max_date = df_master['created_at'].max().date()
+
     with col1:
-        min_date = df_master['created_at'].min().date()
-        max_date = df_master['created_at'].max().date()
         date_range = st.date_input(
             "Select Date Range",
             value=(min_date, max_date),
@@ -1326,213 +1334,182 @@ with tab1:
             max_value=max_date
         )
 
+    # Apply filter based on date_range selection
+    if len(date_range) == 2:
+        df_base = df_master[
+            (df_master['created_at'].dt.date >= date_range[0]) &
+            (df_master['created_at'].dt.date <= date_range[1])
+        ]
+    else:
+        df_base = df_master
+
     with col2:
-        quick_filter = st.selectbox(
-            "Quick Filter",
-            ["All Time", "Last 30 Days", "Last 90 Days", "2024", "2025", 
-             "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025"]
+        selected_channels = st.multiselect(
+            "Filter by Channel Type",
+            options=['Online', 'Offline', 'Other'],
+            default=['Online', 'Offline']
         )
-        
-        # Apply quick filters
-        if quick_filter != "All Time":
-            max_dt = df_master['created_at'].max()
-            if quick_filter == "Last 30 Days":
-                date_range = (max_dt - timedelta(days=30)).date(), max_dt.date()
-            elif quick_filter == "Last 90 Days":
-                date_range = (max_dt - timedelta(days=90)).date(), max_dt.date()
-            elif quick_filter == "2024":
-                date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-12-31').date()
-            elif quick_filter == "2025":
-                date_range = pd.Timestamp('2025-01-01').date(), max_dt.date()
-            elif quick_filter == "Q1 2024":
-                date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-03-31').date()
-            elif quick_filter == "Q2 2024":
-                date_range = pd.Timestamp('2024-04-01').date(), pd.Timestamp('2024-06-30').date()
-            elif quick_filter == "Q3 2024":
-                date_range = pd.Timestamp('2024-07-01').date(), pd.Timestamp('2024-09-30').date()
-            elif quick_filter == "Q4 2024":
-                date_range = pd.Timestamp('2024-10-01').date(), pd.Timestamp('2024-12-31').date()
-            elif quick_filter == "Q1 2025":
-                date_range = pd.Timestamp('2025-01-01').date(), pd.Timestamp('2025-03-31').date()
-            elif quick_filter == "Q2 2025":
-                date_range = pd.Timestamp('2025-04-01').date(), pd.Timestamp('2025-06-30').date()
-            elif quick_filter == "Q3 2025":
-                date_range = pd.Timestamp('2025-07-01').date(), pd.Timestamp('2025-09-30').date()
-            elif quick_filter == "Q4 2025":
-                date_range = pd.Timestamp('2025-10-01').date(), pd.Timestamp('2025-12-31').date()
+        df_base = df_base[df_base['channel_type'].isin(selected_channels)]
+
     with col3:
-        # Apply filter
-        if len(date_range) == 2:
-            df_filtered = df_master[
-                (df_master['created_at'].dt.date >= date_range[0]) & 
-                (df_master['created_at'].dt.date <= date_range[1])
-            ]
-        else:
-            df_filtered = df_master
-        
-        st.metric("Transactions", f"{len(df_filtered):,}")
+        selected_status = st.multiselect(
+            "Filter by Status",
+            options=df_base['status'].unique().tolist(),
+            default=['Complete'] # Only completed orders are typically used for Sales/Customer analysis
+        )
+        df_filtered = df_base[df_base['status'].isin(selected_status)]
 
-    # Display selected period info
-    st.info(f"📊 Analyzing data from **{date_range[0]}** to **{date_range[1]}** ({len(df_filtered):,} transactions)")
+    st.info(f"📊 Analyzing **{len(df_filtered):,}** line items from **{df_filtered['order_id'].nunique():,}** orders across **{df_filtered['user_id'].nunique():,}** unique customers.")
 
-    # Customer geographic analysis
-    customer_geo = df_filtered.groupby(['user_id', 'city', 'region', 'age', 'gender']).agg({
-        'sale_price': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    customer_geo.columns = ['user_id', 'city', 'region', 'age', 'gender', 'total_spent', 'total_orders']
-    
-    # --- START MODIFIED SECTION 1: Geographic Map & Filters ---
+    # ----------------------------------------------------
+    # 2. KEY METRICS (Kpis)
+    # ----------------------------------------------------
+    st.subheader("💰 Key Performance Indicators (KPIs)")
+    df_order_kpi = df_filtered.drop_duplicates(subset=['order_id'])
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Revenue", f"฿{df_filtered['sale_price'].sum():,.0f}")
+    with col2:
+        st.metric("Total Orders", f"{df_filtered['order_id'].nunique():,}")
+    with col3:
+        st.metric("Total Customers", f"{df_filtered['user_id'].nunique():,}")
+    with col4:
+        avg_order_value = df_order_kpi['sale_price'].sum() / df_order_kpi['order_id'].nunique()
+        st.metric("Avg. Order Value", f"฿{avg_order_value:,.2f}")
+
+    st.markdown("---")
+
+    # ----------------------------------------------------
+    # 3. INTERACTIVE CUSTOMER/ORDER TRENDS (Original Requirement)
+    # ----------------------------------------------------
+    st.subheader("📈 Customer and Order Trends")
+
+    # Group by month for trend analysis
+    df_trend = df_filtered.groupby('order_month').agg(
+        Total_Revenue=('sale_price', 'sum'),
+        Unique_Customers=('user_id', 'nunique'),
+        Total_Orders=('order_id', 'nunique')
+    ).reset_index()
+    df_trend['order_month_str'] = df_trend['order_month'].astype(str)
+
+    # Plot 1: Revenue Trend
+    fig_rev = px.line(df_trend, 
+                      x='order_month_str', 
+                      y='Total_Revenue',
+                      title='Revenue Trend Over Time',
+                      labels={'order_month_str': 'Month', 'Total_Revenue': 'Revenue (฿)'})
+    fig_rev.update_xaxes(dtick="M1", tickformat="%b\n%Y")
+    st.plotly_chart(fig_rev, use_container_width=True)
+
+    # Plot 2: Customer Acquisition Trend
+    fig_cust = px.bar(df_trend, 
+                      x='order_month_str', 
+                      y='Unique_Customers',
+                      title='New/Active Customer Trend',
+                      labels={'order_month_str': 'Month', 'Unique_Customers': 'Unique Customers'})
+    st.plotly_chart(fig_cust, use_container_width=True)
+
+    # ----------------------------------------------------
+    # 4. GEOGRAPHIC ANALYSIS (New Feature - Interactive)
+    # ----------------------------------------------------
+    st.markdown("---")
     st.subheader("🗺️ Geographic Customer Distribution")
 
-    # Add region, city, age filters
-    all_regions = ['All'] + sorted(customer_geo['region'].unique().tolist())
-    selected_region_filter = st.selectbox("กรองตามภูมิภาค", all_regions)
-
-    # Filter cities based on selected region
-    filtered_cities = customer_geo['city'].unique().tolist()
-    if selected_region_filter != 'All':
-        filtered_cities = customer_geo[customer_geo['region'] == selected_region_filter]['city'].unique().tolist()
-    all_cities = ['All'] + sorted(filtered_cities)
-    selected_city_filter = st.selectbox("กรองตามจังหวัด", all_cities)
-
-    # Age Filter
-    min_age = int(customer_geo['age'].min()) if customer_geo['age'].min() and not pd.isna(customer_geo['age'].min()) else 18
-    max_age = int(customer_geo['age'].max()) if customer_geo['age'].max() and not pd.isna(customer_geo['age'].max()) else 100
-    age_range_filter = st.slider(
-        "กรองตามช่วงอายุ",
-        min_value=min_age,
-        max_value=max_age,
-        value=(min_age, max_age),
-        step=1
-    )
-
-    # Apply filters
-    df_geo_filtered = customer_geo.copy()
-    if selected_region_filter != 'All':
-        df_geo_filtered = df_geo_filtered[df_geo_filtered['region'] == selected_region_filter]
-    if selected_city_filter != 'All':
-        df_geo_filtered = df_geo_filtered[df_geo_filtered['city'] == selected_city_filter]
-    df_geo_filtered = df_geo_filtered[
-        (df_geo_filtered['age'].fillna(min_age - 1) >= age_range_filter[0]) & 
-        (df_geo_filtered['age'].fillna(max_age + 1) <= age_range_filter[1])
-    ]
-
-    # Aggregate data for map visualization (Province Density/Sales)
-    geo_density = df_geo_filtered.groupby('city').agg({
+    # Aggregate data for visualization (using filtered data)
+    geo_density = df_filtered.groupby(['city', 'region']).agg({
         'user_id': 'nunique',
-        'total_spent': 'sum'
+        'sale_price': 'sum'
     }).reset_index()
-    geo_density.columns = ['City', 'Customer_Count', 'Total_Spent']
+    geo_density.columns = ['City', 'Region', 'Customer_Count', 'Total_Spent']
 
-    # --- Choropleth Map Placeholder/Visualization ---
-    # Trigger image for conceptual visualization: 
+    # Top 10 Bar Chart (Placeholder for Map)
+    st.markdown("##### 📍 Top 10 จังหวัดตามจำนวนลูกค้า (หลังกรอง)")
+    geo_viz = geo_density.nlargest(10, 'Customer_Count')
+    fig_map_placeholder = px.bar(geo_viz,
+                                x='Customer_Count',
+                                y='City',
+                                orientation='h',
+                                title="ความหนาแน่นลูกค้าตามจังหวัด",
+                                color='Customer_Count',
+                                color_continuous_scale='Reds')
+    st.plotly_chart(fig_map_placeholder, use_container_width=True)
 
-# [Image of a Choropleth Map of Thailand showing provinces colored by customer density]
+    # Detailed geographic table
+    st.subheader("📊 สรุปข้อมูลตามจังหวัด")
 
-    if selected_city_filter == 'All' and not geo_density.empty:
-        st.markdown("##### 📍 Top 10 จังหวัดตามจำนวนลูกค้า (หลังกรอง) - จำลองแผนที่ความหนาแน่น")
-        geo_viz = geo_density.nlargest(10, 'Customer_Count')
-        fig_map_placeholder = px.bar(geo_viz,
-                                    x='Customer_Count',
-                                    y='City',
-                                    orientation='h',
-                                    title="ความหนาแน่นลูกค้าตามจังหวัด",
-                                    color='Customer_Count',
-                                    color_continuous_scale='Reds')
-        st.plotly_chart(fig_map_placeholder, use_container_width=True)
-    elif not geo_density.empty:
-         st.info(f"แสดงข้อมูลจังหวัด: **{selected_city_filter}** (ลูกค้า: {geo_density['Customer_Count'].sum():,} คน, ยอดขาย: ฿{geo_density['Total_Spent'].sum():,.0f})")
-    else:
-        st.warning("ไม่พบข้อมูลลูกค้าที่ตรงตามตัวกรองที่เลือก.")
-
-
-    # --- Detailed geographic table (Adjusted as requested) ---
-    st.subheader("📊 สรุปข้อมูลตามจังหวัด (ปรับปรุง)")
-
-    # Re-aggregate data to include new metrics
-    order_metrics = df_filtered.groupby(['order_id', 'city']).agg({
-        'sale_price': 'sum',
-        'product_id': 'count'
-    }).reset_index()
-    order_metrics.columns = ['order_id', 'city', 'order_total_sale', 'items_in_order']
-
-    city_summary = order_metrics.groupby('city').agg(
-        total_revenue=('order_total_sale', 'sum'),
-        total_orders=('order_id', 'count'),
-        total_items=('items_in_order', 'sum'),
-        avg_order_total=('order_total_sale', 'mean'),
-        avg_items_per_order=('items_in_order', 'mean')
+    # Re-aggregate data for the table metrics
+    city_summary = df_filtered.groupby('city').agg(
+        total_revenue=('sale_price', 'sum'),
+        total_orders=('order_id', 'nunique'),
+        total_items=('product_id', 'count'), # count of product_id is total items
+        num_customers=('user_id', 'nunique')
     ).reset_index()
 
-    # Merge with customer count from filtered data
-    city_customer_count = df_geo_filtered.groupby('city')['user_id'].nunique().reset_index()
-    city_customer_count.columns = ['city', 'num_customers']
-    final_geo_summary = city_summary.merge(city_customer_count, on='city', how='left').fillna(0) # Handle cities with no customers after filtering
+    city_summary['Avg Sale per Order (฿)'] = (city_summary['total_revenue'] / city_summary['total_orders']).round(2).fillna(0)
+    city_summary['Avg Items per Order'] = (city_summary['total_items'] / city_summary['total_orders']).round(2).fillna(0)
 
-    # Prepare final table for display
-    final_geo_summary['Avg Revenue per Customer (฿)'] = (final_geo_summary['total_revenue'] / final_geo_summary['num_customers']).replace([np.inf, -np.inf], 0).round(2)
-    final_geo_summary['Avg Sale per Order (฿)'] = final_geo_summary['avg_order_total'].round(2)
-    final_geo_summary['Avg Items per Order'] = final_geo_summary['avg_items_per_order'].round(2)
-    final_geo_summary['Total Item Sales in City'] = final_geo_summary['total_items'].astype(int)
-
-    # Select and rename columns as requested (No 'ภูมิภาค' column, added new metrics)
-    display_cols = final_geo_summary[['city', 'num_customers', 'total_revenue', 
+    # Select and rename columns as requested (No 'ภูมิภาค' column)
+    display_cols = city_summary[['city', 'num_customers', 'total_revenue', 
                                       'total_orders', 'Avg Sale per Order (฿)', 
-                                      'Avg Items per Order', 'Total Item Sales in City']]
+                                      'Avg Items per Order', 'total_items']]
     display_cols.columns = ['จังหวัด', 'จำนวนลูกค้า', 'ยอดขายรวม (฿)', 'จำนวนคำสั่งซื้อ', 
                             'ยอดเฉลี่ยต่อคำสั่งซื้อ (฿)', 'จำนวนสินค้าเฉลี่ยต่อออเดอร์', 'จำนวนสินค้าทั้งหมดที่ขายได้']
 
     st.dataframe(display_cols.sort_values('ยอดขายรวม (฿)', ascending=False), use_container_width=True, height=400)
 
 
-    # --- END MODIFIED SECTION 1 ---
-    
-    
-    # --- START MODIFIED SECTION 2: Customer Value Segmentation (RFM Analysis) ---
+    # ----------------------------------------------------
+    # 5. CUSTOMER VALUE SEGMENTATION (RFM Analysis)
+    # ----------------------------------------------------
+    st.markdown("---")
     st.subheader("1️⃣ Customer Value Segmentation: RFM Analysis")
-    st.markdown("ใช้ **RFM (Recency, Frequency, Monetary) Analysis** ซึ่งเป็นเทคนิคการแบ่งกลุ่มลูกค้าเชิงพฤติกรรมตามทฤษฎี โดยคำนวณคะแนน 1-5 ให้กับแต่ละมิติ")
-    # Trigger image for RFM conceptual diagram: 
+    st.markdown("ใช้ **RFM (Recency, Frequency, Monetary) Analysis** เพื่อแบ่งกลุ่มลูกค้าเชิงพฤติกรรม")
+    
 
-    # Define the most recent date in the dataset
+    # Define the most recent date in the filtered dataset
     current_date = df_filtered['created_at'].max()
 
     # Calculate R, F, M
     rfm_df = df_filtered.groupby('user_id').agg(
-        Recency=('created_at', lambda x: (current_date - x.max()).days), # Days since last order
-        Frequency=('order_id', 'nunique'), # Total number of orders
-        Monetary=('sale_price', 'sum') # Total revenue
+        Recency=('created_at', lambda x: (current_date - x.max()).days),
+        Frequency=('order_id', 'nunique'),
+        Monetary=('sale_price', 'sum')
     ).reset_index()
 
-    # --- 1. Scoring (Quantile-based) ---
-    # R-Score: Lower days is better (Score 5)
-    rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], 5, labels=[5, 4, 3, 2, 1], duplicates='drop')
-    # F-Score: Higher frequency is better (Score 5)
-    rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
-    # M-Score: Higher monetary value is better (Score 5)
-    rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
+    # Scoring (Quantile-based)
+    # Ensure duplicates='drop' for robustness
+    if len(rfm_df) > 5:
+        rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], 5, labels=[5, 4, 3, 2, 1], duplicates='drop')
+        rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
+        rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
+        
+        rfm_df['R_Score'] = rfm_df['R_Score'].astype(int)
+        rfm_df['F_Score'] = rfm_df['F_Score'].astype(int)
+        rfm_df['M_Score'] = rfm_df['M_Score'].astype(int)
+    else:
+        # Fallback for small filtered dataset
+        rfm_df['R_Score'] = 3
+        rfm_df['F_Score'] = 3
+        rfm_df['M_Score'] = 3
 
-    # Convert scores to integers
-    rfm_df['R_Score'] = rfm_df['R_Score'].astype(int)
-    rfm_df['F_Score'] = rfm_df['F_Score'].astype(int)
-    rfm_df['M_Score'] = rfm_df['M_Score'].astype(int)
 
-    # --- 2. Segmentation Mapping (Simplified for Dashboard) ---
+    # Segmentation Mapping
     def rfm_segment(df):
         if df['R_Score'] >= 4 and df['F_Score'] >= 4:
-            return 'Champions' # ลูกค้าที่ดีที่สุด
+            return 'Champions'
         elif df['R_Score'] >= 3 and df['F_Score'] >= 3:
-            return 'Loyal Customers' # ลูกค้าประจำ/ภักดี
+            return 'Loyal Customers'
         elif df['R_Score'] <= 2 and df['F_Score'] >= 3:
-            return 'At Risk' # เคยซื้อบ่อย แต่ไม่เพิ่งซื้อ
+            return 'At Risk'
         elif df['R_Score'] <= 2 and df['F_Score'] <= 2:
-            return 'Churned' # ลูกค้าที่สูญเสียไป
+            return 'Churned'
         else:
-            return 'Potential/New' # ลูกค้าใหม่/มีศักยภาพ
+            return 'Potential/New'
 
     rfm_df['Customer_Segment'] = rfm_df.apply(rfm_segment, axis=1)
 
-    # --- Visualization ---
+    # Visualization
     col1, col2 = st.columns(2)
 
     with col1:
@@ -1565,75 +1542,88 @@ with tab1:
     ).round(2)
     seg_metrics.columns = ['Customers', 'Avg Recency (Days)', 'Avg Orders', 'Avg Revenue (฿)']
     st.dataframe(seg_metrics.sort_values('Customers', ascending=False), use_container_width=True)
-    # --- END MODIFIED SECTION 2 ---
 
 
-    # --- START MODIFIED SECTION 3: Promotion vs Normal Day Analysis ---
-    st.subheader("2️⃣ Customer Behavior Patterns: Promotion Day (25th) vs Normal Day")
+    # ----------------------------------------------------
+    # 6. PROMOTION DAY ANALYSIS (1.1, 2.2, ... 12.12 on Online Channels only)
+    # ----------------------------------------------------
+    st.markdown("---")
+    st.subheader("2️⃣ Customer Behavior: Promotion Days (X.X) vs Normal Days (Online Only)")
 
-    # Define promotion days (Every 25th of the month)
-    df_filtered_promo = df_filtered.copy()
-    df_filtered_promo['order_day'] = df_filtered_promo['created_at'].dt.day
-    df_filtered_promo = df_filtered_promo.drop_duplicates(subset=['order_id', 'user_id']) # Only need one row per order for day analysis
-
-    # Create promotion flag
-    promo_days = [25] # Every 25th of the month
-    df_filtered_promo['is_promotion_day'] = df_filtered_promo['order_day'].apply(
-        lambda x: 'Promotion Day (25th)' if x in promo_days else 'Normal Day'
-    )
-
-    # Aggregate sales by day type
-    promo_sales = df_filtered_promo.groupby('is_promotion_day').agg(
-        total_sales=('sale_price', 'sum'),
-        total_orders=('order_id', 'nunique')
-    ).reset_index()
-
-    # Calculate number of unique days for accurate average
-    day_counts = df_filtered_promo.groupby('is_promotion_day')['order_date'].nunique().reset_index()
-    day_counts.columns = ['is_promotion_day', 'num_days']
-    promo_sales = promo_sales.merge(day_counts, on='is_promotion_day')
+    df_promo = df_filtered.copy()
     
-    # Calculate average sales per day for comparison
-    promo_sales['Avg_Daily_Sales'] = promo_sales['total_sales'] / promo_sales['num_days']
-    promo_sales['Avg_Daily_Orders'] = promo_sales['total_orders'] / promo_sales['num_days']
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        fig_sales = px.bar(promo_sales,
-                        x='is_promotion_day',
-                        y='Avg_Daily_Sales',
-                        title="ยอดขายเฉลี่ยต่อวัน: วันโปรโมชัน vs วันปกติ",
-                        labels={'Avg_Daily_Sales': 'ยอดขายเฉลี่ยต่อวัน (฿)', 'is_promotion_day': 'ประเภทวัน'},
-                        color='is_promotion_day',
-                        color_discrete_map={'Promotion Day (25th)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
-        st.plotly_chart(fig_sales, use_container_width=True)
-
-    with col2:
-        fig_orders = px.bar(promo_sales,
-                        x='is_promotion_day',
-                        y='Avg_Daily_Orders',
-                        title="จำนวนคำสั่งซื้อเฉลี่ยต่อวัน",
-                        labels={'Avg_Daily_Orders': 'จำนวนคำสั่งซื้อเฉลี่ยต่อวัน', 'is_promotion_day': 'ประเภทวัน'},
-                        color='is_promotion_day',
-                        color_discrete_map={'Promotion Day (25th)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
-        st.plotly_chart(fig_orders, use_container_width=True)
+    # 1. Filter ONLY Online Channels for promotion analysis
+    df_promo = df_promo[df_promo['channel_type'] == 'Online'].copy()
+    
+    if df_promo.empty:
+        st.warning("ไม่พบข้อมูลคำสั่งซื้อในช่องทางออนไลน์ในช่วงเวลาที่เลือกสำหรับการวิเคราะห์โปรโมชัน")
+    else:
+        df_promo['order_day'] = df_promo['created_at'].dt.day
+        df_promo['order_month'] = df_promo['created_at'].dt.month
         
-    st.dataframe(promo_sales.round(2), use_container_width=True) # Display raw aggregated metrics
-    # --- END MODIFIED SECTION 3 ---
+        # Define promotion day condition: Day == Month (1.1, 2.2, ..., 12.12)
+        df_promo['is_promotion_day'] = df_promo.apply(
+            lambda row: 'Promotion Day (X.X)' if row['order_day'] == row['order_month'] else 'Normal Day',
+            axis=1
+        )
+    
+        # Use drop_duplicates for order-level analysis (Sales and Orders)
+        df_promo_order = df_promo.drop_duplicates(subset=['order_id'])
+    
+        # Aggregate sales by day type
+        promo_sales = df_promo_order.groupby('is_promotion_day').agg(
+            total_sales=('sale_price', 'sum'),
+            total_orders=('order_id', 'nunique')
+        ).reset_index()
+    
+        # Calculate number of unique days for accurate average
+        day_counts = df_promo_order.groupby('is_promotion_day')['order_date'].nunique().reset_index()
+        day_counts.columns = ['is_promotion_day', 'num_days']
+        
+        promo_sales = promo_sales.merge(day_counts, on='is_promotion_day')
+        
+        # Calculate average sales per day for comparison
+        promo_sales['Avg_Daily_Sales'] = promo_sales['total_sales'] / promo_sales['num_days']
+        promo_sales['Avg_Daily_Orders'] = promo_sales['total_orders'] / promo_sales['num_days']
+    
+        col1, col2 = st.columns(2)
+    
+        with col1:
+            fig_sales = px.bar(promo_sales,
+                            x='is_promotion_day',
+                            y='Avg_Daily_Sales',
+                            title="ยอดขายเฉลี่ยต่อวัน: วันโปรโมชัน vs วันปกติ",
+                            labels={'Avg_Daily_Sales': 'ยอดขายเฉลี่ยต่อวัน (฿)', 'is_promotion_day': 'ประเภทวัน'},
+                            color='is_promotion_day',
+                            color_discrete_map={'Promotion Day (X.X)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
+            st.plotly_chart(fig_sales, use_container_width=True)
+    
+        with col2:
+            fig_orders = px.bar(promo_sales,
+                            x='is_promotion_day',
+                            y='Avg_Daily_Orders',
+                            title="จำนวนคำสั่งซื้อเฉลี่ยต่อวัน",
+                            labels={'Avg_Daily_Orders': 'จำนวนคำสั่งซื้อเฉลี่ยต่อวัน', 'is_promotion_day': 'ประเภทวัน'},
+                            color='is_promotion_day',
+                            color_discrete_map={'Promotion Day (X.X)': '#FF6B6B', 'Normal Day': '#4ECDC4'})
+            st.plotly_chart(fig_orders, use_container_width=True)
+            
+        st.dataframe(promo_sales.round(2), use_container_width=True)
 
 
-    # --- Remaining sections like Churn Analysis use RFM-derived data and remain similar ---
+    # ----------------------------------------------------
+    # 7. CUSTOMER RETENTION & CHURN
+    # ----------------------------------------------------
+    st.markdown("---")
     st.subheader("3️⃣ Customer Retention & Churn")
     
-    # Reuse RFM data for Churn (Recency is the basis for simple churn logic)
-    customer_metrics = rfm_df.copy() # Now based on RFM
+    customer_metrics = rfm_df.copy() # Reuse RFM data for Churn
     
-    # Use a simpler column name consistent with original code
     customer_metrics['days_since_last_order'] = customer_metrics['Recency']
     
-    # Assuming 60 days is the churn threshold (same as original code)
-    customer_metrics['is_churned'] = (customer_metrics['days_since_last_order'] > 60).astype(int)
+    # Churn threshold setting
+    churn_threshold = st.slider("กำหนดเกณฑ์การ Churn (Days)", min_value=30, max_value=180, value=60)
+    customer_metrics['is_churned'] = (customer_metrics['days_since_last_order'] > churn_threshold).astype(int)
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -1650,7 +1640,6 @@ with tab1:
         st.metric("Churn Rate", f"{churn_rate:.1f}%")
     
     with col4:
-        # Calculate avg total orders from RFM 'Frequency' metric
         avg_customer_lifetime = customer_metrics['Frequency'].mean() 
         st.metric("Avg Orders per Customer", f"{avg_customer_lifetime:.1f}")
     
@@ -1662,9 +1651,7 @@ with tab1:
                  color=churn_by_seg.values,
                  color_continuous_scale='reds')
     st.plotly_chart(fig, use_container_width=True)
-    # --- End Churn Analysis ---
-
-
+    
 # ==========================================
 # TAB 2: INVENTORY FORECAST (REMAINS THE SAME)
 # ==========================================
