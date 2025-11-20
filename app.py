@@ -296,40 +296,55 @@ with tab1:
     
     # Thai provinces to regions mapping
     province_to_region = {
-        'Bangkok': 'กลาง', 'Samut Prakan': 'กลาง', 'Nonthaburi': 'กลาง',
-        'Pathum Thani': 'กลาง', 'Phra Nakhon Si Ayutthaya': 'กลาง', 'Ayutthaya': 'กลาง',
-        'Saraburi': 'กลาง', 'Lop Buri': 'กลาง', 'Sing Buri': 'กลาง', 'Chai Nat': 'กลาง',
-        'Suphan Buri': 'กลาง', 'Ang Thong': 'กลาง', 'Nakhon Pathom': 'กลาง',
-        'Chiang Mai': 'เหนือ', 'Chiang Rai': 'เหนือ', 'Lampang': 'เหนือ', 'Lamphun': 'เหนือ',
-        'Mae Hong Son': 'เหนือ', 'Nan': 'เหนือ', 'Phayao': 'เหนือ', 'Phrae': 'เหนือ',
-        'Uttaradit': 'เหนือ', 'Phitsanulok': 'เหนือ', 'Sukhothai': 'เหนือ', 'Tak': 'เหนือ',
-        'Kamphaeng Phet': 'เหนือ', 'Phichit': 'เหนือ', 'Phetchabun': 'เหนือ',
-        'Nakhon Ratchasima': 'อีสาน', 'Buriram': 'อีสาน', 'Surin': 'อีสาน',
-        'Si Sa Ket': 'อีสาน', 'Ubon Ratchathani': 'อีสาน', 'Yasothon': 'อีสาน',
-        'Chaiyaphum': 'อีสาน', 'Amnat Charoen': 'อีสาน', 'Nong Bua Lamphu': 'อีสาน',
-        'Khon Kaen': 'อีสาน', 'Udon Thani': 'อีสาน', 'Loei': 'อีสาน',
-        'Nong Khai': 'อีสาน', 'Maha Sarakham': 'อีสาน', 'Roi Et': 'อีสาน',
-        'Kalasin': 'อีสาน', 'Sakon Nakhon': 'อีสาน', 'Nakhon Phanom': 'อีสาน',
-        'Mukdahan': 'อีสาน', 'Bueng Kan': 'อีสาน',
-        'Phuket': 'ใต้', 'Krabi': 'ใต้', 'Phang Nga': 'ใต้', 'Surat Thani': 'ใต้',
-        'Ranong': 'ใต้', 'Chumphon': 'ใต้', 'Nakhon Si Thammarat': 'ใต้', 'Trang': 'ใต้',
-        'Phatthalung': 'ใต้', 'Songkhla': 'ใต้', 'Satun': 'ใต้', 'Pattani': 'ใต้',
-        'Yala': 'ใต้', 'Narathiwat': 'ใต้',
-        'Ratchaburi': 'ตะวันตก', 'Kanchanaburi': 'ตะวันตก', 'Samut Songkhram': 'ตะวันตก',
-        'Samut Sakhon': 'ตะวันตก', 'Phetchaburi': 'ตะวันตก', 'Prachuap Khiri Khan': 'ตะวันตก',
-        'Chonburi': 'ตะวันออก', 'Rayong': 'ตะวันออก', 'Chanthaburi': 'ตะวันออก',
-        'Trat': 'ตะวันออก', 'Chachoengsao': 'ตะวันออก', 'Prachin Buri': 'ตะวันออก',
-        'Nakhon Nayok': 'ตะวันออก', 'Sa Kaeo': 'ตะวันออก'
+        'Bangkok':'Central','Samut Prakan':'Central','Nonthaburi':'Central','Pathum Thani':'Central','Phra Nakhon Si Ayutthaya':'Central',
+        'Ang Thong':'Central','Lop Buri':'Central','Sing Buri':'Central','Chai Nat':'Central','Saraburi':'Central','Chon Buri':'Central',
+        'Rayong':'Central','Chanthaburi':'Central','Trat':'Central','Chachoengsao':'Central','Prachin Buri':'Central','Nakhon Nayok':'Central',
+        'Sra Kaew':'Central','Ratchaburi':'Central','Kanchanaburi':'Central','Suphan Buri':'Central','Nakhon Pathom':'Central','Samut Sakon':'Central',
+        'Samut Songkram':'Central','Phetchaburi':'Central','Prachuapkhiri Khan':'Central',
+        'Chiang Mai':'Northern','Lamphun':'Northern','Lampang':'Northern','Uttaradit':'Northern','Phrae':'Northern','Nan':'Northern','Phayao':'Northern',
+        'Chiang Rai':'Northern','Mae Hong Son':'Northern','Nakhon Sawan':'Northern','Uthai Thani':'Northern','Kamphaeng Phet':'Northern',
+        'Tak':'Northern','Sukhothai':'Northern','Phisanulok':'Northern','Phichit':'Northern','Phetchabun':'Northern',
+        'Nakhon Ratchasima':'Northeastern','Buri Ram':'Northeastern','Surin':'Northeastern','Si Sa Ket':'Northeastern','Ubon Ratchathani':'Northeastern',
+        'Yasothon':'Northeastern','Chaiyaphum':'Northeastern','Amnat Charoen':'Northeastern','Bungkan':'Northeastern','Nong Bua Lam Phu':'Northeastern',
+        'Khon Kaen ':'Northeastern','Udon Thani':'Northeastern','Loei':'Northeastern','Nong Khai':'Northeastern','Maha Sarakham':'Northeastern',
+        'Roi Et':'Northeastern','Kalasin':'Northeastern','Sakon Nakhon':'Northeastern','Naknon Phanom':'Northeastern','Mukdahan':'Northeastern',
+        'Nakhon Si Thammarat':'Southern','Krabi':'Southern','Phangnga':'Southern','Phuket':'Southern','Surat Thani':'Southern','Ranong':'Southern',
+        'Chumphon':'Southern','Songkhla':'Southern','Satun':'Southern','Trang':'Southern','Phatthalung':'Southern','Pattani':'Southern','Yala':'Southern',
+        'Narathiwat':'Southern',
+        # 'Bangkok': 'กลาง', 'Samut Prakan': 'กลาง', 'Nonthaburi': 'กลาง',
+        # 'Pathum Thani': 'กลาง', 'Phra Nakhon Si Ayutthaya': 'กลาง', 'Ayutthaya': 'กลาง',
+        # 'Saraburi': 'กลาง', 'Lop Buri': 'กลาง', 'Sing Buri': 'กลาง', 'Chai Nat': 'กลาง',
+        # 'Suphan Buri': 'กลาง', 'Ang Thong': 'กลาง', 'Nakhon Pathom': 'กลาง',
+        # 'Chiang Mai': 'เหนือ', 'Chiang Rai': 'เหนือ', 'Lampang': 'เหนือ', 'Lamphun': 'เหนือ',
+        # 'Mae Hong Son': 'เหนือ', 'Nan': 'เหนือ', 'Phayao': 'เหนือ', 'Phrae': 'เหนือ',
+        # 'Uttaradit': 'เหนือ', 'Phitsanulok': 'เหนือ', 'Sukhothai': 'เหนือ', 'Tak': 'เหนือ',
+        # 'Kamphaeng Phet': 'เหนือ', 'Phichit': 'เหนือ', 'Phetchabun': 'เหนือ',
+        # 'Nakhon Ratchasima': 'อีสาน', 'Buriram': 'อีสาน', 'Surin': 'อีสาน',
+        # 'Si Sa Ket': 'อีสาน', 'Ubon Ratchathani': 'อีสาน', 'Yasothon': 'อีสาน',
+        # 'Chaiyaphum': 'อีสาน', 'Amnat Charoen': 'อีสาน', 'Nong Bua Lamphu': 'อีสาน',
+        # 'Khon Kaen': 'อีสาน', 'Udon Thani': 'อีสาน', 'Loei': 'อีสาน',
+        # 'Nong Khai': 'อีสาน', 'Maha Sarakham': 'อีสาน', 'Roi Et': 'อีสาน',
+        # 'Kalasin': 'อีสาน', 'Sakon Nakhon': 'อีสาน', 'Nakhon Phanom': 'อีสาน',
+        # 'Mukdahan': 'อีสาน', 'Bueng Kan': 'อีสาน',
+        # 'Phuket': 'ใต้', 'Krabi': 'ใต้', 'Phang Nga': 'ใต้', 'Surat Thani': 'ใต้',
+        # 'Ranong': 'ใต้', 'Chumphon': 'ใต้', 'Nakhon Si Thammarat': 'ใต้', 'Trang': 'ใต้',
+        # 'Phatthalung': 'ใต้', 'Songkhla': 'ใต้', 'Satun': 'ใต้', 'Pattani': 'ใต้',
+        # 'Yala': 'ใต้', 'Narathiwat': 'ใต้',
+        # 'Ratchaburi': 'ตะวันตก', 'Kanchanaburi': 'ตะวันตก', 'Samut Songkhram': 'ตะวันตก',
+        # 'Samut Sakhon': 'ตะวันตก', 'Phetchaburi': 'ตะวันตก', 'Prachuap Khiri Khan': 'ตะวันตก',
+        # 'Chonburi': 'ตะวันออก', 'Rayong': 'ตะวันออก', 'Chanthaburi': 'ตะวันออก',
+        # 'Trat': 'ตะวันออก', 'Chachoengsao': 'ตะวันออก', 'Prachin Buri': 'ตะวันออก',
+        # 'Nakhon Nayok': 'ตะวันออก', 'Sa Kaeo': 'ตะวันออก'
     }
     
     def get_region(city):
         if pd.isna(city):
-            return 'ไม่ระบุ'
+            return 'N/A'
         city_lower = str(city).lower()
         for province, region in province_to_region.items():
             if province.lower() in city_lower:
                 return region
-        return 'อื่นๆ'
+        return 'Other'
     
     # Add region to filtered data
     df_filtered_geo = df_filtered.copy()
@@ -350,11 +365,11 @@ with tab1:
             'user_id': 'nunique',
             'total_spent': 'sum'
         }).reset_index()
-        region_dist.columns = ['ภูมิภาค', 'จำนวนลูกค้า', 'ยอดขาย']
+        region_dist.columns = ['Region', 'no. of Customers', 'Sale']
         
         fig = px.pie(region_dist, 
-                     values='จำนวนลูกค้า', 
-                     names='ภูมิภาค',
+                     values='no. of Customers', 
+                     names='Region',
                      title="การกระจายลูกค้าตามภูมิภาค",
                      hole=0.4,
                      color_discrete_sequence=px.colors.sequential.RdBu)
