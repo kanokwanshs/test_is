@@ -1549,7 +1549,7 @@ with tab1:
                 score_multiplier = 5 / actual_bins
                 score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
         
-        return score
+            return score
         # ----------------------------------------------------
         # 6. VISUALIZATION (Now safe because RFM is calculated above)
         # ----------------------------------------------------
