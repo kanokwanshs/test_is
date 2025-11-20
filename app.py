@@ -1482,7 +1482,6 @@ with tab1:
 
         st.dataframe(display_cols.sort_values('ยอดขายรวม (฿)', ascending=False), use_container_width=True, height=400)
 
-
         # ----------------------------------------------------
         # 5. CUSTOMER VALUE SEGMENTATION (RFM Analysis)
         # ----------------------------------------------------
@@ -1501,26 +1500,50 @@ with tab1:
             Monetary=('sale_price', 'sum')
         ).reset_index()
 
-        # Scoring (Quantile-based)
-        if len(rfm_df) >= 5: # Needs at least 5 customers for 5-quantile
-            # R Score: Higher score for lower Recency (fewer days)
-            rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], 5, labels=[5, 4, 3, 2, 1], duplicates='drop')
-            # F & M Scores: Higher score for higher Frequency/Monetary
-            rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
-            rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], 5, labels=[1, 2, 3, 4, 5], duplicates='drop')
-            
-            # Convert to integer, fill missing/NaT (if any from qcut due to limited data) with 3 (Average)
-            rfm_df['R_Score'] = rfm_df['R_Score'].astype(float).fillna(3).astype(int)
-            rfm_df['F_Score'] = rfm_df['F_Score'].astype(float).fillna(3).astype(int)
-            rfm_df['M_Score'] = rfm_df['M_Score'].astype(float).fillna(3).astype(int)
+        # --- ส่วนที่แก้ไข: การให้คะแนน RFM อย่างแข็งแกร่ง (Robust Scoring) ---
+        
+        # 1. Determine the number of unique customers
+        num_customers = len(rfm_df)
+        
+        # 2. Determine the maximum number of unique bins we can create (max_k)
+        # We need to find the smallest number of unique values across R, F, M 
+        if num_customers > 0:
+            max_r = rfm_df['Recency'].nunique()
+            max_f = rfm_df['Frequency'].nunique()
+            max_m = rfm_df['Monetary'].nunique()
+            max_k = min(5, max_r, max_f, max_m) # Max bins we can use is 5, or min unique count
         else:
-            # Fallback for small filtered dataset
+            max_k = 0
+
+        if max_k >= 2: # Use dynamic qcut if at least 2 unique values exist
+            # Generate labels dynamically based on max_k
+            labels = list(range(1, max_k + 1))
+            
+            # Recency Score (High Recency = Low Days = High Score, so labels must be reversed)
+            r_labels = list(reversed(labels)) 
+            rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], max_k, labels=r_labels, duplicates='drop').astype(int)
+            
+            # Frequency & Monetary Scores (High F/M = High Score)
+            rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'], max_k, labels=labels, duplicates='drop').astype(int)
+            rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], max_k, labels=labels, duplicates='drop').astype(int)
+
+            # Pad scores back to 5-point scale for consistency in segmentation logic
+            # This is optional but keeps the segmentation rule simple (4 or 5 is good)
+            score_multiplier = 5 / max_k if max_k > 0 else 1
+            rfm_df['R_Score'] = (rfm_df['R_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
+            rfm_df['F_Score'] = (rfm_df['F_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
+            rfm_df['M_Score'] = (rfm_df['M_Score'] * score_multiplier).round(0).clip(1, 5).astype(int)
+            
+        else:
+            # Fallback: If data is too homogeneous or small, assign all to average score (3)
             rfm_df['R_Score'] = 3
             rfm_df['F_Score'] = 3
             rfm_df['M_Score'] = 3
 
+        # --- จบส่วนที่แก้ไข ---
 
-        # Segmentation Mapping
+
+        # Segmentation Mapping (Logic remains the same, assumes 5-point scale)
         def rfm_segment(df):
             if df['R_Score'] >= 4 and df['F_Score'] >= 4:
                 return 'Champions'
@@ -1538,6 +1561,9 @@ with tab1:
         # Visualization
         col1, col2 = st.columns(2)
 
+        # ... (ส่วนการแสดงผล Pie Chart, Bar Chart, และตาราง Segment metrics เหมือนเดิม) ...
+        # (เพื่อให้โค้ดนี้สมบูรณ์ โปรดคัดลอกส่วน Visualization ต่อท้ายเอง)
+        
         with col1:
             seg_dist = rfm_df['Customer_Segment'].value_counts()
             fig = px.pie(values=seg_dist.values,
@@ -1568,7 +1594,6 @@ with tab1:
         ).round(2)
         seg_metrics.columns = ['Customers', 'Avg Recency (Days)', 'Avg Orders', 'Avg Revenue (฿)']
         st.dataframe(seg_metrics.sort_values('Customers', ascending=False), use_container_width=True)
-
 
         # ----------------------------------------------------
         # 6. PROMOTION DAY ANALYSIS (1.1, 2.2, ... 12.12 on Online Channels only)
