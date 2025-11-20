@@ -1510,46 +1510,46 @@ with tab1:
 # --- การให้คะแนน RFM อย่างแข็งแกร่งที่สุด (Scoring with Individual Fallbacks) ---
 # (ใช้ฟังก์ชัน calculate_score ที่คุณได้สร้างไว้ก่อนหน้านี้)
  
-def calculate_score(series, is_recency=False):
-    unique_count = series.nunique()
-    k = min(5, unique_count)
+            def calculate_score(series, is_recency=False):
+                unique_count = series.nunique()
+                k = min(5, unique_count)
     
-    if k < 2:
-        return 3 # Fallback score
+                if k < 2:
+                    return 3 # Fallback score
     
-    try:
-        # 1. Attempt qcut without explicit labels to get the actual bins created
-        # Use 'drop' to handle duplicates in the quantile calculation
-        qcut_result = pd.qcut(series, k, duplicates='drop')
+            try:
+                # 1. Attempt qcut without explicit labels to get the actual bins created
+                # Use 'drop' to handle duplicates in the quantile calculation
+                qcut_result = pd.qcut(series, k, duplicates='drop')
         
-        # 2. Get the actual number of bins created
-        actual_bins = len(qcut_result.categories)
+                # 2. Get the actual number of bins created
+                actual_bins = len(qcut_result.categories)
+                
+                  # 3. Create labels based on the actual number of bins (actual_bins)
+                 labels_base = list(range(1, actual_bins + 1))
         
-        # 3. Create labels based on the actual number of bins (actual_bins)
-        labels_base = list(range(1, actual_bins + 1))
+                # Apply Recency inversion logic to the actual number of bins
+                qcut_labels = list(reversed(labels_base)) if is_recency else labels_base
         
-        # Apply Recency inversion logic to the actual number of bins
-        qcut_labels = list(reversed(labels_base)) if is_recency else labels_base
+                # 4. Map the categories codes to the new labels
+                score = qcut_result.codes + 1 # qcut_result.codes is 0-indexed, convert to 1-indexed score
         
-        # 4. Map the categories codes to the new labels
-        score = qcut_result.codes + 1 # qcut_result.codes is 0-indexed, convert to 1-indexed score
-        
-        # Use the correct labels list to map the codes to the final score
-        score_mapping = {i: label for i, label in enumerate(qcut_labels)}
-        score = pd.Series(score).replace(score_mapping).astype(int)
+                # Use the correct labels list to map the codes to the final score
+                score_mapping = {i: label for i, label in enumerate(qcut_labels)}
+                score = pd.Series(score).replace(score_mapping).astype(int)
 
-    except ValueError as e:
-        # This handles extreme edge cases where qcut still fails, though rare with 'duplicates="drop"'
-        st.warning(f"⚠️ Warning: qcut failed for {series.name}. Falling back to score 3.")
-        score = pd.Series(3, index=series.index)
+            except ValueError as e:
+            # This handles extreme edge cases where qcut still fails, though rare with 'duplicates="drop"'
+            st.warning(f"⚠️ Warning: qcut failed for {series.name}. Falling back to score 3.")
+            score = pd.Series(3, index=series.index)
         
-    # If the number of actual bins is less than 5, scale the score to a 5-point system
-    if actual_bins < 5: # Changed k to actual_bins for scaling robustness
-        # Scale the score to 5 points (e.g., if 3 bins, score 1 -> 1, 2 -> 3, 3 -> 5)
-        score_multiplier = 5 / actual_bins
-        score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
+            # If the number of actual bins is less than 5, scale the score to a 5-point system
+            if actual_bins < 5: # Changed k to actual_bins for scaling robustness
+            # Scale the score to 5 points (e.g., if 3 bins, score 1 -> 1, 2 -> 3, 3 -> 5)
+            score_multiplier = 5 / actual_bins
+            score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
         
-    return score
+        return score
         # ----------------------------------------------------
         # 6. VISUALIZATION (Now safe because RFM is calculated above)
         # ----------------------------------------------------
