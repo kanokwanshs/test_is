@@ -246,7 +246,7 @@ with tab1:
         quick_filter = st.selectbox(
             "Quick Filter",
             ["All Time", "Last 30 Days", "Last 90 Days", "2024", "2025", 
-             "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025"]
+             "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025"]
         )
         
         # Apply quick filters
@@ -270,7 +270,12 @@ with tab1:
                 date_range = pd.Timestamp('2024-10-01').date(), pd.Timestamp('2024-12-31').date()
             elif quick_filter == "Q1 2025":
                 date_range = pd.Timestamp('2025-01-01').date(), pd.Timestamp('2025-03-31').date()
-    
+            elif quick_filter == "Q2 2025":
+                date_range = pd.Timestamp('2025-04-01').date(), pd.Timestamp('2025-06-30').date()
+            elif quick_filter == "Q3 2025":
+                date_range = pd.Timestamp('2025-07-01').date(), pd.Timestamp('2025-09-30').date()
+            elif quick_filter == "Q4 2025":
+                date_range = pd.Timestamp('2025-10-01').date(), pd.Timestamp('2025-12-31').date()
     with col3:
         # Apply filter
         if len(date_range) == 2:
