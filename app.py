@@ -1525,8 +1525,8 @@ with tab1:
                 # 2. Get the actual number of bins created
                 actual_bins = len(qcut_result.categories)
                 
-                  # 3. Create labels based on the actual number of bins (actual_bins)
-                 labels_base = list(range(1, actual_bins + 1))
+                # 3. Create labels based on the actual number of bins (actual_bins)
+                labels_base = list(range(1, actual_bins + 1))
         
                 # Apply Recency inversion logic to the actual number of bins
                 qcut_labels = list(reversed(labels_base)) if is_recency else labels_base
