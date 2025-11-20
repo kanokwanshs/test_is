@@ -2926,6 +2926,237 @@ with tab3:
     )
     st.plotly_chart(fig, use_container_width=True)
 
+# # ========================================== 
+# # TAB 4: MARKETING ANALYTICS
+# # ========================================== 
+# with tab4:
+#     st.header("🎯 Marketing Analytics")
+    
+#     st.subheader("1️⃣ Campaign Effectiveness")
+    
+#     campaign_df = df_master[df_master['discount_pct'] > 0].copy()
+#     non_campaign_df = df_master[df_master['discount_pct'] == 0].copy()
+    
+#     col1, col2, col3, col4 = st.columns(4)
+    
+#     with col1:
+#         campaign_revenue = campaign_df['sale_price'].sum()
+#         non_campaign_revenue = non_campaign_df['sale_price'].sum()
+#         campaign_share = (campaign_revenue / (campaign_revenue + non_campaign_revenue) * 100)
+#         st.metric("Campaign Revenue Share", f"{campaign_share:.1f}%")
+#         st.caption(f"฿{campaign_revenue:,.0f}")
+    
+#     with col2:
+#         campaign_orders = len(campaign_df)
+#         total_orders = len(df_master)
+#         campaign_order_share = (campaign_orders / total_orders * 100)
+#         st.metric("Campaign Order Share", f"{campaign_order_share:.1f}%")
+#         st.caption(f"{campaign_orders:,} orders")
+    
+#     with col3:
+#         campaign_aov = campaign_df['sale_price'].mean()
+#         non_campaign_aov = non_campaign_df['sale_price'].mean()
+#         aov_lift = ((campaign_aov / non_campaign_aov - 1) * 100) if non_campaign_aov > 0 else 0
+#         st.metric("AOV Lift from Campaign", f"{aov_lift:+.1f}%")
+#         st.caption(f"Campaign: ฿{campaign_aov:,.0f}")
+    
+#     with col4:
+#         avg_discount = campaign_df['discount_pct'].mean() * 100
+#         st.metric("Avg Discount Rate", f"{avg_discount:.1f}%")
+#         st.caption(f"{len(campaign_df):,} discounted orders")
+    
+#     col1, col2 = st.columns(2)
+    
+#     with col1:
+#         comparison = pd.DataFrame({
+#             'Type': ['With Campaign', 'Without Campaign'],
+#             'AOV': [campaign_aov, non_campaign_aov],
+#             'Orders': [len(campaign_df), len(non_campaign_df)],
+#             'Revenue': [campaign_revenue, non_campaign_revenue]
+#         })
+        
+#         fig = px.bar(comparison, 
+#                      x='Type', 
+#                      y='AOV',
+#                      title="Average Order Value: Campaign Impact",
+#                      color='Type',
+#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     with col2:
+#         fig = px.pie(comparison, 
+#                      values='Revenue', 
+#                      names='Type',
+#                      title="Revenue Distribution",
+#                      hole=0.4,
+#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     # Traffic source analysis
+#     st.subheader("2️⃣ Traffic Source Performance")
+    
+#     traffic_perf = df_master.groupby('traffic_source').agg({
+#         'user_id': 'nunique',
+#         'sale_price': 'sum',
+#         'profit': 'sum',
+#         'order_id': 'nunique'
+#     }).reset_index()
+#     traffic_perf.columns = ['Traffic Source', 'Customers', 'Revenue', 'Profit', 'Orders']
+#     traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
+#     traffic_perf['Profit Margin (%)'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(1)
+#     traffic_perf['Conversion Rate (%)'] = ((traffic_pe_layout(height=500)
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     with col2:
+#         # Revenue heatmap
+#         top_revenue_provinces = province_data.nlargest(15, 'revenue')
+#         fig = px.bar(top_revenue_provinces, 
+#                      x='revenue', 
+#                      y='province',
+#                      orientation='h',
+#                      title="Top 15 จังหวัด - ยอดขาย",
+#                      color='revenue',
+#                      color_continuous_scale='Greens',
+#                      labels={'revenue': 'ยอดขาย (฿)', 'province': 'จังหวัด'})
+#         fig.update_layout(height=500)
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     with col3:
+#         # Region distribution with actual filtered data
+#         region_dist = filtered_customer_geo.groupby('region').agg({
+#             'user_id': 'nunique',
+#             'total_spent': 'sum'
+#         }).reset_index()
+#         region_dist.columns = ['Region', 'Customers', 'Revenue']
+        
+#         fig = px.pie(region_dist, 
+#                      values='Customers', 
+#                      names='Region',
+#                      title="การกระจายลูกค้าตามภูมิภาค",
+#                      hole=0.4,
+#                      color_discrete_sequence=px.colors.sequential.RdBu)
+#         st.plotly_chart(fig, use_container_width=True)
+        
+#         # Age distribution
+#         if not filtered_customer_geo.empty:
+#             age_dist = filtered_customer_geo[filtered_customer_geo['age'].notna()].copy()
+#             age_dist['age_group'] = pd.cut(age_dist['age'], 
+#                                            bins=[0, 20, 30, 40, 50, 60, 100],
+#                                            labels=['<20', '20-30', '30-40', '40-50', '50-60', '60+'])
+#             age_group_dist = age_dist.groupby('age_group')['user_id'].nunique().reset_index()
+#             age_group_dist.columns = ['กลุ่มอายุ', 'จำนวนลูกค้า']
+            
+#             fig = px.bar(age_group_dist, 
+#                          x='กลุ่มอายุ', 
+#                          y='จำนวนลูกค้า',
+#                          title="การกระจายลูกค้าตามช่วงอายุ",
+#                          color='จำนวนลูกค้า',
+#                          color_continuous_scale='Teal')
+#             st.plotly_chart(fig, use_container_width=True)
+    
+#     # Detailed geographic table
+#     st.subheader("📊 สรุปข้อมูลตามจังหวัด")
+    
+#     # Prepare transaction-level data for calculations
+#     trans_geo = df_filtered_geo.groupby(['province', 'order_id']).agg({
+#         'sale_price': 'sum',
+#         'product_id': 'nunique'
+#     }).reset_index()
+#     trans_geo.columns = ['province', 'order_id', 'order_value', 'items_per_order']
+    
+#     geo_summary = filtered_customer_geo.groupby('province').agg({
+#         'user_id': 'nunique',
+#         'total_spent': 'sum',
+#         'total_orders': 'sum',
+#         'unique_products': 'sum'
+#     }).reset_index()
+    
+#     # Calculate avg per order
+#     order_avg = trans_geo.groupby('province').agg({
+#         'order_value': 'mean',
+#         'items_per_order': 'mean'
+#     }).reset_index()
+    
+#     geo_summary = geo_summary.merge(order_avg, on='province', how='left')
+    
+#     geo_summary.columns = ['จังหวัด', 'จำนวนลูกค้า', 'ยอดขายรวม (฿)', 'จำนวนคำสั่งซื้อ', 
+#                            'สินค้าทั้งหมด', 'ยอดเฉลี่ยต่อ Order (฿)', 'สินค้าเฉลี่ยต่อ Order']
+#     geo_summary['ยอดเฉลี่ยต่อลูกค้า (฿)'] = (geo_summary['ยอดขายรวม (฿)'] / geo_summary['จำนวนลูกค้า']).round(2)
+#     geo_summary = geo_summary.sort_values('ยอดขายรวม (฿)', ascending=False)
+    
+#     # Round values
+#     geo_summary['ยอดเฉลี่ยต่อ Order (฿)'] = geo_summary['ยอดเฉลี่ยต่อ Order (฿)'].round(2)
+#     geo_summary['สินค้าเฉลี่ยต่อ Order'] = geo_summary['สินค้าเฉลี่ยต่อ Order'].round(1)
+    
+#     st.dataframe(geo_summary, use_container_width=True, height=400)
+    
+#     # Monthly trends by region
+#     st.subheader("📈 Trend การขายตามภูมิภาคและเวลา")
+    
+#     monthly_region = df_filtered_geo.groupby([df_filtered_geo['created_at'].dt.to_period('M'), 'region']).agg({
+#         'sale_price': 'sum',
+#         'order_id': 'nunique'
+#     }).reset_index()
+#     monthly_region['created_at'] = monthly_region['created_at'].dt.to_timestamp()
+#     monthly_region.columns = ['เดือน', 'ภูมิภาค', 'ยอดขาย', 'จำนวนคำสั่งซื้อ']
+    
+#     fig = px.line(monthly_region, 
+#                   x='เดือน', 
+#                   y='ยอดขาย',
+#                   color='ภูมิภาค',
+#                   title="ยอดขายรายเดือนแยกตามภูมิภาค",
+#                   markers=True)
+#     st.plotly_chart(fig, use_container_width=True)
+    
+#     # Promotional Days Analysis
+#     st.subheader("🎉 วิเคราะห์ยอดขายในวัน Promotion")
+    
+#     df_promo = df_filtered.copy()
+#     df_promo['day'] = df_promo['created_at'].dt.day
+#     df_promo['month'] = df_promo['created_at'].dt.month
+#     df_promo['year'] = df_promo['created_at'].dt.year
+    
+#     # Define special promotion days
+#     def classify_day_type(row):
+#         day = row['day']
+#         month = row['month']
+        
+#         # Special days: 1.1, 2.2, 3.3, etc.
+#         if day == month and day <= 12:
+#             return f'{day}.{month} Special'
+#         # Every 25th
+#         elif day == 25:
+#             return '25th Monthly'
+#         else:
+#             return 'Regular Day'
+    
+#     df_promo['day_type'] = df_promo.apply(classify_day_type, axis=1)
+    
+#     # Compare performance
+#     promo_comparison = df_promo.groupby('day_type').agg({
+#         'sale_price': ['sum', 'mean', 'count'],
+#         'order_id': 'nunique'
+#     }).reset_index()
+#     promo_comparison.columns = ['ประเภทวัน', 'ยอดขายรวม', 'ยอดเฉลี่ยต่อ Transaction', 'จำนวน Transaction', 'จำนวน Order']
+    
+#     col1, col2 = st.columns(2)
+    
+#     with col1:
+#         fig = px.bar(promo_comparison, 
+#                      x='ประเภทวัน', 
+#                      y='ยอดเฉลี่ยต่อ Transaction',
+#                      title="ยอดขายเฉลี่ยต่อ Transaction ตามประเภทวัน",
+#                      color='ยอดเฉลี่ยต่อ Transaction',
+#                      color_continuous_scale='Blues',
+#                      text='ยอดเฉลี่ยต่อ Transaction')
+#         fig.update
+
+
+
+
+
+
+
 # ========================================== 
 # TAB 4: MARKETING ANALYTICS
 # ========================================== 
@@ -3004,149 +3235,129 @@ with tab4:
     traffic_perf.columns = ['Traffic Source', 'Customers', 'Revenue', 'Profit', 'Orders']
     traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
     traffic_perf['Profit Margin (%)'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(1)
-    traffic_perf['Conversion Rate (%)'] = ((traffic_pe_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Revenue heatmap
-        top_revenue_provinces = province_data.nlargest(15, 'revenue')
-        fig = px.bar(top_revenue_provinces, 
-                     x='revenue', 
-                     y='province',
-                     orientation='h',
-                     title="Top 15 จังหวัด - ยอดขาย",
-                     color='revenue',
-                     color_continuous_scale='Greens',
-                     labels={'revenue': 'ยอดขาย (฿)', 'province': 'จังหวัด'})
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col3:
-        # Region distribution with actual filtered data
-        region_dist = filtered_customer_geo.groupby('region').agg({
-            'user_id': 'nunique',
-            'total_spent': 'sum'
-        }).reset_index()
-        region_dist.columns = ['Region', 'Customers', 'Revenue']
-        
-        fig = px.pie(region_dist, 
-                     values='Customers', 
-                     names='Region',
-                     title="การกระจายลูกค้าตามภูมิภาค",
-                     hole=0.4,
-                     color_discrete_sequence=px.colors.sequential.RdBu)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Age distribution
-        if not filtered_customer_geo.empty:
-            age_dist = filtered_customer_geo[filtered_customer_geo['age'].notna()].copy()
-            age_dist['age_group'] = pd.cut(age_dist['age'], 
-                                           bins=[0, 20, 30, 40, 50, 60, 100],
-                                           labels=['<20', '20-30', '30-40', '40-50', '50-60', '60+'])
-            age_group_dist = age_dist.groupby('age_group')['user_id'].nunique().reset_index()
-            age_group_dist.columns = ['กลุ่มอายุ', 'จำนวนลูกค้า']
-            
-            fig = px.bar(age_group_dist, 
-                         x='กลุ่มอายุ', 
-                         y='จำนวนลูกค้า',
-                         title="การกระจายลูกค้าตามช่วงอายุ",
-                         color='จำนวนลูกค้า',
-                         color_continuous_scale='Teal')
-            st.plotly_chart(fig, use_container_width=True)
-    
-    # Detailed geographic table
-    st.subheader("📊 สรุปข้อมูลตามจังหวัด")
-    
-    # Prepare transaction-level data for calculations
-    trans_geo = df_filtered_geo.groupby(['province', 'order_id']).agg({
-        'sale_price': 'sum',
-        'product_id': 'nunique'
-    }).reset_index()
-    trans_geo.columns = ['province', 'order_id', 'order_value', 'items_per_order']
-    
-    geo_summary = filtered_customer_geo.groupby('province').agg({
-        'user_id': 'nunique',
-        'total_spent': 'sum',
-        'total_orders': 'sum',
-        'unique_products': 'sum'
-    }).reset_index()
-    
-    # Calculate avg per order
-    order_avg = trans_geo.groupby('province').agg({
-        'order_value': 'mean',
-        'items_per_order': 'mean'
-    }).reset_index()
-    
-    geo_summary = geo_summary.merge(order_avg, on='province', how='left')
-    
-    geo_summary.columns = ['จังหวัด', 'จำนวนลูกค้า', 'ยอดขายรวม (฿)', 'จำนวนคำสั่งซื้อ', 
-                           'สินค้าทั้งหมด', 'ยอดเฉลี่ยต่อ Order (฿)', 'สินค้าเฉลี่ยต่อ Order']
-    geo_summary['ยอดเฉลี่ยต่อลูกค้า (฿)'] = (geo_summary['ยอดขายรวม (฿)'] / geo_summary['จำนวนลูกค้า']).round(2)
-    geo_summary = geo_summary.sort_values('ยอดขายรวม (฿)', ascending=False)
-    
-    # Round values
-    geo_summary['ยอดเฉลี่ยต่อ Order (฿)'] = geo_summary['ยอดเฉลี่ยต่อ Order (฿)'].round(2)
-    geo_summary['สินค้าเฉลี่ยต่อ Order'] = geo_summary['สินค้าเฉลี่ยต่อ Order'].round(1)
-    
-    st.dataframe(geo_summary, use_container_width=True, height=400)
-    
-    # Monthly trends by region
-    st.subheader("📈 Trend การขายตามภูมิภาคและเวลา")
-    
-    monthly_region = df_filtered_geo.groupby([df_filtered_geo['created_at'].dt.to_period('M'), 'region']).agg({
-        'sale_price': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    monthly_region['created_at'] = monthly_region['created_at'].dt.to_timestamp()
-    monthly_region.columns = ['เดือน', 'ภูมิภาค', 'ยอดขาย', 'จำนวนคำสั่งซื้อ']
-    
-    fig = px.line(monthly_region, 
-                  x='เดือน', 
-                  y='ยอดขาย',
-                  color='ภูมิภาค',
-                  title="ยอดขายรายเดือนแยกตามภูมิภาค",
-                  markers=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Promotional Days Analysis
-    st.subheader("🎉 วิเคราะห์ยอดขายในวัน Promotion")
-    
-    df_promo = df_filtered.copy()
-    df_promo['day'] = df_promo['created_at'].dt.day
-    df_promo['month'] = df_promo['created_at'].dt.month
-    df_promo['year'] = df_promo['created_at'].dt.year
-    
-    # Define special promotion days
-    def classify_day_type(row):
-        day = row['day']
-        month = row['month']
-        
-        # Special days: 1.1, 2.2, 3.3, etc.
-        if day == month and day <= 12:
-            return f'{day}.{month} Special'
-        # Every 25th
-        elif day == 25:
-            return '25th Monthly'
-        else:
-            return 'Regular Day'
-    
-    df_promo['day_type'] = df_promo.apply(classify_day_type, axis=1)
-    
-    # Compare performance
-    promo_comparison = df_promo.groupby('day_type').agg({
-        'sale_price': ['sum', 'mean', 'count'],
-        'order_id': 'nunique'
-    }).reset_index()
-    promo_comparison.columns = ['ประเภทวัน', 'ยอดขายรวม', 'ยอดเฉลี่ยต่อ Transaction', 'จำนวน Transaction', 'จำนวน Order']
+    traffic_perf['Conversion Rate (%)'] = ((traffic_perf['Orders'] / traffic_perf['Customers']) * 100).round(1)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        fig = px.bar(promo_comparison, 
-                     x='ประเภทวัน', 
-                     y='ยอดเฉลี่ยต่อ Transaction',
-                     title="ยอดขายเฉลี่ยต่อ Transaction ตามประเภทวัน",
-                     color='ยอดเฉลี่ยต่อ Transaction',
-                     color_continuous_scale='Blues',
-                     text='ยอดเฉลี่ยต่อ Transaction')
-        fig.update
+        fig = px.bar(traffic_perf.sort_values('Revenue', ascending=True),
+                     x='Revenue', 
+                     y='Traffic Source',
+                     orientation='h',
+                     title="Revenue by Traffic Source",
+                     color='Profit Margin (%)',
+                     color_continuous_scale='viridis')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        fig = px.scatter(traffic_perf, 
+                        x='Customers', 
+                        y='Revenue per Customer',
+                        size='Revenue',
+                        text='Traffic Source',
+                        title="Customer Value by Traffic Source",
+                        labels={'Customers': 'Total Customers', 'Revenue per Customer': 'Revenue per Customer (฿)'},
+                        color='Profit Margin (%)',
+                        color_continuous_scale='plasma')
+        fig.update_traces(textposition='top center')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.dataframe(traffic_perf.sort_values('Revenue', ascending=False), 
+                use_container_width=True, height=300)
+    
+    # Customer clustering
+    st.subheader("3️⃣ Customer Segmentation (K-Means Clustering)")
+    
+    cluster_data = df_master.groupby('user_id').agg({
+        'created_at': lambda x: (df_master['created_at'].max() - x.max()).days,
+        'order_id': 'nunique',
+        'sale_price': 'sum'
+    }).reset_index()
+    cluster_data.columns = ['user_id', 'recency', 'frequency', 'monetary']
+    
+    scaler = StandardScaler()
+    features_scaled = scaler.fit_transform(cluster_data[['recency', 'frequency', 'monetary']])
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        n_clusters = st.slider("Number of Clusters", 2, 6, 4)
+    
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    cluster_data['cluster'] = kmeans.fit_predict(features_scaled)
+    
+    fig = px.scatter_3d(cluster_data, 
+                        x='recency', 
+                        y='frequency', 
+                        z='monetary',
+                        color='cluster',
+                        title="Customer Clusters (3D Visualization)",
+                        labels={'cluster': 'Cluster', 
+                               'recency': 'Recency (days)', 
+                               'frequency': 'Frequency (orders)', 
+                               'monetary': 'Monetary (฿)'},
+                        color_continuous_scale='viridis')
+    fig.update_traces(marker=dict(size=5))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    cluster_stats = cluster_data.groupby('cluster').agg({
+        'recency': 'mean',
+        'frequency': 'mean',
+        'monetary': 'mean',
+        'user_id': 'count'
+    }).round(2)
+    cluster_stats.columns = ['Avg Recency (days)', 'Avg Frequency', 'Avg Monetary (฿)', 'Customer Count']
+    cluster_stats['Total Value (฿)'] = (cluster_stats['Avg Monetary (฿)'] * cluster_stats['Customer Count']).round(0)
+    
+    st.subheader("Cluster Characteristics")
+    st.dataframe(cluster_stats, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        cluster_dist = cluster_data['cluster'].value_counts().sort_index()
+        fig = px.bar(x=cluster_dist.index.astype(str), 
+                     y=cluster_dist.values,
+                     title="Customer Distribution by Cluster",
+                     labels={'x': 'Cluster', 'y': 'Number of Customers'},
+                     color=cluster_dist.values,
+                     color_continuous_scale='blues')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        cluster_value = cluster_data.groupby('cluster')['monetary'].sum()
+        fig = px.pie(values=cluster_value.values, 
+                     names=[f"Cluster {i}" for i in cluster_value.index],
+                     title="Revenue Distribution by Cluster",
+                     hole=0.4)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Marketing recommendations
+    st.subheader("4️⃣ Marketing Insights & Recommendations")
+    
+    with st.expander("📊 View Detailed Insights"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 🎯 Campaign Insights")
+            if campaign_order_share > 50:
+                st.success(f"✅ High campaign engagement ({campaign_order_share:.0f}% of orders)")
+            else:
+                st.info(f"💡 Opportunity to increase campaign coverage (current: {campaign_order_share:.0f}%)")
+            
+            if aov_lift > 10:
+                st.success(f"✅ Strong AOV lift from campaigns (+{aov_lift:.1f}%)")
+            elif aov_lift > 0:
+                st.warning(f"⚠️ Moderate AOV lift (+{aov_lift:.1f}%) - optimize discount strategy")
+            else:
+                st.error(f"❌ Negative AOV impact ({aov_lift:.1f}%) - review campaign effectiveness")
+        
+        with col2:
+            st.markdown("### 📱 Channel Insights")
+            best_channel = channel_detail.loc[channel_detail['Profit Margin (%)'].idxmax()]
+            st.success(f"✅ Best performing channel: **{best_channel['Channel']}** ({best_channel['Type']})")
+            st.metric("Profit Margin", f"{best_channel['Profit Margin (%)']}%")
+            st.metric("Total Revenue", f"฿{best_channel['Revenue (฿)']:,.0f}")
+
+st.markdown("---")
+st.caption("📊 E-commerce Analytics Dashboard | Built with Streamlit")
+
