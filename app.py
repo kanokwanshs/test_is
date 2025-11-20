@@ -1507,46 +1507,49 @@ with tab1:
             rfm_df = pd.DataFrame(columns=['user_id', 'Recency', 'Frequency', 'Monetary', 'R_Score', 'F_Score', 'M_Score', 'Customer_Segment'])
         
         else:
-            # --- การให้คะแนน RFM อย่างแข็งแกร่งที่สุด (Scoring with Individual Fallbacks) ---
-            def calculate_score(series, is_recency=False):
-                unique_count = series.nunique()
-                k = min(5, unique_count)
-                
-                if k < 2:
-                    return 3 # Fallback score
-                else:
-                    labels = list(range(1, k + 1))
-                    qcut_labels = list(reversed(labels)) if is_recency else labels
-                    
-                    # pd.qcut is safe here because k >= 2
-                    score = pd.qcut(series, k, labels=qcut_labels, duplicates='drop').astype(int)
-                    
-                    if k < 5:
-                        score_multiplier = 5 / k 
-                        score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
-                    
-                    return score
+# --- การให้คะแนน RFM อย่างแข็งแกร่งที่สุด (Scoring with Individual Fallbacks) ---
+# (ใช้ฟังก์ชัน calculate_score ที่คุณได้สร้างไว้ก่อนหน้านี้)
+ 
+def calculate_score(series, is_recency=False):
+    unique_count = series.nunique()
+    k = min(5, unique_count)
+    
+    if k < 2:
+        return 3 # Fallback score
+    
+    try:
+        # 1. Attempt qcut without explicit labels to get the actual bins created
+        # Use 'drop' to handle duplicates in the quantile calculation
+        qcut_result = pd.qcut(series, k, duplicates='drop')
+        
+        # 2. Get the actual number of bins created
+        actual_bins = len(qcut_result.categories)
+        
+        # 3. Create labels based on the actual number of bins (actual_bins)
+        labels_base = list(range(1, actual_bins + 1))
+        
+        # Apply Recency inversion logic to the actual number of bins
+        qcut_labels = list(reversed(labels_base)) if is_recency else labels_base
+        
+        # 4. Map the categories codes to the new labels
+        score = qcut_result.codes + 1 # qcut_result.codes is 0-indexed, convert to 1-indexed score
+        
+        # Use the correct labels list to map the codes to the final score
+        score_mapping = {i: label for i, label in enumerate(qcut_labels)}
+        score = pd.Series(score).replace(score_mapping).astype(int)
 
-            # Apply the robust scoring function to each dimension
-            rfm_df['R_Score'] = calculate_score(rfm_df['Recency'], is_recency=True)
-            rfm_df['F_Score'] = calculate_score(rfm_df['Frequency'], is_recency=False)
-            rfm_df['M_Score'] = calculate_score(rfm_df['Monetary'], is_recency=False)
-
-            # --- Segmentation Mapping ---
-            def rfm_segment(df):
-                if df['R_Score'] >= 4 and df['F_Score'] >= 4:
-                    return 'Champions'
-                elif df['R_Score'] >= 3 and df['F_Score'] >= 3:
-                    return 'Loyal Customers'
-                elif df['R_Score'] <= 2 and df['F_Score'] >= 3:
-                    return 'At Risk'
-                elif df['R_Score'] <= 2 and df['F_Score'] <= 2:
-                    return 'Churned'
-                else:
-                    return 'Potential/New'
-
-            rfm_df['Customer_Segment'] = rfm_df.apply(rfm_segment, axis=1)
-
+    except ValueError as e:
+        # This handles extreme edge cases where qcut still fails, though rare with 'duplicates="drop"'
+        st.warning(f"⚠️ Warning: qcut failed for {series.name}. Falling back to score 3.")
+        score = pd.Series(3, index=series.index)
+        
+    # If the number of actual bins is less than 5, scale the score to a 5-point system
+    if actual_bins < 5: # Changed k to actual_bins for scaling robustness
+        # Scale the score to 5 points (e.g., if 3 bins, score 1 -> 1, 2 -> 3, 3 -> 5)
+        score_multiplier = 5 / actual_bins
+        score = (score * score_multiplier).round(0).clip(1, 5).astype(int)
+        
+    return score
         # ----------------------------------------------------
         # 6. VISUALIZATION (Now safe because RFM is calculated above)
         # ----------------------------------------------------
