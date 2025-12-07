@@ -1,1053 +1,3 @@
-# app.py - Modern E-commerce Analytics Dashboard with Geographic Analysis
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
-import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, roc_auc_score
-import warnings
-import zipfile
-import io
-
-warnings.filterwarnings('ignore')
-
-# Page config
-st.set_page_config(page_title="E-commerce Analytics", layout="wide", page_icon="📊")
-
-# Initialize session state
-if 'data_loaded' not in st.session_state:
-    st.session_state.data_loaded = False
-if 'data' not in st.session_state:
-    st.session_state.data = None
-
-# Utility function to map channel to type
-def get_channel_type(channel):
-    """Map channel to Online/Offline"""
-    online_channels = ['line shopping', 'lazada', 'shopee', 'tiktok']
-    offline_channels = ['siam center']
-    channel_lower = str(channel).lower()
-    for oc in online_channels:
-        if oc in channel_lower:
-            return 'Online'
-    for of in offline_channels:
-        if of in channel_lower:
-            return 'Offline'
-    return 'Other'
-
-# File upload options
-def upload_data():
-    """Flexible data upload - ZIP file or folder path"""
-    st.sidebar.title("📊 E-commerce Analytics")
-    st.sidebar.markdown("---")
-    
-    upload_method = st.sidebar.radio(
-        "📁 Data Source",
-        ["Upload ZIP File", "Load from Folder Path"]
-    )
-    
-    data = None
-    
-    if upload_method == "Upload ZIP File":
-        st.sidebar.subheader("Upload ZIP containing CSV files")
-        st.sidebar.caption("ZIP should contain: user.csv, product.csv, order.csv, order_item.csv")
-        uploaded_zip = st.sidebar.file_uploader("Choose ZIP file", type=['zip'])
-        
-        if uploaded_zip is not None:
-            if st.sidebar.button("🔄 Load Data", type="primary"):
-                try:
-                    with zipfile.ZipFile(uploaded_zip) as z:
-                        data = {}
-                        file_mapping = {
-                            "distribution_centers.csv": "dc",
-                            "user.csv": "user",
-                            "product.csv": "product",
-                            "inventory_item.csv": "inventory",
-                            "order.csv": "order",
-                            "order_item.csv": "order_item",
-                            "event.csv": "event"
-                        }
-                        
-                        for filename in z.namelist():
-                            base_name = filename.split('/')[-1]
-                            if base_name in file_mapping:
-                                key = file_mapping[base_name]
-                                with z.open(filename) as f:
-                                    data[key] = pd.read_csv(f)
-                                st.sidebar.success(f"✅ {base_name}")
-                        
-                        required = ['user', 'product', 'order', 'order_item']
-                        missing = [r for r in required if r not in data]
-                        if missing:
-                            st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
-                            return None
-                        
-                        st.session_state.data = data
-                        st.session_state.data_loaded = True
-                        st.sidebar.success("✅ All data loaded!")
-                        return data
-                except Exception as e:
-                    st.sidebar.error(f"❌ Error: {str(e)}")
-                    return None
-    else:
-        data_path = st.sidebar.text_input("Folder path", value="data")
-        if st.sidebar.button("🔄 Load Data", type="primary"):
-            try:
-                import os
-                data = {}
-                file_mapping = {
-                    "distribution_centers.csv": "dc",
-                    "user.csv": "user",
-                    "product.csv": "product",
-                    "inventory_item.csv": "inventory",
-                    "order.csv": "order",
-                    "order_item.csv": "order_item",
-                    "event.csv": "event"
-                }
-                
-                for filename, key in file_mapping.items():
-                    filepath = os.path.join(data_path, filename)
-                    if os.path.exists(filepath):
-                        data[key] = pd.read_csv(filepath)
-                        st.sidebar.success(f"✅ {filename}")
-                
-                required = ['user', 'product', 'order', 'order_item']
-                missing = [r for r in required if r not in data]
-                if missing:
-                    st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
-                    return None
-                
-                st.session_state.data = data
-                st.session_state.data_loaded = True
-                st.sidebar.success("✅ All data loaded!")
-                return data
-            except Exception as e:
-                st.sidebar.error(f"❌ Error: {str(e)}")
-                return None
-    
-    return st.session_state.data if st.session_state.data_loaded else None
-
-@st.cache_data
-def merge_and_preprocess(data):
-    """Merge all tables and create master dataframe"""
-    df = data['order_item'].merge(
-        data['order'][['order_id', 'channel', 'discount_pct', 'status', 'num_of_item', 'created_at']],
-        on='order_id', how='left', suffixes=('', '_order')
-    )
-    df = df.merge(
-        data['product'][['product_id', 'product_category', 'product_collection', 'retail_price', 'product_name']],
-        on='product_id', how='left', suffixes=('', '_prod')
-    )
-    df = df.merge(
-        data['user'][['user_id', 'city', 'traffic_source', 'age', 'gender']],
-        on='user_id', how='left'
-    )
-    
-    # Date conversions
-    for col in ['created_at', 'shipped_at', 'delivered_at', 'returned_at']:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-    
-    # Derived fields
-    df['profit'] = df['sale_price'] - df['cost']
-    df['order_date'] = df['created_at'].dt.date
-    df['order_month'] = df['created_at'].dt.to_period('M')
-    df['order_year'] = df['created_at'].dt.year
-    df['order_quarter'] = df['created_at'].dt.quarter
-    df['order_hour'] = df['created_at'].dt.hour
-    df['order_dayofweek'] = df['created_at'].dt.dayofweek
-    df['channel_type'] = df['channel'].apply(get_channel_type)
-    
-    return df, data
-
-# ========================================== 
-# SIDEBAR - Data Upload
-# ========================================== 
-data = upload_data()
-
-if data is None or not st.session_state.data_loaded:
-    st.title("📊 E-commerce Analytics Dashboard")
-    st.info("👈 Please load your data in the sidebar to begin analysis")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("""
-        ### 📦 Option 1: Upload ZIP File
-        - Create a ZIP file containing your CSV files
-        - Upload it directly through the web interface
-        - Quick and easy!
-        """)
-    with col2:
-        st.markdown("""
-        ### 📁 Option 2: Load from Folder
-        - Place CSV files in a folder (e.g., 'data/')
-        - Specify the folder path
-        - Great for local development
-        """)
-    
-    st.markdown("""
-    ---
-    ### Required Files:
-    - ✅ **user.csv** - User information
-    - ✅ **product.csv** - Product catalog
-    - ✅ **order.csv** - Order details
-    - ✅ **order_item.csv** - Order line items
-    
-    ### Optional Files:
-    - distribution_centers.csv
-    - inventory_item.csv
-    - event.csv
-    """)
-    st.stop()
-
-# Process data
-df_master, data_dict = merge_and_preprocess(data)
-
-st.sidebar.markdown("---")
-st.sidebar.success(f"✅ {len(df_master):,} transactions")
-st.sidebar.metric("Total Revenue", f"฿{df_master['sale_price'].sum():,.0f}")
-st.sidebar.metric("Total Profit", f"฿{df_master['profit'].sum():,.0f}")
-
-# ========================================== 
-# MAIN TABS
-# ========================================== 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "👥 Customer Analytics",
-    "📦 Inventory Forecast",
-    "💰 Accounting & Profit",
-    "🎯 Marketing Analytics"
-])
-
-# ========================================== 
-# TAB 1: CUSTOMER ANALYTICS
-# ========================================== 
-with tab1:
-    st.header("👥 Customer Analytics")
-    
-    # Date Range Filter
-    st.subheader("📅 Analysis Period")
-    col1, col2, col3 = st.columns([2, 2, 1])
-    
-    with col1:
-        min_date = df_master['created_at'].min().date()
-        max_date = df_master['created_at'].max().date()
-        date_range = st.date_input(
-            "Select Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
-    
-    with col2:
-        quick_filter = st.selectbox(
-            "Quick Filter",
-            ["All Time", "Last 30 Days", "Last 90 Days", "2024", "2025", 
-             "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025"]
-        )
-        
-        # Apply quick filters
-        if quick_filter != "All Time":
-            max_dt = df_master['created_at'].max()
-            if quick_filter == "Last 30 Days":
-                date_range = (max_dt - timedelta(days=30)).date(), max_dt.date()
-            elif quick_filter == "Last 90 Days":
-                date_range = (max_dt - timedelta(days=90)).date(), max_dt.date()
-            elif quick_filter == "2024":
-                date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-12-31').date()
-            elif quick_filter == "2025":
-                date_range = pd.Timestamp('2025-01-01').date(), max_dt.date()
-            elif quick_filter == "Q1 2024":
-                date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-03-31').date()
-            elif quick_filter == "Q2 2024":
-                date_range = pd.Timestamp('2024-04-01').date(), pd.Timestamp('2024-06-30').date()
-            elif quick_filter == "Q3 2024":
-                date_range = pd.Timestamp('2024-07-01').date(), pd.Timestamp('2024-09-30').date()
-            elif quick_filter == "Q4 2024":
-                date_range = pd.Timestamp('2024-10-01').date(), pd.Timestamp('2024-12-31').date()
-            elif quick_filter == "Q1 2025":
-                date_range = pd.Timestamp('2025-01-01').date(), pd.Timestamp('2025-03-31').date()
-            elif quick_filter == "Q2 2025":
-                date_range = pd.Timestamp('2025-04-01').date(), pd.Timestamp('2025-06-30').date()
-            elif quick_filter == "Q3 2025":
-                date_range = pd.Timestamp('2025-07-01').date(), pd.Timestamp('2025-09-30').date()
-            elif quick_filter == "Q4 2025":
-                date_range = pd.Timestamp('2025-10-01').date(), pd.Timestamp('2025-12-31').date()
-    with col3:
-        # Apply filter
-        if len(date_range) == 2:
-            df_filtered = df_master[
-                (df_master['created_at'].dt.date >= date_range[0]) & 
-                (df_master['created_at'].dt.date <= date_range[1])
-            ]
-        else:
-            df_filtered = df_master
-        
-        st.metric("Transactions", f"{len(df_filtered):,}")
-    
-    # Display selected period info
-    st.info(f"📊 Analyzing data from **{date_range[0]}** to **{date_range[1]}** ({len(df_filtered):,} transactions)")
-    
-    # Geographic Analysis
-    st.subheader("🗺️ Geographic Customer Distribution")
-    
-    # Thai provinces to regions mapping
-    province_to_region = {
-        'Bangkok':'Central','Samut Prakan':'Central','Nonthaburi':'Central','Pathum Thani':'Central','Phra Nakhon Si Ayutthaya':'Central',
-        'Ang Thong':'Central','Lop Buri':'Central','Sing Buri':'Central','Chai Nat':'Central','Saraburi':'Central','Chon Buri':'Central',
-        'Rayong':'Central','Chanthaburi':'Central','Trat':'Central','Chachoengsao':'Central','Prachin Buri':'Central','Nakhon Nayok':'Central',
-        'Sra Kaew':'Central','Ratchaburi':'Central','Kanchanaburi':'Central','Suphan Buri':'Central','Nakhon Pathom':'Central','Samut Sakon':'Central',
-        'Samut Songkram':'Central','Phetchaburi':'Central','Prachuapkhiri Khan':'Central',
-        'Chiang Mai':'Northern','Lamphun':'Northern','Lampang':'Northern','Uttaradit':'Northern','Phrae':'Northern','Nan':'Northern','Phayao':'Northern',
-        'Chiang Rai':'Northern','Mae Hong Son':'Northern','Nakhon Sawan':'Northern','Uthai Thani':'Northern','Kamphaeng Phet':'Northern',
-        'Tak':'Northern','Sukhothai':'Northern','Phisanulok':'Northern','Phichit':'Northern','Phetchabun':'Northern',
-        'Nakhon Ratchasima':'Northeastern','Buri Ram':'Northeastern','Surin':'Northeastern','Si Sa Ket':'Northeastern','Ubon Ratchathani':'Northeastern',
-        'Yasothon':'Northeastern','Chaiyaphum':'Northeastern','Amnat Charoen':'Northeastern','Bungkan':'Northeastern','Nong Bua Lam Phu':'Northeastern',
-        'Khon Kaen ':'Northeastern','Udon Thani':'Northeastern','Loei':'Northeastern','Nong Khai':'Northeastern','Maha Sarakham':'Northeastern',
-        'Roi Et':'Northeastern','Kalasin':'Northeastern','Sakon Nakhon':'Northeastern','Naknon Phanom':'Northeastern','Mukdahan':'Northeastern',
-        'Nakhon Si Thammarat':'Southern','Krabi':'Southern','Phangnga':'Southern','Phuket':'Southern','Surat Thani':'Southern','Ranong':'Southern',
-        'Chumphon':'Southern','Songkhla':'Southern','Satun':'Southern','Trang':'Southern','Phatthalung':'Southern','Pattani':'Southern','Yala':'Southern',
-        'Narathiwat':'Southern',
-        # 'Bangkok': 'กลาง', 'Samut Prakan': 'กลาง', 'Nonthaburi': 'กลาง',
-        # 'Pathum Thani': 'กลาง', 'Phra Nakhon Si Ayutthaya': 'กลาง', 'Ayutthaya': 'กลาง',
-        # 'Saraburi': 'กลาง', 'Lop Buri': 'กลาง', 'Sing Buri': 'กลาง', 'Chai Nat': 'กลาง',
-        # 'Suphan Buri': 'กลาง', 'Ang Thong': 'กลาง', 'Nakhon Pathom': 'กลาง',
-        # 'Chiang Mai': 'เหนือ', 'Chiang Rai': 'เหนือ', 'Lampang': 'เหนือ', 'Lamphun': 'เหนือ',
-        # 'Mae Hong Son': 'เหนือ', 'Nan': 'เหนือ', 'Phayao': 'เหนือ', 'Phrae': 'เหนือ',
-        # 'Uttaradit': 'เหนือ', 'Phitsanulok': 'เหนือ', 'Sukhothai': 'เหนือ', 'Tak': 'เหนือ',
-        # 'Kamphaeng Phet': 'เหนือ', 'Phichit': 'เหนือ', 'Phetchabun': 'เหนือ',
-        # 'Nakhon Ratchasima': 'อีสาน', 'Buriram': 'อีสาน', 'Surin': 'อีสาน',
-        # 'Si Sa Ket': 'อีสาน', 'Ubon Ratchathani': 'อีสาน', 'Yasothon': 'อีสาน',
-        # 'Chaiyaphum': 'อีสาน', 'Amnat Charoen': 'อีสาน', 'Nong Bua Lamphu': 'อีสาน',
-        # 'Khon Kaen': 'อีสาน', 'Udon Thani': 'อีสาน', 'Loei': 'อีสาน',
-        # 'Nong Khai': 'อีสาน', 'Maha Sarakham': 'อีสาน', 'Roi Et': 'อีสาน',
-        # 'Kalasin': 'อีสาน', 'Sakon Nakhon': 'อีสาน', 'Nakhon Phanom': 'อีสาน',
-        # 'Mukdahan': 'อีสาน', 'Bueng Kan': 'อีสาน',
-        # 'Phuket': 'ใต้', 'Krabi': 'ใต้', 'Phang Nga': 'ใต้', 'Surat Thani': 'ใต้',
-        # 'Ranong': 'ใต้', 'Chumphon': 'ใต้', 'Nakhon Si Thammarat': 'ใต้', 'Trang': 'ใต้',
-        # 'Phatthalung': 'ใต้', 'Songkhla': 'ใต้', 'Satun': 'ใต้', 'Pattani': 'ใต้',
-        # 'Yala': 'ใต้', 'Narathiwat': 'ใต้',
-        # 'Ratchaburi': 'ตะวันตก', 'Kanchanaburi': 'ตะวันตก', 'Samut Songkhram': 'ตะวันตก',
-        # 'Samut Sakhon': 'ตะวันตก', 'Phetchaburi': 'ตะวันตก', 'Prachuap Khiri Khan': 'ตะวันตก',
-        # 'Chonburi': 'ตะวันออก', 'Rayong': 'ตะวันออก', 'Chanthaburi': 'ตะวันออก',
-        # 'Trat': 'ตะวันออก', 'Chachoengsao': 'ตะวันออก', 'Prachin Buri': 'ตะวันออก',
-        # 'Nakhon Nayok': 'ตะวันออก', 'Sa Kaeo': 'ตะวันออก'
-    }
-    
-    def get_region(city):
-        if pd.isna(city):
-            return 'N/A'
-        city_lower = str(city).lower()
-        for province, region in province_to_region.items():
-            if province.lower() in city_lower:
-                return region
-        return 'Other'
-    
-    # Add region to filtered data
-    df_filtered_geo = df_filtered.copy()
-    df_filtered_geo['region'] = df_filtered_geo['city'].apply(get_region)
-    
-    # Customer geographic analysis
-    customer_geo = df_filtered_geo.groupby(['user_id', 'city', 'region', 'age', 'gender']).agg({
-        'sale_price': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    customer_geo.columns = ['user_id', 'city', 'region', 'age', 'gender', 'total_spent', 'total_orders']
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Region distribution
-        region_dist = customer_geo.groupby('region').agg({
-            'user_id': 'nunique',
-            'total_spent': 'sum'
-        }).reset_index()
-        region_dist.columns = ['Region', 'no. of Customers', 'Sale']
-        
-        fig = px.pie(region_dist, 
-                     values='no. of Customers', 
-                     names='Region',
-                     title="การกระจายลูกค้าตามภูมิภาค",
-                     hole=0.4,
-                     color_discrete_sequence=px.colors.sequential.RdBu)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Top cities by customers
-        top_cities = customer_geo.groupby('city')['user_id'].nunique().nlargest(10).reset_index()
-        top_cities.columns = ['จังหวัด', 'จำนวนลูกค้า']
-        
-        fig = px.bar(top_cities, 
-                     x='จำนวนลูกค้า', 
-                     y='จังหวัด',
-                     orientation='h',
-                     title="Top 10 จังหวัด (จำนวนลูกค้า)",
-                     color='จำนวนลูกค้า',
-                     color_continuous_scale='Viridis')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col3:
-        # Age distribution
-        age_dist = customer_geo[customer_geo['age'].notna()].copy()
-        age_dist['age_group'] = pd.cut(age_dist['age'], 
-                                       bins=[0, 20, 30, 40, 50, 60, 100],
-                                       labels=['<20', '20-30', '30-40', '40-50', '50-60', '60+'])
-        age_group_dist = age_dist.groupby('age_group')['user_id'].nunique().reset_index()
-        age_group_dist.columns = ['กลุ่มอายุ', 'จำนวนลูกค้า']
-        
-        fig = px.bar(age_group_dist, 
-                     x='กลุ่มอายุ', 
-                     y='จำนวนลูกค้า',
-                     title="การกระจายลูกค้าตามช่วงอายุ",
-                     color='จำนวนลูกค้า',
-                     color_continuous_scale='Teal')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Detailed geographic table
-    st.subheader("📊 สรุปข้อมูลตามภูมิภาคและจังหวัด")
-    
-    geo_summary = customer_geo.groupby(['region', 'city']).agg({
-        'user_id': 'nunique',
-        'total_spent': 'sum',
-        'total_orders': 'sum'
-    }).reset_index()
-    geo_summary.columns = ['ภูมิภาค', 'จังหวัด', 'จำนวนลูกค้า', 'ยอดขายรวม (฿)', 'จำนวนคำสั่งซื้อ']
-    geo_summary['ยอดเฉลี่ยต่อลูกค้า (฿)'] = (geo_summary['ยอดขายรวม (฿)'] / geo_summary['จำนวนลูกค้า']).round(2)
-    geo_summary = geo_summary.sort_values('ยอดขายรวม (฿)', ascending=False)
-    
-    # Filter by region
-    selected_regions = st.multiselect(
-        "เลือกภูมิภาค",
-        options=geo_summary['ภูมิภาค'].unique(),
-        default=geo_summary['ภูมิภาค'].unique()
-    )
-    
-    filtered_geo = geo_summary[geo_summary['ภูมิภาค'].isin(selected_regions)]
-    st.dataframe(filtered_geo, use_container_width=True, height=400)
-    
-    # Monthly trends by region
-    st.subheader("📈 Trend การขายตามภูมิภาคและเวลา")
-    
-    monthly_region = df_filtered_geo.groupby([df_filtered_geo['created_at'].dt.to_period('M'), 'region']).agg({
-        'sale_price': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    monthly_region['created_at'] = monthly_region['created_at'].dt.to_timestamp()
-    monthly_region.columns = ['เดือน', 'ภูมิภาค', 'ยอดขาย', 'จำนวนคำสั่งซื้อ']
-    
-    fig = px.line(monthly_region, 
-                  x='เดือน', 
-                  y='ยอดขาย',
-                  color='ภูมิภาค',
-                  title="ยอดขายรายเดือนแยกตามภูมิภาค",
-                  markers=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Customer Segmentation by Value
-    st.subheader("1️⃣ Customer Value Segmentation")
-    
-    # Calculate customer metrics
-    customer_metrics = df_filtered.groupby('user_id').agg({
-        'created_at': lambda x: (df_filtered['created_at'].max() - x.max()).days,
-        'order_id': 'nunique',
-        'sale_price': 'sum',
-        'profit': 'sum'
-    }).reset_index()
-    customer_metrics.columns = ['user_id', 'days_since_last_order', 'total_orders', 'total_revenue', 'total_profit']
-    
-    # Segment by value
-    customer_metrics['segment'] = pd.qcut(
-        customer_metrics['total_revenue'],
-        q=4,
-        labels=['Bronze', 'Silver', 'Gold', 'Platinum'],
-        duplicates='drop'
-    )
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        seg_dist = customer_metrics['segment'].value_counts()
-        fig = px.pie(values=seg_dist.values, 
-                     names=seg_dist.index,
-                     title="Customer Distribution by Value",
-                     hole=0.4,
-                     color_discrete_sequence=px.colors.sequential.Agsunset)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        seg_value = customer_metrics.groupby('segment')['total_revenue'].sum().sort_values(ascending=True)
-        fig = px.bar(x=seg_value.values, 
-                     y=seg_value.index,
-                     orientation='h',
-                     title="Total Revenue by Segment",
-                     labels={'x': 'Revenue (฿)', 'y': 'Segment'},
-                     color=seg_value.index,
-                     color_discrete_sequence=px.colors.sequential.Agsunset)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Segment metrics
-    st.subheader("Segment Performance Metrics")
-    seg_metrics = customer_metrics.groupby('segment').agg({
-        'user_id': 'count',
-        'total_orders': 'mean',
-        'total_revenue': 'mean',
-        'total_profit': 'mean',
-        'days_since_last_order': 'mean'
-    }).round(2)
-    seg_metrics.columns = ['Customers', 'Avg Orders', 'Avg Revenue (฿)', 'Avg Profit (฿)', 'Avg Days Since Order']
-    st.dataframe(seg_metrics, use_container_width=True)
-    
-    # Customer Behavior Patterns
-    st.subheader("2️⃣ Customer Behavior Patterns")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        hourly = df_filtered.groupby('order_hour').size().reset_index(name='orders')
-        fig = px.area(hourly, 
-                      x='order_hour', 
-                      y='orders',
-                      title="Orders by Hour of Day",
-                      labels={'order_hour': 'Hour', 'orders': 'Orders'})
-        fig.update_traces(line_color='#FF6B6B', fillcolor='rgba(255,107,107,0.3)')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        dow_map = {0: 'Mon', 1: 'Tue', 2: 'Wed', 3: 'Thu', 4: 'Fri', 5: 'Sat', 6: 'Sun'}
-        daily = df_filtered.groupby('order_dayofweek').size().reset_index(name='orders')
-        daily['day'] = daily['order_dayofweek'].map(dow_map)
-        fig = px.bar(daily, 
-                     x='day', 
-                     y='orders',
-                     title="Orders by Day of Week",
-                     color='orders',
-                     color_continuous_scale='blues')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Churn Analysis
-    st.subheader("3️⃣ Customer Retention & Churn")
-    
-    customer_metrics['is_churned'] = (customer_metrics['days_since_last_order'] > 60).astype(int)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        active_customers = (customer_metrics['is_churned'] == 0).sum()
-        st.metric("Active Customers", f"{active_customers:,}")
-    
-    with col2:
-        churned_customers = (customer_metrics['is_churned'] == 1).sum()
-        st.metric("Churned Customers", f"{churned_customers:,}")
-    
-    with col3:
-        churn_rate = customer_metrics['is_churned'].mean() * 100
-        st.metric("Churn Rate", f"{churn_rate:.1f}%")
-    
-    with col4:
-        avg_customer_lifetime = customer_metrics['total_orders'].mean()
-        st.metric("Avg Orders per Customer", f"{avg_customer_lifetime:.1f}")
-    
-    churn_by_seg = customer_metrics.groupby('segment')['is_churned'].mean() * 100
-    fig = px.bar(x=churn_by_seg.index, 
-                 y=churn_by_seg.values,
-                 title="Churn Rate by Customer Segment (%)",
-                 labels={'x': 'Segment', 'y': 'Churn Rate (%)'},
-                 color=churn_by_seg.values,
-                 color_continuous_scale='reds')
-    st.plotly_chart(fig, use_container_width=True)
-
-# ========================================== 
-# TAB 2: INVENTORY FORECAST
-# ========================================== 
-with tab2:
-    st.header("📦 Inventory Forecasting")
-    
-    # Product filters
-    st.subheader("🔍 Product Filters")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        categories = ['All'] + sorted(df_master['product_category'].dropna().unique().tolist())
-        selected_category = st.selectbox("Category", categories)
-    
-    with col2:
-        if selected_category != 'All':
-            filtered_df = df_master[df_master['product_category'] == selected_category]
-        else:
-            filtered_df = df_master
-        
-        product_list = filtered_df.groupby(['product_id', 'product_name']).size().reset_index(name='count')
-        product_list = product_list.nlargest(50, 'count')
-        product_options = {f"{row['product_name']} (ID: {row['product_id']})": row['product_id'] 
-                          for _, row in product_list.iterrows()}
-        selected_product_name = st.selectbox("Select Product", list(product_options.keys()))
-        selected_product = product_options[selected_product_name]
-    
-    with col3:
-        st.metric("Total Products", f"{df_master['product_id'].nunique():,}")
-    
-    # Product demand analysis
-    st.subheader("1️⃣ Demand Forecast & Analysis")
-    
-    demand_df = df_master.groupby(['order_date', 'product_id']).size().reset_index(name='quantity')
-    demand_df['order_date'] = pd.to_datetime(demand_df['order_date'])
-    prod_demand = demand_df[demand_df['product_id'] == selected_product].sort_values('order_date')
-    
-    if len(prod_demand) > 7:
-        prod_demand['MA_7'] = prod_demand['quantity'].rolling(window=min(7, len(prod_demand))).mean()
-        if len(prod_demand) > 30:
-            prod_demand['MA_30'] = prod_demand['quantity'].rolling(window=30).mean()
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-                                    y=prod_demand['quantity'],
-                                    mode='lines+markers',
-                                    name='Actual Demand',
-                                    line=dict(color='lightblue', width=1),
-                                    marker=dict(size=4)))
-            fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-                                    y=prod_demand['MA_7'],
-                                    mode='lines',
-                                    name='7-Day MA',
-                                    line=dict(color='orange', width=2)))
-            if len(prod_demand) > 30:
-                fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-                                        y=prod_demand['MA_30'],
-                                        mode='lines',
-                                        name='30-Day MA',
-                                        line=dict(color='red', width=2)))
-            
-            fig.update_layout(title=f"Demand Trend: {selected_product_name}",
-                            xaxis_title="Date",
-                            yaxis_title="Quantity",
-                            hovermode='x unified')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            last_7_avg = prod_demand['quantity'].tail(7).mean()
-            last_30_avg = prod_demand['quantity'].tail(30).mean() if len(prod_demand) >= 30 else last_7_avg
-            forecast_7d = last_7_avg * 7
-            forecast_30d = last_30_avg * 30
-            
-            st.metric("Avg Daily Demand (7d)", f"{last_7_avg:.1f} units")
-            st.metric("Forecast Next 7 Days", f"{forecast_7d:.0f} units")
-            st.metric("Forecast Next 30 Days", f"{forecast_30d:.0f} units")
-            
-            std_dev = prod_demand['quantity'].std()
-            safety_stock = 1.65 * std_dev * np.sqrt(7)
-            st.metric("Safety Stock (95% SL)", f"{safety_stock:.0f} units")
-            
-            lead_time_days = 7
-            reorder_point = (last_7_avg * lead_time_days) + safety_stock
-            st.metric("Reorder Point", f"{reorder_point:.0f} units")
-    else:
-        st.warning("⚠️ Not enough data for this product (minimum 7 days required)")
-    
-    # Fast vs Slow Moving Analysis
-    st.subheader("2️⃣ Product Movement Analysis")
-    
-    product_velocity = df_master.groupby(['product_id', 'product_name']).agg({
-        'order_id': 'nunique',
-        'sale_price': 'sum'
-    }).reset_index()
-    product_velocity.columns = ['product_id', 'product_name', 'order_count', 'total_revenue']
-    
-    velocity_threshold_fast = product_velocity['order_count'].quantile(0.75)
-    velocity_threshold_slow = product_velocity['order_count'].quantile(0.25)
-    
-    def classify_movement(count):
-        if count >= velocity_threshold_fast:
-            return 'Fast Moving'
-        elif count <= velocity_threshold_slow:
-            return 'Slow Moving'
-        else:
-            return 'Medium Moving'
-    
-    product_velocity['movement'] = product_velocity['order_count'].apply(classify_movement)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        movement_dist = product_velocity['movement'].value_counts()
-        fig = px.pie(values=movement_dist.values, 
-                     names=movement_dist.index,
-                     title="Product Movement Distribution",
-                     hole=0.4,
-                     color_discrete_map={
-                         'Fast Moving': '#2ecc71',
-                         'Medium Moving': '#f39c12',
-                         'Slow Moving': '#e74c3c'
-                     })
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        top_fast = product_velocity[product_velocity['movement'] == 'Fast Moving'].nlargest(10, 'order_count')
-        fig = px.bar(top_fast, 
-                     x='order_count', 
-                     y='product_name',
-                     orientation='h',
-                     title="Top 10 Fast Moving Products",
-                     labels={'order_count': 'Order Count', 'product_name': 'Product'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.subheader("Product Movement Details")
-    movement_filter = st.multiselect("Filter by Movement", 
-                                     ['Fast Moving', 'Medium Moving', 'Slow Moving'],
-                                     default=['Fast Moving'])
-    filtered_products = product_velocity[product_velocity['movement'].isin(movement_filter)]
-    st.dataframe(filtered_products.sort_values('order_count', ascending=False), 
-                use_container_width=True, height=400)
-
-# ========================================== 
-# TAB 3: ACCOUNTING & PROFIT
-# ========================================== 
-with tab3:
-    st.header("💰 Accounting & Profitability Analysis")
-    
-    st.subheader("1️⃣ Key Financial Metrics")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        total_revenue = df_master['sale_price'].sum()
-        st.metric("Total Revenue", f"฿{total_revenue:,.0f}")
-    
-    with col2:
-        total_cost = df_master['cost'].sum()
-        st.metric("Total Cost", f"฿{total_cost:,.0f}")
-    
-    with col3:
-        total_profit = df_master['profit'].sum()
-        st.metric("Total Profit", f"฿{total_profit:,.0f}")
-    
-    with col4:
-        profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
-        st.metric("Profit Margin", f"{profit_margin:.1f}%")
-    
-    # Channel Performance
-    st.subheader("2️⃣ Channel Performance (Online vs Offline)")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        channel_type_perf = df_master.groupby('channel_type').agg({
-            'sale_price': 'sum',
-            'profit': 'sum',
-            'order_id': 'nunique'
-        }).reset_index()
-        channel_type_perf['profit_margin_%'] = (channel_type_perf['profit'] / channel_type_perf['sale_price'] * 100).round(1)
-        
-        fig = px.pie(channel_type_perf, 
-                     values='sale_price', 
-                     names='channel_type',
-                     title="Revenue: Online vs Offline",
-                     hole=0.4,
-                     color_discrete_map={'Online': '#3498db', 'Offline': '#e67e22', 'Other': '#95a5a6'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        fig = px.bar(channel_type_perf, 
-                     x='channel_type', 
-                     y='profit_margin_%',
-                     title="Profit Margin: Online vs Offline (%)",
-                     color='channel_type',
-                     color_discrete_map={'Online': '#3498db', 'Offline': '#e67e22', 'Other': '#95a5a6'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.subheader("Detailed Channel Breakdown")
-    channel_detail = df_master.groupby(['channel', 'channel_type']).agg({
-        'sale_price': 'sum',
-        'profit': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    channel_detail.columns = ['Channel', 'Type', 'Revenue (฿)', 'Profit (฿)', 'Orders']
-    channel_detail['Profit Margin (%)'] = (channel_detail['Profit (฿)'] / channel_detail['Revenue (฿)'] * 100).round(1)
-    channel_detail['AOV (฿)'] = (channel_detail['Revenue (฿)'] / channel_detail['Orders']).round(2)
-    st.dataframe(channel_detail.sort_values('Revenue (฿)', ascending=False), 
-                use_container_width=True, height=300)
-    
-    # Category profitability
-    st.subheader("3️⃣ Product Category Profitability")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        cat_profit = df_master.groupby('product_category').agg({
-            'sale_price': 'sum',
-            'profit': 'sum'
-        }).reset_index()
-        cat_profit['margin_%'] = (cat_profit['profit'] / cat_profit['sale_price'] * 100).round(1)
-        cat_profit = cat_profit.sort_values('profit', ascending=True)
-        
-        fig = px.bar(cat_profit, 
-                     x='profit', 
-                     y='product_category',
-                     orientation='h',
-                     title="Profit by Product Category",
-                     labels={'profit': 'Profit (฿)', 'product_category': 'Category'},
-                     color='margin_%',
-                     color_continuous_scale='RdYlGn')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        fig = px.scatter(cat_profit, 
-                        x='sale_price', 
-                        y='profit',
-                        size='margin_%',
-                        text='product_category',
-                        title="Revenue vs Profit by Category",
-                        labels={'sale_price': 'Revenue (฿)', 'profit': 'Profit (฿)'},
-                        color='margin_%',
-                        color_continuous_scale='RdYlGn')
-        fig.update_traces(textposition='top center')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Monthly revenue trend
-    st.subheader("4️⃣ Revenue & Profit Trends")
-    
-    monthly_metrics = df_master.groupby('order_month').agg({
-        'sale_price': 'sum',
-        'profit': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    monthly_metrics['order_month'] = monthly_metrics['order_month'].dt.to_timestamp()
-    monthly_metrics['profit_margin_%'] = (monthly_metrics['profit'] / monthly_metrics['sale_price'] * 100).round(1)
-    
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=monthly_metrics['order_month'], 
-                        y=monthly_metrics['sale_price'],
-                        name='Revenue',
-                        marker_color='lightblue'))
-    fig.add_trace(go.Bar(x=monthly_metrics['order_month'], 
-                        y=monthly_metrics['profit'],
-                        name='Profit',
-                        marker_color='lightgreen'))
-    fig.add_trace(go.Scatter(x=monthly_metrics['order_month'], 
-                            y=monthly_metrics['profit_margin_%'],
-                            name='Profit Margin %',
-                            yaxis='y2',
-                            mode='lines+markers',
-                            line=dict(color='red', width=3)))
-    
-    fig.update_layout(
-        title="Monthly Revenue, Profit & Margin Trends",
-        xaxis_title="Month",
-        yaxis_title="Amount (฿)",
-        yaxis2=dict(title="Profit Margin (%)", overlaying='y', side='right'),
-        hovermode='x unified',
-        barmode='group'
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# ========================================== 
-# TAB 4: MARKETING ANALYTICS
-# ========================================== 
-with tab4:
-    st.header("🎯 Marketing Analytics")
-    
-    st.subheader("1️⃣ Campaign Effectiveness")
-    
-    campaign_df = df_master[df_master['discount_pct'] > 0].copy()
-    non_campaign_df = df_master[df_master['discount_pct'] == 0].copy()
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        campaign_revenue = campaign_df['sale_price'].sum()
-        non_campaign_revenue = non_campaign_df['sale_price'].sum()
-        campaign_share = (campaign_revenue / (campaign_revenue + non_campaign_revenue) * 100)
-        st.metric("Campaign Revenue Share", f"{campaign_share:.1f}%")
-        st.caption(f"฿{campaign_revenue:,.0f}")
-    
-    with col2:
-        campaign_orders = len(campaign_df)
-        total_orders = len(df_master)
-        campaign_order_share = (campaign_orders / total_orders * 100)
-        st.metric("Campaign Order Share", f"{campaign_order_share:.1f}%")
-        st.caption(f"{campaign_orders:,} orders")
-    
-    with col3:
-        campaign_aov = campaign_df['sale_price'].mean()
-        non_campaign_aov = non_campaign_df['sale_price'].mean()
-        aov_lift = ((campaign_aov / non_campaign_aov - 1) * 100) if non_campaign_aov > 0 else 0
-        st.metric("AOV Lift from Campaign", f"{aov_lift:+.1f}%")
-        st.caption(f"Campaign: ฿{campaign_aov:,.0f}")
-    
-    with col4:
-        avg_discount = campaign_df['discount_pct'].mean() * 100
-        st.metric("Avg Discount Rate", f"{avg_discount:.1f}%")
-        st.caption(f"{len(campaign_df):,} discounted orders")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        comparison = pd.DataFrame({
-            'Type': ['With Campaign', 'Without Campaign'],
-            'AOV': [campaign_aov, non_campaign_aov],
-            'Orders': [len(campaign_df), len(non_campaign_df)],
-            'Revenue': [campaign_revenue, non_campaign_revenue]
-        })
-        
-        fig = px.bar(comparison, 
-                     x='Type', 
-                     y='AOV',
-                     title="Average Order Value: Campaign Impact",
-                     color='Type',
-                     color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        fig = px.pie(comparison, 
-                     values='Revenue', 
-                     names='Type',
-                     title="Revenue Distribution",
-                     hole=0.4,
-                     color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Traffic source analysis
-    st.subheader("2️⃣ Traffic Source Performance")
-    
-    traffic_perf = df_master.groupby('traffic_source').agg({
-        'user_id': 'nunique',
-        'sale_price': 'sum',
-        'profit': 'sum',
-        'order_id': 'nunique'
-    }).reset_index()
-    traffic_perf.columns = ['Traffic Source', 'Customers', 'Revenue', 'Profit', 'Orders']
-    traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
-    traffic_perf['Profit Margin (%)'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(1)
-    traffic_perf['Conversion Rate (%)'] = ((traffic_perf['Orders'] / traffic_perf['Customers']) * 100).round(1)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig = px.bar(traffic_perf.sort_values('Revenue', ascending=True),
-                     x='Revenue', 
-                     y='Traffic Source',
-                     orientation='h',
-                     title="Revenue by Traffic Source",
-                     color='Profit Margin (%)',
-                     color_continuous_scale='viridis')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        fig = px.scatter(traffic_perf, 
-                        x='Customers', 
-                        y='Revenue per Customer',
-                        size='Revenue',
-                        text='Traffic Source',
-                        title="Customer Value by Traffic Source",
-                        labels={'Customers': 'Total Customers', 'Revenue per Customer': 'Revenue per Customer (฿)'},
-                        color='Profit Margin (%)',
-                        color_continuous_scale='plasma')
-        fig.update_traces(textposition='top center')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.dataframe(traffic_perf.sort_values('Revenue', ascending=False), 
-                use_container_width=True, height=300)
-    
-    # Customer clustering
-    st.subheader("3️⃣ Customer Segmentation (K-Means Clustering)")
-    
-    cluster_data = df_master.groupby('user_id').agg({
-        'created_at': lambda x: (df_master['created_at'].max() - x.max()).days,
-        'order_id': 'nunique',
-        'sale_price': 'sum'
-    }).reset_index()
-    cluster_data.columns = ['user_id', 'recency', 'frequency', 'monetary']
-    
-    scaler = StandardScaler()
-    features_scaled = scaler.fit_transform(cluster_data[['recency', 'frequency', 'monetary']])
-    
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        n_clusters = st.slider("Number of Clusters", 2, 6, 4)
-    
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    cluster_data['cluster'] = kmeans.fit_predict(features_scaled)
-    
-    fig = px.scatter_3d(cluster_data, 
-                        x='recency', 
-                        y='frequency', 
-                        z='monetary',
-                        color='cluster',
-                        title="Customer Clusters (3D Visualization)",
-                        labels={'cluster': 'Cluster', 
-                               'recency': 'Recency (days)', 
-                               'frequency': 'Frequency (orders)', 
-                               'monetary': 'Monetary (฿)'},
-                        color_continuous_scale='viridis')
-    fig.update_traces(marker=dict(size=5))
-    st.plotly_chart(fig, use_container_width=True)
-    
-    cluster_stats = cluster_data.groupby('cluster').agg({
-        'recency': 'mean',
-        'frequency': 'mean',
-        'monetary': 'mean',
-        'user_id': 'count'
-    }).round(2)
-    cluster_stats.columns = ['Avg Recency (days)', 'Avg Frequency', 'Avg Monetary (฿)', 'Customer Count']
-    cluster_stats['Total Value (฿)'] = (cluster_stats['Avg Monetary (฿)'] * cluster_stats['Customer Count']).round(0)
-    
-    st.subheader("Cluster Characteristics")
-    st.dataframe(cluster_stats, use_container_width=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        cluster_dist = cluster_data['cluster'].value_counts().sort_index()
-        fig = px.bar(x=cluster_dist.index.astype(str), 
-                     y=cluster_dist.values,
-                     title="Customer Distribution by Cluster",
-                     labels={'x': 'Cluster', 'y': 'Number of Customers'},
-                     color=cluster_dist.values,
-                     color_continuous_scale='blues')
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        cluster_value = cluster_data.groupby('cluster')['monetary'].sum()
-        fig = px.pie(values=cluster_value.values, 
-                     names=[f"Cluster {i}" for i in cluster_value.index],
-                     title="Revenue Distribution by Cluster",
-                     hole=0.4)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Marketing recommendations
-    st.subheader("4️⃣ Marketing Insights & Recommendations")
-    
-    with st.expander("📊 View Detailed Insights"):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 🎯 Campaign Insights")
-            if campaign_order_share > 50:
-                st.success(f"✅ High campaign engagement ({campaign_order_share:.0f}% of orders)")
-            else:
-                st.info(f"💡 Opportunity to increase campaign coverage (current: {campaign_order_share:.0f}%)")
-            
-            if aov_lift > 10:
-                st.success(f"✅ Strong AOV lift from campaigns (+{aov_lift:.1f}%)")
-            elif aov_lift > 0:
-                st.warning(f"⚠️ Moderate AOV lift (+{aov_lift:.1f}%) - optimize discount strategy")
-            else:
-                st.error(f"❌ Negative AOV impact ({aov_lift:.1f}%) - review campaign effectiveness")
-        
-        with col2:
-            st.markdown("### 📱 Channel Insights")
-            best_channel = channel_detail.loc[channel_detail['Profit Margin (%)'].idxmax()]
-            st.success(f"✅ Best performing channel: **{best_channel['Channel']}** ({best_channel['Type']})")
-            st.metric("Profit Margin", f"{best_channel['Profit Margin (%)']}%")
-            st.metric("Total Revenue", f"฿{best_channel['Revenue (฿)']:,.0f}")
-
-st.markdown("---")
-st.caption("📊 E-commerce Analytics Dashboard | Built with Streamlit")
-
 # app.py - Modern E-commerce Analytics Dashboard with Geographic Analysis (MODIFIED)
 # import streamlit as st
 # import pandas as pd
@@ -1997,1367 +947,1106 @@ st.caption("📊 E-commerce Analytics Dashboard | Built with Streamlit")
 
 
 
-# # app.py - Modern E-commerce Analytics Dashboard with Geographic Analysis
-# import streamlit as st
-# import pandas as pd
-# import plotly.express as px
-# import plotly.graph_objects as go
-# from datetime import datetime, timedelta
-# import numpy as np
-# from sklearn.cluster import KMeans
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.model_selection import train_test_split
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.metrics import classification_report, roc_auc_score
-# import warnings
-# import zipfile
-# import io
+# app.py - Enhanced E-commerce Analytics Dashboard
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+import warnings
+import zipfile
 
-# warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore')
 
-# # Page config
-# st.set_page_config(page_title="E-commerce Analytics", layout="wide", page_icon="📊")
+# Page config
+st.set_page_config(page_title="E-commerce Analytics Pro", layout="wide", page_icon="📊")
 
-# # Initialize session state
-# if 'data_loaded' not in st.session_state:
-#     st.session_state.data_loaded = False
-# if 'data' not in st.session_state:
-#     st.session_state.data = None
+# Initialize session state
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+if 'data' not in st.session_state:
+    st.session_state.data = None
 
-# # Utility function to map channel to type
-# def get_channel_type(channel):
-#     """Map channel to Online/Offline"""
-#     online_channels = ['line shopping', 'lazada', 'shopee', 'tiktok']
-#     offline_channels = ['siam center']
-#     channel_lower = str(channel).lower()
-#     for oc in online_channels:
-#         if oc in channel_lower:
-#             return 'Online'
-#     for of in offline_channels:
-#         if of in channel_lower:
-#             return 'Offline'
-#     return 'Other'
+def get_channel_type(channel):
+    """Map channel to Online/Offline"""
+    online_channels = ['line shopping', 'lazada', 'shopee', 'tiktok']
+    offline_channels = ['siam center']
+    channel_lower = str(channel).lower()
+    for oc in online_channels:
+        if oc in channel_lower:
+            return 'Online'
+    for of in offline_channels:
+        if of in channel_lower:
+            return 'Offline'
+    return 'Other'
 
-# # File upload options
-# def upload_data():
-#     """Flexible data upload - ZIP file or folder path"""
-#     st.sidebar.title("📊 E-commerce Analytics")
-#     st.sidebar.markdown("---")
+def upload_data():
+    """Flexible data upload - ZIP file or folder path"""
+    st.sidebar.title("📊 E-commerce Analytics Pro")
+    st.sidebar.markdown("---")
     
-#     upload_method = st.sidebar.radio(
-#         "📁 Data Source",
-#         ["Upload ZIP File", "Load from Folder Path"]
-#     )
+    upload_method = st.sidebar.radio(
+        "📁 Data Source",
+        ["Upload ZIP File", "Load from Folder Path"]
+    )
     
-#     data = None
+    data = None
     
-#     if upload_method == "Upload ZIP File":
-#         st.sidebar.subheader("Upload ZIP containing CSV files")
-#         st.sidebar.caption("ZIP should contain: user.csv, product.csv, order.csv, order_item.csv")
-#         uploaded_zip = st.sidebar.file_uploader("Choose ZIP file", type=['zip'])
+    if upload_method == "Upload ZIP File":
+        st.sidebar.subheader("Upload ZIP containing CSV files")
+        st.sidebar.caption("ZIP should contain: user.csv, product.csv, order.csv, order_item.csv")
+        uploaded_zip = st.sidebar.file_uploader("Choose ZIP file", type=['zip'])
         
-#         if uploaded_zip is not None:
-#             if st.sidebar.button("🔄 Load Data", type="primary"):
-#                 try:
-#                     with zipfile.ZipFile(uploaded_zip) as z:
-#                         data = {}
-#                         file_mapping = {
-#                             "distribution_centers.csv": "dc",
-#                             "user.csv": "user",
-#                             "product.csv": "product",
-#                             "inventory_item.csv": "inventory",
-#                             "order.csv": "order",
-#                             "order_item.csv": "order_item",
-#                             "event.csv": "event"
-#                         }
+        if uploaded_zip is not None:
+            if st.sidebar.button("🔄 Load Data", type="primary"):
+                try:
+                    with zipfile.ZipFile(uploaded_zip) as z:
+                        data = {}
+                        file_mapping = {
+                            "distribution_centers.csv": "dc",
+                            "user.csv": "user",
+                            "product.csv": "product",
+                            "inventory_item.csv": "inventory",
+                            "order.csv": "order",
+                            "order_item.csv": "order_item",
+                            "event.csv": "event"
+                        }
                         
-#                         for filename in z.namelist():
-#                             base_name = filename.split('/')[-1]
-#                             if base_name in file_mapping:
-#                                 key = file_mapping[base_name]
-#                                 with z.open(filename) as f:
-#                                     data[key] = pd.read_csv(f)
-#                                 st.sidebar.success(f"✅ {base_name}")
+                        for filename in z.namelist():
+                            base_name = filename.split('/')[-1]
+                            if base_name in file_mapping:
+                                key = file_mapping[base_name]
+                                with z.open(filename) as f:
+                                    data[key] = pd.read_csv(f)
+                                st.sidebar.success(f"✅ {base_name}")
                         
-#                         required = ['user', 'product', 'order', 'order_item']
-#                         missing = [r for r in required if r not in data]
-#                         if missing:
-#                             st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
-#                             return None
+                        required = ['user', 'product', 'order', 'order_item']
+                        missing = [r for r in required if r not in data]
+                        if missing:
+                            st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
+                            return None
                         
-#                         st.session_state.data = data
-#                         st.session_state.data_loaded = True
-#                         st.sidebar.success("✅ All data loaded!")
-#                         return data
-#                 except Exception as e:
-#                     st.sidebar.error(f"❌ Error: {str(e)}")
-#                     return None
-#     else:
-#         data_path = st.sidebar.text_input("Folder path", value="data")
-#         if st.sidebar.button("🔄 Load Data", type="primary"):
-#             try:
-#                 import os
-#                 data = {}
-#                 file_mapping = {
-#                     "distribution_centers.csv": "dc",
-#                     "user.csv": "user",
-#                     "product.csv": "product",
-#                     "inventory_item.csv": "inventory",
-#                     "order.csv": "order",
-#                     "order_item.csv": "order_item",
-#                     "event.csv": "event"
-#                 }
+                        st.session_state.data = data
+                        st.session_state.data_loaded = True
+                        st.sidebar.success("✅ All data loaded!")
+                        return data
+                except Exception as e:
+                    st.sidebar.error(f"❌ Error: {str(e)}")
+                    return None
+    else:
+        data_path = st.sidebar.text_input("Folder path", value="data")
+        if st.sidebar.button("🔄 Load Data", type="primary"):
+            try:
+                import os
+                data = {}
+                file_mapping = {
+                    "distribution_centers.csv": "dc",
+                    "user.csv": "user",
+                    "product.csv": "product",
+                    "inventory_item.csv": "inventory",
+                    "order.csv": "order",
+                    "order_item.csv": "order_item",
+                    "event.csv": "event"
+                }
                 
-#                 for filename, key in file_mapping.items():
-#                     filepath = os.path.join(data_path, filename)
-#                     if os.path.exists(filepath):
-#                         data[key] = pd.read_csv(filepath)
-#                         st.sidebar.success(f"✅ {filename}")
+                for filename, key in file_mapping.items():
+                    filepath = os.path.join(data_path, filename)
+                    if os.path.exists(filepath):
+                        data[key] = pd.read_csv(filepath)
+                        st.sidebar.success(f"✅ {filename}")
                 
-#                 required = ['user', 'product', 'order', 'order_item']
-#                 missing = [r for r in required if r not in data]
-#                 if missing:
-#                     st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
-#                     return None
+                required = ['user', 'product', 'order', 'order_item']
+                missing = [r for r in required if r not in data]
+                if missing:
+                    st.sidebar.error(f"❌ Missing: {', '.join(missing)}")
+                    return None
                 
-#                 st.session_state.data = data
-#                 st.session_state.data_loaded = True
-#                 st.sidebar.success("✅ All data loaded!")
-#                 return data
-#             except Exception as e:
-#                 st.sidebar.error(f"❌ Error: {str(e)}")
-#                 return None
+                st.session_state.data = data
+                st.session_state.data_loaded = True
+                st.sidebar.success("✅ All data loaded!")
+                return data
+            except Exception as e:
+                st.sidebar.error(f"❌ Error: {str(e)}")
+                return None
     
-#     return st.session_state.data if st.session_state.data_loaded else None
+    return st.session_state.data if st.session_state.data_loaded else None
 
-# @st.cache_data
-# def merge_and_preprocess(data):
-#     """Merge all tables and create master dataframe"""
-#     df = data['order_item'].merge(
-#         data['order'][['order_id', 'channel', 'discount_pct', 'status', 'num_of_item', 'created_at']],
-#         on='order_id', how='left', suffixes=('', '_order')
-#     )
-#     df = df.merge(
-#         data['product'][['product_id', 'product_category', 'product_collection', 'retail_price', 'product_name']],
-#         on='product_id', how='left', suffixes=('', '_prod')
-#     )
-#     df = df.merge(
-#         data['user'][['user_id', 'city', 'traffic_source', 'age', 'gender']],
-#         on='user_id', how='left'
-#     )
+@st.cache_data
+def merge_and_preprocess(data):
+    """Merge all tables and create master dataframe"""
+    df = data['order_item'].merge(
+        data['order'][['order_id', 'channel', 'discount_pct', 'status', 'num_of_item', 'created_at']],
+        on='order_id', how='left', suffixes=('', '_order')
+    )
+    df = df.merge(
+        data['product'][['product_id', 'product_category', 'product_collection', 'retail_price', 'product_name']],
+        on='product_id', how='left', suffixes=('', '_prod')
+    )
+    df = df.merge(
+        data['user'][['user_id', 'city', 'traffic_source', 'age', 'gender']],
+        on='user_id', how='left'
+    )
     
-#     # Date conversions
-#     for col in ['created_at', 'shipped_at', 'delivered_at', 'returned_at']:
-#         if col in df.columns:
-#             df[col] = pd.to_datetime(df[col], errors='coerce')
+    # Date conversions
+    for col in ['created_at', 'shipped_at', 'delivered_at', 'returned_at']:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce')
     
-#     # Derived fields
-#     df['profit'] = df['sale_price'] - df['cost']
-#     df['order_date'] = df['created_at'].dt.date
-#     df['order_month'] = df['created_at'].dt.to_period('M')
-#     df['order_year'] = df['created_at'].dt.year
-#     df['order_quarter'] = df['created_at'].dt.quarter
-#     df['order_hour'] = df['created_at'].dt.hour
-#     df['order_dayofweek'] = df['created_at'].dt.dayofweek
-#     df['channel_type'] = df['channel'].apply(get_channel_type)
+    # Derived fields
+    df['profit'] = df['sale_price'] - df['cost']
+    df['order_date'] = df['created_at'].dt.date
+    df['order_month'] = df['created_at'].dt.to_period('M')
+    df['order_year'] = df['created_at'].dt.year
+    df['order_quarter'] = df['created_at'].dt.quarter
+    df['order_hour'] = df['created_at'].dt.hour
+    df['order_dayofweek'] = df['created_at'].dt.dayofweek
+    df['channel_type'] = df['channel'].apply(get_channel_type)
     
-#     return df, data
+    return df, data
 
-# # ========================================== 
-# # SIDEBAR - Data Upload
-# # ========================================== 
-# data = upload_data()
+# ==========================================
+# SIDEBAR - Data Upload
+# ==========================================
+data = upload_data()
 
-# if data is None or not st.session_state.data_loaded:
-#     st.title("📊 E-commerce Analytics Dashboard")
-#     st.info("👈 Please load your data in the sidebar to begin analysis")
+if data is None or not st.session_state.data_loaded:
+    st.title("📊 E-commerce Analytics Dashboard Pro")
+    st.info("👈 Please load your data in the sidebar to begin analysis")
     
-#     col1, col2 = st.columns(2)
-#     with col1:
-#         st.markdown("""
-#         ### 📦 Option 1: Upload ZIP File
-#         - Create a ZIP file containing your CSV files
-#         - Upload it directly through the web interface
-#         - Quick and easy!
-#         """)
-#     with col2:
-#         st.markdown("""
-#         ### 📁 Option 2: Load from Folder
-#         - Place CSV files in a folder (e.g., 'data/')
-#         - Specify the folder path
-#         - Great for local development
-#         """)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        ### 📦 Option 1: Upload ZIP File
+        - Create a ZIP file containing your CSV files
+        - Upload it directly through the web interface
+        - Quick and easy!
+        """)
+    with col2:
+        st.markdown("""
+        ### 📁 Option 2: Load from Folder
+        - Place CSV files in a folder (e.g., 'data/')
+        - Specify the folder path
+        - Great for local development
+        """)
     
-#     st.markdown("""
-#     ---
-#     ### Required Files:
-#     - ✅ **user.csv** - User information
-#     - ✅ **product.csv** - Product catalog
-#     - ✅ **order.csv** - Order details
-#     - ✅ **order_item.csv** - Order line items
+    st.markdown("""
+    ---
+    ### Required Files:
+    - ✅ **user.csv** - User information
+    - ✅ **product.csv** - Product catalog
+    - ✅ **order.csv** - Order details
+    - ✅ **order_item.csv** - Order line items
     
-#     ### Optional Files:
-#     - distribution_centers.csv
-#     - inventory_item.csv
-#     - event.csv
-#     """)
-#     st.stop()
+    ### Optional Files:
+    - distribution_centers.csv
+    - inventory_item.csv
+    - event.csv
+    """)
+    st.stop()
 
-# # Process data
-# df_master, data_dict = merge_and_preprocess(data)
+# Process data
+df_master, data_dict = merge_and_preprocess(data)
 
-# st.sidebar.markdown("---")
-# st.sidebar.success(f"✅ {len(df_master):,} transactions")
-# st.sidebar.metric("Total Revenue", f"฿{df_master['sale_price'].sum():,.0f}")
-# st.sidebar.metric("Total Profit", f"฿{df_master['profit'].sum():,.0f}")
+st.sidebar.markdown("---")
+st.sidebar.success(f"✅ {len(df_master):,} transactions")
+st.sidebar.metric("Total Revenue", f"฿{df_master['sale_price'].sum():,.0f}")
+st.sidebar.metric("Total Profit", f"฿{df_master['profit'].sum():,.0f}")
 
-# # ========================================== 
-# # MAIN TABS
-# # ========================================== 
-# tab1, tab2, tab3, tab4 = st.tabs([
-#     "👥 Customer Analytics",
-#     "📦 Inventory Forecast",
-#     "💰 Accounting & Profit",
-#     "🎯 Marketing Analytics"
-# ])
+# ==========================================
+# MAIN TABS
+# ==========================================
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Executive Dashboard",
+    "💼 Sales Analytics", 
+    "📢 Marketing Analytics",
+    "💰 Financial Analytics",
+    "📦 Warehouse & Inventory"
+])
 
-# # ========================================== 
-# # TAB 1: CUSTOMER ANALYTICS
-# # ========================================== 
-# with tab1:
-#     st.header("👥 Customer Analytics")
+# ==========================================
+# TAB 1: EXECUTIVE DASHBOARD
+# ==========================================
+with tab1:
+    st.header("📊 Executive Dashboard")
     
-#     # Date Range Filter
-#     st.subheader("📅 Analysis Period")
-#     col1, col2, col3 = st.columns([2, 2, 1])
+    # Date Range Filter
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        min_date = df_master['created_at'].min().date()
+        max_date = df_master['created_at'].max().date()
+        date_range = st.date_input(
+            "Select Date Range",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date
+        )
     
-#     with col1:
-#         min_date = df_master['created_at'].min().date()
-#         max_date = df_master['created_at'].max().date()
-#         date_range = st.date_input(
-#             "Select Date Range",
-#             value=(min_date, max_date),
-#             min_value=min_date,
-#             max_value=max_date
-#         )
-    
-#     with col2:
-#         quick_filter = st.selectbox(
-#             "Quick Filter",
-#             ["All Time", "Last 30 Days", "Last 90 Days", "2024", "2025", 
-#              "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025"]
-#         )
+    with col2:
+        if len(date_range) == 2:
+            df_filtered = df_master[
+                (df_master['created_at'].dt.date >= date_range[0]) & 
+                (df_master['created_at'].dt.date <= date_range[1])
+            ]
+        else:
+            df_filtered = df_master
         
-#         # Apply quick filters
-#         if quick_filter != "All Time":
-#             max_dt = df_master['created_at'].max()
-#             if quick_filter == "Last 30 Days":
-#                 date_range = (max_dt - timedelta(days=30)).date(), max_dt.date()
-#             elif quick_filter == "Last 90 Days":
-#                 date_range = (max_dt - timedelta(days=90)).date(), max_dt.date()
-#             elif quick_filter == "2024":
-#                 date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-12-31').date()
-#             elif quick_filter == "2025":
-#                 date_range = pd.Timestamp('2025-01-01').date(), max_dt.date()
-#             elif quick_filter == "Q1 2024":
-#                 date_range = pd.Timestamp('2024-01-01').date(), pd.Timestamp('2024-03-31').date()
-#             elif quick_filter == "Q2 2024":
-#                 date_range = pd.Timestamp('2024-04-01').date(), pd.Timestamp('2024-06-30').date()
-#             elif quick_filter == "Q3 2024":
-#                 date_range = pd.Timestamp('2024-07-01').date(), pd.Timestamp('2024-09-30').date()
-#             elif quick_filter == "Q4 2024":
-#                 date_range = pd.Timestamp('2024-10-01').date(), pd.Timestamp('2024-12-31').date()
-#             elif quick_filter == "Q1 2025":
-#                 date_range = pd.Timestamp('2025-01-01').date(), pd.Timestamp('2025-03-31').date()
-#             elif quick_filter == "Q2 2025":
-#                 date_range = pd.Timestamp('2025-04-01').date(), pd.Timestamp('2025-06-30').date()
-#             elif quick_filter == "Q3 2025":
-#                 date_range = pd.Timestamp('2025-07-01').date(), pd.Timestamp('2025-09-30').date()
-#             elif quick_filter == "Q4 2025":
-#                 date_range = pd.Timestamp('2025-10-01').date(), pd.Timestamp('2025-12-31').date()
+        st.metric("Transactions", f"{len(df_filtered):,}")
     
-#     with col3:
-#         # Apply filter
-#         if len(date_range) == 2:
-#             df_filtered = df_master[
-#                 (df_master['created_at'].dt.date >= date_range[0]) & 
-#                 (df_master['created_at'].dt.date <= date_range[1])
-#             ]
-#         else:
-#             df_filtered = df_master
-        
-#         st.metric("Transactions", f"{len(df_filtered):,}")
+    # KPI Cards
+    st.subheader("🎯 Key Performance Indicators")
+    col1, col2, col3, col4 = st.columns(4)
     
-#     # Display selected period info
-#     st.info(f"📊 Analyzing data from **{date_range[0]}** to **{date_range[1]}** ({len(df_filtered):,} transactions)")
+    with col1:
+        total_revenue = df_filtered['sale_price'].sum()
+        st.metric("Total Revenue", f"฿{total_revenue:,.0f}")
     
-#     # Geographic Analysis with Interactive Map
-#     st.subheader("🗺️ Geographic Customer Distribution")
+    with col2:
+        total_profit = df_filtered['profit'].sum()
+        profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+        st.metric("Total Profit", f"฿{total_profit:,.0f}", 
+                 delta=f"{profit_margin:.1f}% margin")
     
-#     # Thai provinces to regions mapping (expanded)
-#     province_to_region = {
-#         'Bangkok':'Central','Samut Prakan':'Central','Nonthaburi':'Central','Pathum Thani':'Central','Phra Nakhon Si Ayutthaya':'Central',
-#         'Ang Thong':'Central','Lop Buri':'Central','Sing Buri':'Central','Chai Nat':'Central','Saraburi':'Central','Chon Buri':'Central',
-#         'Rayong':'Central','Chanthaburi':'Central','Trat':'Central','Chachoengsao':'Central','Prachin Buri':'Central','Nakhon Nayok':'Central',
-#         'Sra Kaew':'Central','Ratchaburi':'Central','Kanchanaburi':'Central','Suphan Buri':'Central','Nakhon Pathom':'Central','Samut Sakon':'Central',
-#         'Samut Songkram':'Central','Phetchaburi':'Central','Prachuapkhiri Khan':'Central','Prachuap Khiri Khan':'Central',
-#         'Chiang Mai':'Northern','Lamphun':'Northern','Lampang':'Northern','Uttaradit':'Northern','Phrae':'Northern','Nan':'Northern','Phayao':'Northern',
-#         'Chiang Rai':'Northern','Mae Hong Son':'Northern','Nakhon Sawan':'Northern','Uthai Thani':'Northern','Kamphaeng Phet':'Northern',
-#         'Tak':'Northern','Sukhothai':'Northern','Phisanulok':'Northern','Phichit':'Northern','Phetchabun':'Northern','Phitsanulok':'Northern',
-#         'Nakhon Ratchasima':'Northeastern','Buri Ram':'Northeastern','Surin':'Northeastern','Si Sa Ket':'Northeastern','Ubon Ratchathani':'Northeastern',
-#         'Yasothon':'Northeastern','Chaiyaphum':'Northeastern','Amnat Charoen':'Northeastern','Bungkan':'Northeastern','Nong Bua Lam Phu':'Northeastern',
-#         'Khon Kaen':'Northeastern','Udon Thani':'Northeastern','Loei':'Northeastern','Nong Khai':'Northeastern','Maha Sarakham':'Northeastern',
-#         'Roi Et':'Northeastern','Kalasin':'Northeastern','Sakon Nakhon':'Northeastern','Naknon Phanom':'Northeastern','Mukdahan':'Northeastern',
-#         'Nakhon Phanom':'Northeastern','Buriram':'Northeastern','Bueng Kan':'Northeastern',
-#         'Nakhon Si Thammarat':'Southern','Krabi':'Southern','Phangnga':'Southern','Phuket':'Southern','Surat Thani':'Southern','Ranong':'Southern',
-#         'Chumphon':'Southern','Songkhla':'Southern','Satun':'Southern','Trang':'Southern','Phatthalung':'Southern','Pattani':'Southern','Yala':'Southern',
-#         'Narathiwat':'Southern','Phang Nga':'Southern',
-#     }
+    with col3:
+        unique_customers = df_filtered['user_id'].nunique()
+        st.metric("Active Customers", f"{unique_customers:,}")
     
-#     def get_region(city):
-#         if pd.isna(city):
-#             return 'N/A'
-#         city_lower = str(city).lower()
-#         for province, region in province_to_region.items():
-#             if province.lower() in city_lower:
-#                 return region
-#         return 'Other'
+    with col4:
+        avg_order_value = df_filtered['sale_price'].mean()
+        st.metric("Avg Order Value", f"฿{avg_order_value:,.2f}")
     
-#     def standardize_province(city):
-#         """Standardize province names for mapping"""
-#         if pd.isna(city):
-#             return 'N/A'
-#         city_lower = str(city).lower()
-#         for province in province_to_region.keys():
-#             if province.lower() in city_lower:
-#                 return province
-#         return str(city)
+    # Sales Trend
+    st.subheader("📈 Sales Trend Overview")
+    daily_sales = df_filtered.groupby('order_date').agg({
+        'sale_price': 'sum',
+        'profit': 'sum',
+        'order_id': 'nunique'
+    }).reset_index()
+    daily_sales['order_date'] = pd.to_datetime(daily_sales['order_date'])
     
-#     # Add region to filtered data
-#     df_filtered_geo = df_filtered.copy()
-#     df_filtered_geo['region'] = df_filtered_geo['city'].apply(get_region)
-#     df_filtered_geo['province'] = df_filtered_geo['city'].apply(standardize_province)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=daily_sales['order_date'], 
+        y=daily_sales['sale_price'],
+        name='Revenue',
+        line=dict(color='#3498db', width=2),
+        fill='tozeroy'
+    ))
+    fig.add_trace(go.Scatter(
+        x=daily_sales['order_date'], 
+        y=daily_sales['profit'],
+        name='Profit',
+        line=dict(color='#2ecc71', width=2),
+        yaxis='y2'
+    ))
+    fig.update_layout(
+        title="Daily Revenue & Profit Trend",
+        xaxis_title="Date",
+        yaxis_title="Revenue (฿)",
+        yaxis2=dict(title="Profit (฿)", overlaying='y', side='right'),
+        hovermode='x unified',
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True)
     
-#     # Customer geographic analysis
-#     customer_geo = df_filtered_geo.groupby(['user_id', 'city', 'province', 'region', 'age', 'gender']).agg({
-#         'sale_price': 'sum',
-#         'order_id': 'nunique',
-#         'product_id': 'nunique'
-#     }).reset_index()
-#     customer_geo.columns = ['user_id', 'city', 'province', 'region', 'age', 'gender', 'total_spent', 'total_orders', 'unique_products']
+    # Quick Stats
+    col1, col2, col3 = st.columns(3)
     
-#     # Advanced Filters
-#     st.subheader("🔍 ฟิลเตอร์ข้อมูล")
-#     col_f1, col_f2, col_f3 = st.columns(3)
+    with col1:
+        st.subheader("🏆 Top Performing Category")
+        cat_revenue = df_filtered.groupby('product_category')['sale_price'].sum().sort_values(ascending=False)
+        if len(cat_revenue) > 0:
+            top_cat = cat_revenue.index[0]
+            top_cat_rev = cat_revenue.values[0]
+            st.metric(top_cat, f"฿{top_cat_rev:,.0f}")
     
-#     with col_f1:
-#         available_regions = ['All'] + sorted([r for r in customer_geo['region'].unique() if r != 'N/A'])
-#         selected_filter_region = st.multiselect(
-#             "เลือกภูมิภาค",
-#             options=available_regions,
-#             default=['All']
-#         )
+    with col2:
+        st.subheader("📱 Best Channel")
+        channel_revenue = df_filtered.groupby('channel_type')['sale_price'].sum().sort_values(ascending=False)
+        if len(channel_revenue) > 0:
+            best_channel = channel_revenue.index[0]
+            best_channel_rev = channel_revenue.values[0]
+            st.metric(best_channel, f"฿{best_channel_rev:,.0f}")
     
-#     with col_f2:
-#         if 'All' not in selected_filter_region and len(selected_filter_region) > 0:
-#             filtered_provinces = customer_geo[customer_geo['region'].isin(selected_filter_region)]['province'].unique()
-#         else:
-#             filtered_provinces = customer_geo['province'].unique()
-        
-#         available_provinces = ['All'] + sorted([p for p in filtered_provinces if p != 'N/A'])
-#         selected_filter_province = st.multiselect(
-#             "เลือกจังหวัด",
-#             options=available_provinces,
-#             default=['All']
-#         )
-    
-#     with col_f3:
-#         age_groups = ['All', '<20', '20-30', '30-40', '40-50', '50-60', '60+']
-#         selected_age_group = st.multiselect(
-#             "เลือกกลุ่มอายุ",
-#             options=age_groups,
-#             default=['All']
-#         )
-    
-#     # Apply filters
-#     filtered_customer_geo = customer_geo.copy()
-    
-#     if 'All' not in selected_filter_region and len(selected_filter_region) > 0:
-#         filtered_customer_geo = filtered_customer_geo[filtered_customer_geo['region'].isin(selected_filter_region)]
-    
-#     if 'All' not in selected_filter_province and len(selected_filter_province) > 0:
-#         filtered_customer_geo = filtered_customer_geo[filtered_customer_geo['province'].isin(selected_filter_province)]
-    
-#     if 'All' not in selected_age_group and len(selected_age_group) > 0:
-#         filtered_customer_geo_age = filtered_customer_geo[filtered_customer_geo['age'].notna()].copy()
-#         filtered_customer_geo_age['age_group'] = pd.cut(filtered_customer_geo_age['age'], 
-#                                        bins=[0, 20, 30, 40, 50, 60, 100],
-#                                        labels=['<20', '20-30', '30-40', '40-50', '50-60', '60+'])
-#         filtered_customer_geo = filtered_customer_geo_age[filtered_customer_geo_age['age_group'].isin(selected_age_group)]
-    
-#     st.info(f"📊 กรองแล้ว: {len(filtered_customer_geo):,} ลูกค้า | ยอดขายรวม: ฿{filtered_customer_geo['total_spent'].sum():,.0f}")
-    
-#     # Thailand Map Visualization
-#     st.subheader("🗺️ แผนที่ความหนาแน่นลูกค้าในประเทศไทย")
-    
-#     # Aggregate by province
-#     province_data = filtered_customer_geo.groupby('province').agg({
-#         'user_id': 'nunique',
-#         'total_spent': 'sum',
-#         'total_orders': 'sum'
-#     }).reset_index()
-#     province_data.columns = ['province', 'customers', 'revenue', 'orders']
-    
-#     # Create choropleth map (using text-based visualization since actual Thai map requires geojson)
-#     col1, col2, col3 = st.columns(3)
-    
-#     with col1:
-#         # Heatmap-style visualization by province
-#         top_provinces = province_data.nlargest(15, 'customers')
-#         fig = px.bar(top_provinces, 
-#                      x='customers', 
-#                      y='province',
-#                      orientation='h',
-#                      title="Top 15 จังหวัด - ความหนาแน่นลูกค้า",
-#                      color='customers',
-#                      color_continuous_scale='Reds',
-#                      labels={'customers': 'จำนวนลูกค้า', 'province': 'จังหวัด'})
-#         fig.update_traces(texttemplate='฿%{text:.2f}', textposition='outside')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         fig = px.bar(promo_comparison, 
-#                      x='ประเภทวัน', 
-#                      y='จำนวน Order',
-#                      title="จำนวน Order ตามประเภทวัน",
-#                      color='จำนวน Order',
-#                      color_continuous_scale='Greens',
-#                      text='จำนวน Order')
-#         fig.update_traces(texttemplate='%{text:,}', textposition='outside')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     st.dataframe(promo_comparison, use_container_width=True)
-    
-#     # Calculate lift vs regular days
-#     regular_avg = promo_comparison[promo_comparison['ประเภทวัน'] == 'Regular Day']['ยอดเฉลี่ยต่อ Transaction'].values[0] if len(promo_comparison[promo_comparison['ประเภทวัน'] == 'Regular Day']) > 0 else 0
-    
-#     st.markdown("### 📊 Performance Lift vs Regular Days")
-#     lift_metrics = []
-#     for _, row in promo_comparison[promo_comparison['ประเภทวัน'] != 'Regular Day'].iterrows():
-#         lift_pct = ((row['ยอดเฉลี่ยต่อ Transaction'] / regular_avg - 1) * 100) if regular_avg > 0 else 0
-#         lift_metrics.append({
-#             'ประเภทวัน': row['ประเภทวัน'],
-#             'Lift %': f"{lift_pct:+.1f}%",
-#             'ยอดเฉลี่ย Promo Day': f"฿{row['ยอดเฉลี่ยต่อ Transaction']:,.2f}",
-#             'ยอดเฉลี่ย Regular Day': f"฿{regular_avg:,.2f}"
-#         })
-    
-#     if lift_metrics:
-#         st.dataframe(pd.DataFrame(lift_metrics), use_container_width=True)
-    
-#     # RFM-based Customer Segmentation
-#     st.subheader("1️⃣ Customer Value Segmentation (RFM Analysis)")
-    
-#     st.markdown("""
-#     **RFM Analysis** เป็นเทคนิคการแบ่งกลุ่มลูกค้าตามพฤติกรรม 3 มิติ:
-#     - **Recency (R)**: ความใหม่ของการซื้อครั้งล่าสุด (วัน) - ยิ่งน้อยยิ่งดี
-#     - **Frequency (F)**: ความถี่ในการซื้อ (จำนวนคำสั่งซื้อ) - ยิ่งมากยิ่งดี  
-#     - **Monetary (M)**: มูลค่าการซื้อทั้งหมด (฿) - ยิ่งมากยิ่งดี
-    
-#     ลูกค้าจะถูกแบ่งเป็น 4 กลุ่มตามคะแนน RFM รวม:
-#     - **Champions (คะแนน 9-12)**: ลูกค้า VIP - ซื้อบ่อย, ซื้อเยอะ, ซื้อล่าสุด
-#     - **Loyal (คะแนน 6-8)**: ลูกค้าภักดี - มีศักยภาพสูง
-#     - **At Risk (คะแนน 4-5)**: เสี่ยงหลุด - ต้องดูแลเพื่อรักษา
-#     - **Lost (คะแนน 3)**: ลูกค้าหาย - ต้องกระตุ้นกลับมา
-#     """)
-    
-#     # Calculate RFM metrics
-#     analysis_date = df_filtered['created_at'].max()
-    
-#     rfm_data = df_filtered.groupby('user_id').agg({
-#         'created_at': lambda x: (analysis_date - x.max()).days,
-#         'order_id': 'nunique',
-#         'sale_price': 'sum',
-#         'profit': 'sum'
-#     }).reset_index()
-#     rfm_data.columns = ['user_id', 'recency', 'frequency', 'monetary', 'total_profit']
-    
-#     # Calculate RFM scores (1-4 scale)
-#     rfm_data['R_score'] = pd.qcut(rfm_data['recency'], q=4, labels=[4,3,2,1], duplicates='drop')  # Lower recency = better
-#     rfm_data['F_score'] = pd.qcut(rfm_data['frequency'], q=4, labels=[1,2,3,4], duplicates='drop')  # Higher frequency = better
-#     rfm_data['M_score'] = pd.qcut(rfm_data['monetary'], q=4, labels=[1,2,3,4], duplicates='drop')  # Higher monetary = better
-    
-#     # Calculate total RFM score
-#     rfm_data['RFM_score'] = (rfm_data['R_score'].astype(int) + 
-#                              rfm_data['F_score'].astype(int) + 
-#                              rfm_data['M_score'].astype(int))
-    
-#     # Segment customers based on RFM score
-#     def segment_customer(score):
-#         if score >= 9:
-#             return 'Champions'
-#         elif score >= 6:
-#             return 'Loyal'
-#         elif score >= 4:
-#             return 'At Risk'
-#         else:
-#             return 'Lost'
-    
-#     rfm_data['segment'] = rfm_data['RFM_score'].apply(segment_customer)
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         seg_dist = rfm_data['segment'].value_counts()
-#         colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
-#         fig = px.pie(values=seg_dist.values, 
-#                      names=seg_dist.index,
-#                      title="Customer Distribution by RFM Segment",
-#                      hole=0.4,
-#                      color=seg_dist.index,
-#                      color_discrete_map=colors)
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         seg_value = rfm_data.groupby('segment')['monetary'].sum().sort_values(ascending=True)
-#         fig = px.bar(x=seg_value.values, 
-#                      y=seg_value.index,
-#                      orientation='h',
-#                      title="Total Revenue by RFM Segment",
-#                      labels={'x': 'Revenue (฿)', 'y': 'Segment'},
-#                      color=seg_value.index,
-#                      color_discrete_map=colors)
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     # Segment metrics with RFM scores
-#     st.subheader("RFM Segment Performance Metrics")
-#     seg_metrics = rfm_data.groupby('segment').agg({
-#         'user_id': 'count',
-#         'recency': 'mean',
-#         'frequency': 'mean',
-#         'monetary': 'mean',
-#         'total_profit': 'mean',
-#         'RFM_score': 'mean'
-#     }).round(2)
-#     seg_metrics.columns = ['Customers', 'Avg Recency (days)', 'Avg Frequency', 'Avg Revenue (฿)', 'Avg Profit (฿)', 'Avg RFM Score']
-    
-#     # Reorder for better display
-#     segment_order = ['Champions', 'Loyal', 'At Risk', 'Lost']
-#     seg_metrics = seg_metrics.reindex([s for s in segment_order if s in seg_metrics.index])
-    
-#     st.dataframe(seg_metrics.style.background_gradient(cmap='RdYlGn', subset=['Avg RFM Score']), 
-#                 use_container_width=True)
-    
-#     # Marketing recommendations by segment
-#     st.markdown("### 💡 แนะนำกลยุทธ์ตามกลุ่ม RFM")
-    
-#     col1, col2 = st.columns(2)
-#     with col1:
-#         st.markdown("""
-#         **Champions** 🏆
-#         - Reward loyalty programs
-#         - Early access to new products
-#         - Personalized experiences
-#         - Request referrals
-        
-#         **At Risk** ⚠️
-#         - Win-back campaigns
-#         - Limited-time offers
-#         - Personalized recommendations
-#         - Re-engagement emails
-#         """)
-    
-#     with col2:
-#         st.markdown("""
-#         **Loyal** 💎
-#         - Upsell & cross-sell
-#         - Loyalty rewards
-#         - Member-exclusive deals
-#         - Product recommendations
-        
-#         **Lost** 😔
-#         - Aggressive win-back campaigns
-#         - Deep discounts
-#         - Survey for feedback
-#         - Retargeting ads
-#         """)
-    
-#     # Customer Behavior Patterns
-#     st.subheader("2️⃣ Customer Behavior Patterns")
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         hourly = df_filtered.groupby('order_hour').size().reset_index(name='orders')
-#         fig = px.area(hourly, 
-#                       x='order_hour', 
-#                       y='orders',
-#                       title="Orders by Hour of Day",
-#                       labels={'order_hour': 'Hour', 'orders': 'Orders'})
-#         fig.update_traces(line_color='#FF6B6B', fillcolor='rgba(255,107,107,0.3)')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         # Show promotion day analysis instead of day of week
-#         promo_days_hourly = df_promo.groupby(['day_type', 'order_hour']).size().reset_index(name='orders')
-#         fig = px.line(promo_days_hourly, 
-#                      x='order_hour', 
-#                      y='orders',
-#                      color='day_type',
-#                      title="Orders by Hour - Promo Days vs Regular Days",
-#                      labels={'order_hour': 'Hour', 'orders': 'Orders'},
-#                      markers=True)
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     # Churn Analysis
-#     st.subheader("3️⃣ Customer Retention & Churn")
-    
-#     rfm_data['is_churned'] = (rfm_data['recency'] > 60).astype(int)
-    
-#     col1, col2, col3, col4 = st.columns(4)
-    
-#     with col1:
-#         active_customers = (rfm_data['is_churned'] == 0).sum()
-#         st.metric("Active Customers", f"{active_customers:,}")
-    
-#     with col2:
-#         churned_customers = (rfm_data['is_churned'] == 1).sum()
-#         st.metric("Churned Customers", f"{churned_customers:,}")
-    
-#     with col3:
-#         churn_rate = rfm_data['is_churned'].mean() * 100
-#         st.metric("Churn Rate", f"{churn_rate:.1f}%")
-    
-#     with col4:
-#         avg_customer_lifetime = rfm_data['frequency'].mean()
-#         st.metric("Avg Orders per Customer", f"{avg_customer_lifetime:.1f}")
-    
-#     churn_by_seg = rfm_data.groupby('segment')['is_churned'].mean() * 100
-#     fig = px.bar(x=churn_by_seg.index, 
-#                  y=churn_by_seg.values,
-#                  title="Churn Rate by RFM Segment (%)",
-#                  labels={'x': 'Segment', 'y': 'Churn Rate (%)'},
-#                  color=churn_by_seg.values,
-#                  color_continuous_scale='reds')
-#     st.plotly_chart(fig, use_container_width=True)
+    with col3:
+        st.subheader("🎯 Conversion Insights")
+        total_users = df_filtered['user_id'].nunique()
+        total_orders = df_filtered['order_id'].nunique()
+        conversion = (total_orders / total_users) if total_users > 0 else 0
+        st.metric("Orders per Customer", f"{conversion:.2f}")
 
-# # ========================================== 
-# # TAB 2: INVENTORY FORECAST
-# # ========================================== 
-# with tab2:
-#     st.header("📦 Inventory Forecasting")
+# ==========================================
+# TAB 2: SALES ANALYTICS
+# ==========================================
+with tab2:
+    st.header("💼 Sales Analytics")
     
-#     # Product filters
-#     st.subheader("🔍 Product Filters")
-#     col1, col2, col3 = st.columns(3)
+    # Date filter for this tab
+    df_sales = df_filtered.copy()
     
-#     with col1:
-#         categories = ['All'] + sorted(df_master['product_category'].dropna().unique().tolist())
-#         selected_category = st.selectbox("Category", categories)
+    st.subheader("1️⃣ Common Sales KPIs")
     
-#     with col2:
-#         if selected_category != 'All':
-#             filtered_df = df_master[df_master['product_category'] == selected_category]
-#         else:
-#             filtered_df = df_master
-        
-#         product_list = filtered_df.groupby(['product_id', 'product_name']).size().reset_index(name='count')
-#         product_list = product_list.nlargest(50, 'count')
-#         product_options = {f"{row['product_name']} (ID: {row['product_id']})": row['product_id'] 
-#                           for _, row in product_list.iterrows()}
-#         selected_product_name = st.selectbox("Select Product", list(product_options.keys()))
-#         selected_product = product_options[selected_product_name]
+    # Calculate monthly growth
+    monthly_sales = df_sales.groupby('order_month').agg({
+        'sale_price': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    monthly_sales['order_month'] = monthly_sales['order_month'].dt.to_timestamp()
+    monthly_sales = monthly_sales.sort_values('order_month')
     
-#     with col3:
-#         st.metric("Total Products", f"{df_master['product_id'].nunique():,}")
+    if len(monthly_sales) >= 2:
+        current_month_sales = monthly_sales.iloc[-1]['sale_price']
+        previous_month_sales = monthly_sales.iloc[-2]['sale_price']
+        monthly_growth = ((current_month_sales - previous_month_sales) / previous_month_sales * 100) if previous_month_sales > 0 else 0
+    else:
+        monthly_growth = 0
     
-#     # Product demand analysis
-#     st.subheader("1️⃣ Demand Forecast & Analysis")
+    col1, col2, col3, col4 = st.columns(4)
     
-#     demand_df = df_master.groupby(['order_date', 'product_id']).size().reset_index(name='quantity')
-#     demand_df['order_date'] = pd.to_datetime(demand_df['order_date'])
-#     prod_demand = demand_df[demand_df['product_id'] == selected_product].sort_values('order_date')
+    with col1:
+        st.metric("Monthly Sales Growth", f"{monthly_growth:+.2f}%")
     
-#     if len(prod_demand) > 7:
-#         prod_demand['MA_7'] = prod_demand['quantity'].rolling(window=min(7, len(prod_demand))).mean()
-#         if len(prod_demand) > 30:
-#             prod_demand['MA_30'] = prod_demand['quantity'].rolling(window=30).mean()
-        
-#         col1, col2 = st.columns([2, 1])
-        
-#         with col1:
-#             fig = go.Figure()
-#             fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-#                                     y=prod_demand['quantity'],
-#                                     mode='lines+markers',
-#                                     name='Actual Demand',
-#                                     line=dict(color='lightblue', width=1),
-#                                     marker=dict(size=4)))
-#             fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-#                                     y=prod_demand['MA_7'],
-#                                     mode='lines',
-#                                     name='7-Day MA',
-#                                     line=dict(color='orange', width=2)))
-#             if len(prod_demand) > 30:
-#                 fig.add_trace(go.Scatter(x=prod_demand['order_date'], 
-#                                         y=prod_demand['MA_30'],
-#                                         mode='lines',
-#                                         name='30-Day MA',
-#                                         line=dict(color='red', width=2)))
-            
-#             fig.update_layout(title=f"Demand Trend: {selected_product_name}",
-#                             xaxis_title="Date",
-#                             yaxis_title="Quantity",
-#                             hovermode='x unified')
-#             st.plotly_chart(fig, use_container_width=True)
-        
-#         with col2:
-#             last_7_avg = prod_demand['quantity'].tail(7).mean()
-#             last_30_avg = prod_demand['quantity'].tail(30).mean() if len(prod_demand) >= 30 else last_7_avg
-#             forecast_7d = last_7_avg * 7
-#             forecast_30d = last_30_avg * 30
-            
-#             st.metric("Avg Daily Demand (7d)", f"{last_7_avg:.1f} units")
-#             st.metric("Forecast Next 7 Days", f"{forecast_7d:.0f} units")
-#             st.metric("Forecast Next 30 Days", f"{forecast_30d:.0f} units")
-            
-#             std_dev = prod_demand['quantity'].std()
-#             safety_stock = 1.65 * std_dev * np.sqrt(7)
-#             st.metric("Safety Stock (95% SL)", f"{safety_stock:.0f} units")
-            
-#             lead_time_days = 7
-#             reorder_point = (last_7_avg * lead_time_days) + safety_stock
-#             st.metric("Reorder Point", f"{reorder_point:.0f} units")
-#     else:
-#         st.warning("⚠️ Not enough data for this product (minimum 7 days required)")
+    with col2:
+        total_revenue = df_sales['sale_price'].sum()
+        total_profit = df_sales['profit'].sum()
+        profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+        st.metric("Average Profit Margin", f"{profit_margin:.2f}%")
     
-#     # Fast vs Slow Moving Analysis
-#     st.subheader("2️⃣ Product Movement Analysis")
+    with col3:
+        # Sales target attainment (assuming a target)
+        monthly_target = 1000000  # Example target
+        current_sales = df_sales[df_sales['order_month'] == df_sales['order_month'].max()]['sale_price'].sum()
+        target_attainment = (current_sales / monthly_target * 100) if monthly_target > 0 else 0
+        st.metric("Sales Target Attainment", f"{target_attainment:.1f}%")
     
-#     product_velocity = df_master.groupby(['product_id', 'product_name']).agg({
-#         'order_id': 'nunique',
-#         'sale_price': 'sum'
-#     }).reset_index()
-#     product_velocity.columns = ['product_id', 'product_name', 'order_count', 'total_revenue']
+    with col4:
+        avg_purchase = df_sales['sale_price'].mean()
+        st.metric("Average Purchase Value", f"฿{avg_purchase:,.2f}")
     
-#     velocity_threshold_fast = product_velocity['order_count'].quantile(0.75)
-#     velocity_threshold_slow = product_velocity['order_count'].quantile(0.25)
+    # Sales by Channel
+    st.subheader("2️⃣ Sales by Contact Method (Channel)")
     
-#     def classify_movement(count):
-#         if count >= velocity_threshold_fast:
-#             return 'Fast Moving'
-#         elif count <= velocity_threshold_slow:
-#             return 'Slow Moving'
-#         else:
-#             return 'Medium Moving'
+    channel_sales = df_sales.groupby('channel').agg({
+        'sale_price': 'sum',
+        'order_id': 'nunique',
+        'user_id': 'nunique'
+    }).reset_index()
+    channel_sales.columns = ['Channel', 'Revenue', 'Orders', 'Customers']
+    channel_sales['Revenue %'] = (channel_sales['Revenue'] / channel_sales['Revenue'].sum() * 100).round(2)
     
-#     product_velocity['movement'] = product_velocity['order_count'].apply(classify_movement)
+    col1, col2 = st.columns(2)
     
-#     col1, col2 = st.columns(2)
+    with col1:
+        fig = px.pie(channel_sales, 
+                     values='Revenue', 
+                     names='Channel',
+                     title="Revenue Distribution by Channel",
+                     hole=0.4)
+        st.plotly_chart(fig, use_container_width=True)
     
-#     with col1:
-#         movement_dist = product_velocity['movement'].value_counts()
-#         fig = px.pie(values=movement_dist.values, 
-#                      names=movement_dist.index,
-#                      title="Product Movement Distribution",
-#                      hole=0.4,
-#                      color_discrete_map={
-#                          'Fast Moving': '#2ecc71',
-#                          'Medium Moving': '#f39c12',
-#                          'Slow Moving': '#e74c3c'
-#                      })
-#         st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        fig = px.bar(channel_sales.sort_values('Revenue', ascending=True),
+                     x='Revenue',
+                     y='Channel',
+                     orientation='h',
+                     title="Revenue by Channel",
+                     text='Revenue %')
+        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
     
-#     with col2:
-#         top_fast = product_velocity[product_velocity['movement'] == 'Fast Moving'].nlargest(10, 'order_count')
-#         fig = px.bar(top_fast, 
-#                      x='order_count', 
-#                      y='product_name',
-#                      orientation='h',
-#                      title="Top 10 Fast Moving Products",
-#                      labels={'order_count': 'Order Count', 'product_name': 'Product'})
-#         st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(channel_sales, use_container_width=True)
     
-#     st.subheader("Product Movement Details")
-#     movement_filter = st.multiselect("Filter by Movement", 
-#                                      ['Fast Moving', 'Medium Moving', 'Slow Moving'],
-#                                      default=['Fast Moving'])
-#     filtered_products = product_velocity[product_velocity['movement'].isin(movement_filter)]
-#     st.dataframe(filtered_products.sort_values('order_count', ascending=False), 
-#                 use_container_width=True, height=400)
+    # Customer Acquisition & Retention
+    st.subheader("3️⃣ Customer Acquisition & Retention Metrics")
+    
+    # Customer Acquisition Cost (simplified)
+    total_marketing_cost = df_sales['discount_pct'].sum() * df_sales['sale_price'].sum()
+    new_customers = df_sales['user_id'].nunique()
+    cac = total_marketing_cost / new_customers if new_customers > 0 else 0
+    
+    # Retention and Churn
+    analysis_date = df_sales['created_at'].max()
+    customer_last_purchase = df_sales.groupby('user_id')['created_at'].max()
+    days_since_purchase = (analysis_date - customer_last_purchase).dt.days
+    
+    churned_customers = (days_since_purchase > 60).sum()
+    total_customers = len(customer_last_purchase)
+    churn_rate = (churned_customers / total_customers * 100) if total_customers > 0 else 0
+    retention_rate = 100 - churn_rate
+    
+    # Customer Lifetime Value
+    avg_revenue_per_customer = df_sales.groupby('user_id')['sale_price'].sum().mean()
+    gross_margin_pct = profit_margin / 100
+    customer_lifetime_value = gross_margin_pct * (retention_rate/100) * avg_revenue_per_customer
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Customer Acquisition Cost", f"฿{cac:,.2f}")
+    
+    with col2:
+        st.metric("Retention Rate", f"{retention_rate:.2f}%")
+    
+    with col3:
+        st.metric("Churn Rate", f"{churn_rate:.2f}%")
+    
+    with col4:
+        st.metric("Customer Lifetime Value", f"฿{customer_lifetime_value:,.2f}")
+    
+    # Product Performance
+    st.subheader("4️⃣ Product Performance")
+    
+    product_perf = df_sales.groupby(['product_id', 'product_name', 'product_category']).agg({
+        'sale_price': 'sum',
+        'profit': 'sum',
+        'order_id': 'nunique'
+    }).reset_index()
+    product_perf.columns = ['Product ID', 'Product Name', 'Category', 'Revenue', 'Profit', 'Orders']
+    product_perf['Profit Margin %'] = (product_perf['Profit'] / product_perf['Revenue'] * 100).round(2)
+    product_perf = product_perf.sort_values('Revenue', ascending=False).head(20)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        fig = px.bar(product_perf.head(10),
+                     x='Revenue',
+                     y='Product Name',
+                     orientation='h',
+                     title="Top 10 Products by Revenue",
+                     color='Profit Margin %',
+                     color_continuous_scale='RdYlGn')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        fig = px.scatter(product_perf,
+                        x='Revenue',
+                        y='Profit',
+                        size='Orders',
+                        color='Category',
+                        hover_data=['Product Name'],
+                        title="Product Performance: Revenue vs Profit")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.dataframe(product_perf, use_container_width=True, height=400)
 
-# # ========================================== 
-# # TAB 3: ACCOUNTING & PROFIT
-# # ========================================== 
-# with tab3:
-#     st.header("💰 Accounting & Profitability Analysis")
+# ==========================================
+# TAB 3: MARKETING ANALYTICS
+# ==========================================
+with tab3:
+    st.header("📢 Marketing Analytics")
     
-#     st.subheader("1️⃣ Key Financial Metrics")
-#     col1, col2, col3, col4 = st.columns(4)
+    df_marketing = df_filtered.copy()
     
-#     with col1:
-#         total_revenue = df_master['sale_price'].sum()
-#         st.metric("Total Revenue", f"฿{total_revenue:,.0f}")
+    st.subheader("1️⃣ Campaign Effectiveness (Discount Analysis)")
     
-#     with col2:
-#         total_cost = df_master['cost'].sum()
-#         st.metric("Total Cost", f"฿{total_cost:,.0f}")
+    campaign_df = df_marketing[df_marketing['discount_pct'] > 0].copy()
+    non_campaign_df = df_marketing[df_marketing['discount_pct'] == 0].copy()
     
-#     with col3:
-#         total_profit = df_master['profit'].sum()
-#         st.metric("Total Profit", f"฿{total_profit:,.0f}")
+    col1, col2, col3, col4 = st.columns(4)
     
-#     with col4:
-#         profit_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
-#         st.metric("Profit Margin", f"{profit_margin:.1f}%")
+    with col1:
+        campaign_revenue = campaign_df['sale_price'].sum()
+        total_revenue = df_marketing['sale_price'].sum()
+        campaign_share = (campaign_revenue / total_revenue * 100) if total_revenue > 0 else 0
+        st.metric("Campaign Revenue Share", f"{campaign_share:.1f}%")
     
-#     # Channel Performance
-#     st.subheader("2️⃣ Channel Performance (Online vs Offline)")
+    with col2:
+        campaign_orders = len(campaign_df)
+        total_orders = len(df_marketing)
+        conversion_rate = (campaign_orders / total_orders * 100) if total_orders > 0 else 0
+        st.metric("Campaign Conversion Rate", f"{conversion_rate:.1f}%")
     
-#     col1, col2 = st.columns(2)
+    with col3:
+        avg_discount = campaign_df['discount_pct'].mean() * 100 if len(campaign_df) > 0 else 0
+        st.metric("Average Discount Rate", f"{avg_discount:.1f}%")
     
-#     with col1:
-#         channel_type_perf = df_master.groupby('channel_type').agg({
-#             'sale_price': 'sum',
-#             'profit': 'sum',
-#             'order_id': 'nunique'
-#         }).reset_index()
-#         channel_type_perf['profit_margin_%'] = (channel_type_perf['profit'] / channel_type_perf['sale_price'] * 100).round(1)
+    with col4:
+        campaign_cac = (campaign_df['discount_pct'] * campaign_df['sale_price']).sum() / campaign_df['user_id'].nunique() if len(campaign_df) > 0 else 0
+        st.metric("Campaign CAC", f"฿{campaign_cac:,.2f}")
+    
+    # ROI Analysis
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        campaign_aov = campaign_df['sale_price'].mean() if len(campaign_df) > 0 else 0
+        non_campaign_aov = non_campaign_df['sale_price'].mean() if len(non_campaign_df) > 0 else 0
         
-#         fig = px.pie(channel_type_perf, 
-#                      values='sale_price', 
-#                      names='channel_type',
-#                      title="Revenue: Online vs Offline",
-#                      hole=0.4,
-#                      color_discrete_map={'Online': '#3498db', 'Offline': '#e67e22', 'Other': '#95a5a6'})
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         fig = px.bar(channel_type_perf, 
-#                      x='channel_type', 
-#                      y='profit_margin_%',
-#                      title="Profit Margin: Online vs Offline (%)",
-#                      color='channel_type',
-#                      color_discrete_map={'Online': '#3498db', 'Offline': '#e67e22', 'Other': '#95a5a6'})
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     st.subheader("Detailed Channel Breakdown")
-#     channel_detail = df_master.groupby(['channel', 'channel_type']).agg({
-#         'sale_price': 'sum',
-#         'profit': 'sum',
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     channel_detail.columns = ['Channel', 'Type', 'Revenue (฿)', 'Profit (฿)', 'Orders']
-#     channel_detail['Profit Margin (%)'] = (channel_detail['Profit (฿)'] / channel_detail['Revenue (฿)'] * 100).round(1)
-#     channel_detail['AOV (฿)'] = (channel_detail['Revenue (฿)'] / channel_detail['Orders']).round(2)
-#     st.dataframe(channel_detail.sort_values('Revenue (฿)', ascending=False), 
-#                 use_container_width=True, height=300)
-    
-#     # Category profitability
-#     st.subheader("3️⃣ Product Category Profitability")
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         cat_profit = df_master.groupby('product_category').agg({
-#             'sale_price': 'sum',
-#             'profit': 'sum'
-#         }).reset_index()
-#         cat_profit['margin_%'] = (cat_profit['profit'] / cat_profit['sale_price'] * 100).round(1)
-#         cat_profit = cat_profit.sort_values('profit', ascending=True)
+        comparison = pd.DataFrame({
+            'Type': ['With Campaign', 'Without Campaign'],
+            'AOV': [campaign_aov, non_campaign_aov],
+            'Orders': [len(campaign_df), len(non_campaign_df)]
+        })
         
-#         fig = px.bar(cat_profit, 
-#                      x='profit', 
-#                      y='product_category',
-#                      orientation='h',
-#                      title="Profit by Product Category",
-#                      labels={'profit': 'Profit (฿)', 'product_category': 'Category'},
-#                      color='margin_%',
-#                      color_continuous_scale='RdYlGn')
-#         st.plotly_chart(fig, use_container_width=True)
+        fig = px.bar(comparison,
+                     x='Type',
+                     y='AOV',
+                     title="Average Order Value: Campaign Impact",
+                     color='Type',
+                     text='AOV')
+        fig.update_traces(texttemplate='฿%{text:,.0f}', textposition='outside')
+        st.plotly_chart(fig, use_container_width=True)
     
-#     with col2:
-#         fig = px.scatter(cat_profit, 
-#                         x='sale_price', 
-#                         y='profit',
-#                         size='margin_%',
-#                         text='product_category',
-#                         title="Revenue vs Profit by Category",
-#                         labels={'sale_price': 'Revenue (฿)', 'profit': 'Profit (฿)'},
-#                         color='margin_%',
-#                         color_continuous_scale='RdYlGn')
-#         fig.update_traces(textposition='top center')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     # Monthly revenue trend
-#     st.subheader("4️⃣ Revenue & Profit Trends")
-    
-#     monthly_metrics = df_master.groupby('order_month').agg({
-#         'sale_price': 'sum',
-#         'profit': 'sum',
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     monthly_metrics['order_month'] = monthly_metrics['order_month'].dt.to_timestamp()
-#     monthly_metrics['profit_margin_%'] = (monthly_metrics['profit'] / monthly_metrics['sale_price'] * 100).round(1)
-    
-#     fig = go.Figure()
-#     fig.add_trace(go.Bar(x=monthly_metrics['order_month'], 
-#                         y=monthly_metrics['sale_price'],
-#                         name='Revenue',
-#                         marker_color='lightblue'))
-#     fig.add_trace(go.Bar(x=monthly_metrics['order_month'], 
-#                         y=monthly_metrics['profit'],
-#                         name='Profit',
-#                         marker_color='lightgreen'))
-#     fig.add_trace(go.Scatter(x=monthly_metrics['order_month'], 
-#                             y=monthly_metrics['profit_margin_%'],
-#                             name='Profit Margin %',
-#                             yaxis='y2',
-#                             mode='lines+markers',
-#                             line=dict(color='red', width=3)))
-    
-#     fig.update_layout(
-#         title="Monthly Revenue, Profit & Margin Trends",
-#         xaxis_title="Month",
-#         yaxis_title="Amount (฿)",
-#         yaxis2=dict(title="Profit Margin (%)", overlaying='y', side='right'),
-#         hovermode='x unified',
-#         barmode='group'
-#     )
-#     st.plotly_chart(fig, use_container_width=True)
-
-# # ========================================== 
-# # TAB 4: MARKETING ANALYTICS
-# # ========================================== 
-# with tab4:
-#     st.header("🎯 Marketing Analytics")
-    
-#     st.subheader("1️⃣ Campaign Effectiveness")
-    
-#     campaign_df = df_master[df_master['discount_pct'] > 0].copy()
-#     non_campaign_df = df_master[df_master['discount_pct'] == 0].copy()
-    
-#     col1, col2, col3, col4 = st.columns(4)
-    
-#     with col1:
-#         campaign_revenue = campaign_df['sale_price'].sum()
-#         non_campaign_revenue = non_campaign_df['sale_price'].sum()
-#         campaign_share = (campaign_revenue / (campaign_revenue + non_campaign_revenue) * 100)
-#         st.metric("Campaign Revenue Share", f"{campaign_share:.1f}%")
-#         st.caption(f"฿{campaign_revenue:,.0f}")
-    
-#     with col2:
-#         campaign_orders = len(campaign_df)
-#         total_orders = len(df_master)
-#         campaign_order_share = (campaign_orders / total_orders * 100)
-#         st.metric("Campaign Order Share", f"{campaign_order_share:.1f}%")
-#         st.caption(f"{campaign_orders:,} orders")
-    
-#     with col3:
-#         campaign_aov = campaign_df['sale_price'].mean()
-#         non_campaign_aov = non_campaign_df['sale_price'].mean()
-#         aov_lift = ((campaign_aov / non_campaign_aov - 1) * 100) if non_campaign_aov > 0 else 0
-#         st.metric("AOV Lift from Campaign", f"{aov_lift:+.1f}%")
-#         st.caption(f"Campaign: ฿{campaign_aov:,.0f}")
-    
-#     with col4:
-#         avg_discount = campaign_df['discount_pct'].mean() * 100
-#         st.metric("Avg Discount Rate", f"{avg_discount:.1f}%")
-#         st.caption(f"{len(campaign_df):,} discounted orders")
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         comparison = pd.DataFrame({
-#             'Type': ['With Campaign', 'Without Campaign'],
-#             'AOV': [campaign_aov, non_campaign_aov],
-#             'Orders': [len(campaign_df), len(non_campaign_df)],
-#             'Revenue': [campaign_revenue, non_campaign_revenue]
-#         })
+    with col2:
+        # Return on Ad Spend (ROAS)
+        campaign_profit = campaign_df['profit'].sum()
+        campaign_cost = (campaign_df['discount_pct'] * campaign_df['sale_price']).sum()
+        roas = (campaign_revenue / campaign_cost * 100) if campaign_cost > 0 else 0
         
-#         fig = px.bar(comparison, 
-#                      x='Type', 
-#                      y='AOV',
-#                      title="Average Order Value: Campaign Impact",
-#                      color='Type',
-#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-#         st.plotly_chart(fig, use_container_width=True)
+        st.metric("Return on Ad Spend (ROAS)", f"{roas:.1f}%")
+        st.metric("Campaign Profit", f"฿{campaign_profit:,.0f}")
+        st.metric("Campaign Cost", f"฿{campaign_cost:,.0f}")
     
-#     with col2:
-#         fig = px.pie(comparison, 
-#                      values='Revenue', 
-#                      names='Type',
-#                      title="Revenue Distribution",
-#                      hole=0.4,
-#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-#         st.plotly_chart(fig, use_container_width=True)
+    # Traffic Source Performance
+    st.subheader("2️⃣ Traffic Source Performance (SEO/Marketing Channels)")
     
-#     # Traffic source analysis
-#     st.subheader("2️⃣ Traffic Source Performance")
+    traffic_perf = df_marketing.groupby('traffic_source').agg({
+        'user_id': 'nunique',
+        'order_id': 'nunique',
+        'sale_price': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    traffic_perf.columns = ['Traffic Source', 'Customers', 'Orders', 'Revenue', 'Profit']
+    traffic_perf['Conversion Rate %'] = (traffic_perf['Orders'] / traffic_perf['Customers'] * 100).round(2)
+    traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
+    traffic_perf['Profit Margin %'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(2)
     
-#     traffic_perf = df_master.groupby('traffic_source').agg({
-#         'user_id': 'nunique',
-#         'sale_price': 'sum',
-#         'profit': 'sum',
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     traffic_perf.columns = ['Traffic Source', 'Customers', 'Revenue', 'Profit', 'Orders']
-#     traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
-#     traffic_perf['Profit Margin (%)'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(1)
-#     traffic_perf['Conversion Rate (%)'] = ((traffic_pe_layout(height=500)
-#         st.plotly_chart(fig, use_container_width=True)
+    col1, col2 = st.columns(2)
     
-#     with col2:
-#         # Revenue heatmap
-#         top_revenue_provinces = province_data.nlargest(15, 'revenue')
-#         fig = px.bar(top_revenue_provinces, 
-#                      x='revenue', 
-#                      y='province',
-#                      orientation='h',
-#                      title="Top 15 จังหวัด - ยอดขาย",
-#                      color='revenue',
-#                      color_continuous_scale='Greens',
-#                      labels={'revenue': 'ยอดขาย (฿)', 'province': 'จังหวัด'})
-#         fig.update_layout(height=500)
-#         st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig = px.bar(traffic_perf.sort_values('Revenue', ascending=True),
+                     x='Revenue',
+                     y='Traffic Source',
+                     orientation='h',
+                     title="Revenue by Traffic Source",
+                     color='Profit Margin %',
+                     color_continuous_scale='Viridis')
+        st.plotly_chart(fig, use_container_width=True)
     
-#     with col3:
-#         # Region distribution with actual filtered data
-#         region_dist = filtered_customer_geo.groupby('region').agg({
-#             'user_id': 'nunique',
-#             'total_spent': 'sum'
-#         }).reset_index()
-#         region_dist.columns = ['Region', 'Customers', 'Revenue']
+    with col2:
+        fig = px.scatter(traffic_perf,
+                        x='Customers',
+                        y='Revenue per Customer',
+                        size='Revenue',
+                        color='Traffic Source',
+                        title="Customer Value by Traffic Source",
+                        hover_data=['Conversion Rate %'])
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.dataframe(traffic_perf.sort_values('Revenue', ascending=False), use_container_width=True)
+    
+    # Customer Segmentation (RFM + Clustering)
+    st.subheader("3️⃣ Customer Segmentation (RFM Analysis)")
+    
+    analysis_date = df_marketing['created_at'].max()
+    
+    rfm_data = df_marketing.groupby('user_id').agg({
+        'created_at': lambda x: (analysis_date - x.max()).days,
+        'order_id': 'nunique',
+        'sale_price': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    rfm_data.columns = ['user_id', 'recency', 'frequency', 'monetary', 'total_profit']
+    
+    # Calculate RFM scores
+    rfm_data['R_score'] = pd.qcut(rfm_data['recency'], q=4, labels=[4,3,2,1], duplicates='drop')
+    rfm_data['F_score'] = pd.qcut(rfm_data['frequency'], q=4, labels=[1,2,3,4], duplicates='drop')
+    rfm_data['M_score'] = pd.qcut(rfm_data['monetary'], q=4, labels=[1,2,3,4], duplicates='drop')
+    
+    rfm_data['RFM_score'] = (rfm_data['R_score'].astype(int) + 
+                              rfm_data['F_score'].astype(int) + 
+                              rfm_data['M_score'].astype(int))
+    
+    def segment_customer(score):
+        if score >= 9:
+            return 'Champions'
+        elif score >= 6:
+            return 'Loyal'
+        elif score >= 4:
+            return 'At Risk'
+        else:
+            return 'Lost'
+    
+    rfm_data['segment'] = rfm_data['RFM_score'].apply(segment_customer)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        seg_dist = rfm_data['segment'].value_counts()
+        colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
+        fig = px.pie(values=seg_dist.values,
+                     names=seg_dist.index,
+                     title="Customer Distribution by RFM Segment",
+                     hole=0.4,
+                     color=seg_dist.index,
+                     color_discrete_map=colors)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        seg_value = rfm_data.groupby('segment')['monetary'].sum().sort_values(ascending=True)
+        fig = px.bar(x=seg_value.values,
+                     y=seg_value.index,
+                     orientation='h',
+                     title="Total Revenue by RFM Segment",
+                     color=seg_value.index,
+                     color_discrete_map=colors)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Segment metrics
+    seg_metrics = rfm_data.groupby('segment').agg({
+        'user_id': 'count',
+        'recency': 'mean',
+        'frequency': 'mean',
+        'monetary': 'mean',
+        'total_profit': 'mean',
+        'RFM_score': 'mean'
+    }).round(2)
+    seg_metrics.columns = ['Customers', 'Avg Recency (days)', 'Avg Frequency', 'Avg Revenue (฿)', 'Avg Profit (฿)', 'Avg RFM Score']
+    
+    segment_order = ['Champions', 'Loyal', 'At Risk', 'Lost']
+    seg_metrics = seg_metrics.reindex([s for s in segment_order if s in seg_metrics.index])
+    
+    st.dataframe(seg_metrics.style.background_gradient(cmap='RdYlGn', subset=['Avg RFM Score']), 
+                use_container_width=True)
+
+# ==========================================
+# TAB 4: FINANCIAL ANALYTICS
+# ==========================================
+with tab4:
+    st.header("💰 Financial & Accounting Analytics")
+    
+    df_finance = df_filtered.copy()
+    
+    st.subheader("1️⃣ Common Financial KPIs")
+    
+    # Key Financial Metrics
+    total_revenue = df_finance['sale_price'].sum()
+    total_cogs = df_finance['cost'].sum()
+    gross_profit = total_revenue - total_cogs
+    net_profit = df_finance['profit'].sum()
+    
+    # Gross Profit Margin
+    gross_profit_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Net Profit Margin
+    net_profit_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Operating metrics
+    total_orders = df_finance['order_id'].nunique()
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("Total Revenue", f"฿{total_revenue:,.0f}")
+    
+    with col2:
+        st.metric("COGS", f"฿{total_cogs:,.0f}")
+    
+    with col3:
+        st.metric("Gross Profit", f"฿{gross_profit:,.0f}",
+                 delta=f"{gross_profit_margin:.1f}%")
+    
+    with col4:
+        st.metric("Net Profit", f"฿{net_profit:,.0f}",
+                 delta=f"{net_profit_margin:.1f}%")
+    
+    with col5:
+        ros = net_profit_margin  # Return on Sales = Net Profit Margin
+        st.metric("Return on Sales (ROS)", f"{ros:.2f}%")
+    
+    # Account Receivable & Payable Analysis
+    st.subheader("2️⃣ AR/AP Turnover & Cash Flow Metrics")
+    
+    # Simulate AR/AP data (in real scenario, you'd have actual AR/AP data)
+    monthly_revenue = df_finance.groupby('order_month').agg({
+        'sale_price': 'sum',
+        'cost': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    
+    avg_monthly_revenue = monthly_revenue['sale_price'].mean()
+    avg_ar_balance = avg_monthly_revenue * 0.3  # Assume 30% of sales are on credit
+    
+    # AR Turnover = Net Credit Sales / Average AR Balance
+    net_credit_sales = total_revenue * 0.3  # Assume 30% credit sales
+    ar_turnover = net_credit_sales / avg_ar_balance if avg_ar_balance > 0 else 0
+    
+    # Days Sales Outstanding (DSO) = 365 / AR Turnover
+    dso = 365 / ar_turnover if ar_turnover > 0 else 0
+    
+    # AP Turnover
+    avg_ap_balance = total_cogs * 0.25  # Assume 25% of COGS are payables
+    ap_turnover = total_cogs / avg_ap_balance if avg_ap_balance > 0 else 0
+    
+    # Days Payable Outstanding (DPO)
+    dpo = 365 / ap_turnover if ap_turnover > 0 else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("AR Turnover", f"{ar_turnover:.2f}x")
+        st.caption("Higher is better")
+    
+    with col2:
+        st.metric("Days Sales Outstanding", f"{dso:.0f} days")
+        st.caption("Lower is better")
+    
+    with col3:
+        st.metric("AP Turnover", f"{ap_turnover:.2f}x")
+    
+    with col4:
+        st.metric("Days Payable Outstanding", f"{dpo:.0f} days")
+    
+    # Monthly Financial Performance
+    st.subheader("3️⃣ Monthly Financial Performance")
+    
+    monthly_revenue['order_month'] = monthly_revenue['order_month'].dt.to_timestamp()
+    monthly_revenue['gross_margin_%'] = (monthly_revenue['profit'] / monthly_revenue['sale_price'] * 100).round(2)
+    
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=monthly_revenue['order_month'],
+        y=monthly_revenue['sale_price'],
+        name='Revenue',
+        marker_color='lightblue'
+    ))
+    fig.add_trace(go.Bar(
+        x=monthly_revenue['order_month'],
+        y=monthly_revenue['cost'],
+        name='COGS',
+        marker_color='lightcoral'
+    ))
+    fig.add_trace(go.Scatter(
+        x=monthly_revenue['order_month'],
+        y=monthly_revenue['gross_margin_%'],
+        name='Gross Margin %',
+        yaxis='y2',
+        mode='lines+markers',
+        line=dict(color='green', width=3)
+    ))
+    
+    fig.update_layout(
+        title="Monthly Revenue, COGS & Gross Margin",
+        xaxis_title="Month",
+        yaxis_title="Amount (฿)",
+        yaxis2=dict(title="Gross Margin (%)", overlaying='y', side='right'),
+        barmode='group',
+        hovermode='x unified'
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Channel Profitability
+    st.subheader("4️⃣ Channel Profitability Analysis")
+    
+    channel_finance = df_finance.groupby(['channel', 'channel_type']).agg({
+        'sale_price': 'sum',
+        'cost': 'sum',
+        'profit': 'sum',
+        'order_id': 'nunique'
+    }).reset_index()
+    channel_finance.columns = ['Channel', 'Type', 'Revenue', 'COGS', 'Profit', 'Orders']
+    channel_finance['Gross Margin %'] = (channel_finance['Profit'] / channel_finance['Revenue'] * 100).round(2)
+    channel_finance['AOV'] = (channel_finance['Revenue'] / channel_finance['Orders']).round(2)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        fig = px.bar(channel_finance.sort_values('Profit', ascending=True),
+                     x='Profit',
+                     y='Channel',
+                     orientation='h',
+                     title="Profit by Channel",
+                     color='Gross Margin %',
+                     color_continuous_scale='RdYlGn')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        fig = px.scatter(channel_finance,
+                        x='Revenue',
+                        y='Profit',
+                        size='Orders',
+                        color='Type',
+                        text='Channel',
+                        title="Revenue vs Profit by Channel")
+        fig.update_traces(textposition='top center')
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.dataframe(channel_finance.sort_values('Revenue', ascending=False), use_container_width=True)
+    
+    # Sales Growth Rate
+    st.subheader("5️⃣ Sales Growth Analysis")
+    
+    if len(monthly_revenue) >= 2:
+        monthly_revenue['growth_rate'] = monthly_revenue['sale_price'].pct_change() * 100
         
-#         fig = px.pie(region_dist, 
-#                      values='Customers', 
-#                      names='Region',
-#                      title="การกระจายลูกค้าตามภูมิภาค",
-#                      hole=0.4,
-#                      color_discrete_sequence=px.colors.sequential.RdBu)
-#         st.plotly_chart(fig, use_container_width=True)
+        fig = px.line(monthly_revenue,
+                     x='order_month',
+                     y='growth_rate',
+                     title="Monthly Sales Growth Rate (%)",
+                     markers=True)
+        fig.add_hline(y=0, line_dash="dash", line_color="red")
+        fig.update_traces(line_color='#3498db', line_width=3)
+        st.plotly_chart(fig, use_container_width=True)
         
-#         # Age distribution
-#         if not filtered_customer_geo.empty:
-#             age_dist = filtered_customer_geo[filtered_customer_geo['age'].notna()].copy()
-#             age_dist['age_group'] = pd.cut(age_dist['age'], 
-#                                            bins=[0, 20, 30, 40, 50, 60, 100],
-#                                            labels=['<20', '20-30', '30-40', '40-50', '50-60', '60+'])
-#             age_group_dist = age_dist.groupby('age_group')['user_id'].nunique().reset_index()
-#             age_group_dist.columns = ['กลุ่มอายุ', 'จำนวนลูกค้า']
-            
-#             fig = px.bar(age_group_dist, 
-#                          x='กลุ่มอายุ', 
-#                          y='จำนวนลูกค้า',
-#                          title="การกระจายลูกค้าตามช่วงอายุ",
-#                          color='จำนวนลูกค้า',
-#                          color_continuous_scale='Teal')
-#             st.plotly_chart(fig, use_container_width=True)
+        avg_growth = monthly_revenue['growth_rate'].mean()
+        st.info(f"📊 Average Monthly Growth Rate: **{avg_growth:.2f}%**")
+
+# ==========================================
+# TAB 5: WAREHOUSE & INVENTORY ANALYTICS
+# ==========================================
+with tab5:
+    st.header("📦 Warehouse & Inventory Analytics")
     
-#     # Detailed geographic table
-#     st.subheader("📊 สรุปข้อมูลตามจังหวัด")
+    df_warehouse = df_filtered.copy()
     
-#     # Prepare transaction-level data for calculations
-#     trans_geo = df_filtered_geo.groupby(['province', 'order_id']).agg({
-#         'sale_price': 'sum',
-#         'product_id': 'nunique'
-#     }).reset_index()
-#     trans_geo.columns = ['province', 'order_id', 'order_value', 'items_per_order']
+    st.subheader("1️⃣ Inventory Performance Metrics")
     
-#     geo_summary = filtered_customer_geo.groupby('province').agg({
-#         'user_id': 'nunique',
-#         'total_spent': 'sum',
-#         'total_orders': 'sum',
-#         'unique_products': 'sum'
-#     }).reset_index()
+    # Inventory Turnover
+    total_cogs = df_warehouse['cost'].sum()
     
-#     # Calculate avg per order
-#     order_avg = trans_geo.groupby('province').agg({
-#         'order_value': 'mean',
-#         'items_per_order': 'mean'
-#     }).reset_index()
+    # Average Inventory (simplified - using cost as proxy)
+    avg_inventory = df_warehouse['cost'].mean() * df_warehouse['product_id'].nunique()
+    inventory_turnover = total_cogs / avg_inventory if avg_inventory > 0 else 0
     
-#     geo_summary = geo_summary.merge(order_avg, on='province', how='left')
+    # Days Inventory Outstanding (DIO)
+    dio = 365 / inventory_turnover if inventory_turnover > 0 else 0
     
-#     geo_summary.columns = ['จังหวัด', 'จำนวนลูกค้า', 'ยอดขายรวม (฿)', 'จำนวนคำสั่งซื้อ', 
-#                            'สินค้าทั้งหมด', 'ยอดเฉลี่ยต่อ Order (฿)', 'สินค้าเฉลี่ยต่อ Order']
-#     geo_summary['ยอดเฉลี่ยต่อลูกค้า (฿)'] = (geo_summary['ยอดขายรวม (฿)'] / geo_summary['จำนวนลูกค้า']).round(2)
-#     geo_summary = geo_summary.sort_values('ยอดขายรวม (฿)', ascending=False)
+    # Sell-through Rate
+    total_units_sold = len(df_warehouse)
+    total_units_received = total_units_sold * 1.2  # Assume 20% more received than sold
+    sell_through_rate = (total_units_sold / total_units_received * 100) if total_units_received > 0 else 0
     
-#     # Round values
-#     geo_summary['ยอดเฉลี่ยต่อ Order (฿)'] = geo_summary['ยอดเฉลี่ยต่อ Order (฿)'].round(2)
-#     geo_summary['สินค้าเฉลี่ยต่อ Order'] = geo_summary['สินค้าเฉลี่ยต่อ Order'].round(1)
+    col1, col2, col3, col4 = st.columns(4)
     
-#     st.dataframe(geo_summary, use_container_width=True, height=400)
+    with col1:
+        st.metric("Inventory Turnover", f"{inventory_turnover:.2f}x")
+        st.caption("Higher is better")
     
-#     # Monthly trends by region
-#     st.subheader("📈 Trend การขายตามภูมิภาคและเวลา")
+    with col2:
+        st.metric("Days Inventory Outstanding", f"{dio:.0f} days")
+        st.caption("Lower is better")
     
-#     monthly_region = df_filtered_geo.groupby([df_filtered_geo['created_at'].dt.to_period('M'), 'region']).agg({
-#         'sale_price': 'sum',
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     monthly_region['created_at'] = monthly_region['created_at'].dt.to_timestamp()
-#     monthly_region.columns = ['เดือน', 'ภูมิภาค', 'ยอดขาย', 'จำนวนคำสั่งซื้อ']
+    with col3:
+        st.metric("Sell-Through Rate", f"{sell_through_rate:.1f}%")
+        st.caption("Target: >80%")
     
-#     fig = px.line(monthly_region, 
-#                   x='เดือน', 
-#                   y='ยอดขาย',
-#                   color='ภูมิภาค',
-#                   title="ยอดขายรายเดือนแยกตามภูมิภาค",
-#                   markers=True)
-#     st.plotly_chart(fig, use_container_width=True)
+    with col4:
+        total_inventory_value = avg_inventory
+        st.metric("Total Inventory Value", f"฿{total_inventory_value:,.0f}")
     
-#     # Promotional Days Analysis
-#     st.subheader("🎉 วิเคราะห์ยอดขายในวัน Promotion")
+    # Product Movement Analysis
+    st.subheader("2️⃣ Product Movement Analysis (Fast/Slow Moving)")
     
-#     df_promo = df_filtered.copy()
-#     df_promo['day'] = df_promo['created_at'].dt.day
-#     df_promo['month'] = df_promo['created_at'].dt.month
-#     df_promo['year'] = df_promo['created_at'].dt.year
+    product_velocity = df_warehouse.groupby(['product_id', 'product_name', 'product_category']).agg({
+        'order_id': 'nunique',
+        'sale_price': 'sum',
+        'cost': 'sum'
+    }).reset_index()
+    product_velocity.columns = ['Product ID', 'Product Name', 'Category', 'Order Count', 'Revenue', 'Cost']
     
-#     # Define special promotion days
-#     def classify_day_type(row):
-#         day = row['day']
-#         month = row['month']
+    # Classify movement
+    velocity_threshold_fast = product_velocity['Order Count'].quantile(0.75)
+    velocity_threshold_slow = product_velocity['Order Count'].quantile(0.25)
+    
+    def classify_movement(count):
+        if count >= velocity_threshold_fast:
+            return 'Fast Moving'
+        elif count <= velocity_threshold_slow:
+            return 'Slow Moving'
+        else:
+            return 'Medium Moving'
+    
+    product_velocity['Movement'] = product_velocity['Order Count'].apply(classify_movement)
+    product_velocity['Inventory Value'] = product_velocity['Cost']
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        movement_dist = product_velocity['Movement'].value_counts()
+        colors_movement = {
+            'Fast Moving': '#2ecc71',
+            'Medium Moving': '#f39c12',
+            'Slow Moving': '#e74c3c'
+        }
+        fig = px.pie(values=movement_dist.values,
+                     names=movement_dist.index,
+                     title="Product Movement Distribution",
+                     hole=0.4,
+                     color=movement_dist.index,
+                     color_discrete_map=colors_movement)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        movement_value = product_velocity.groupby('Movement')['Inventory Value'].sum().sort_values(ascending=True)
+        fig = px.bar(x=movement_value.values,
+                     y=movement_value.index,
+                     orientation='h',
+                     title="Inventory Value by Movement",
+                     color=movement_value.index,
+                     color_discrete_map=colors_movement)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Top/Bottom Products
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 🚀 Top 10 Fast Moving Products")
+        top_fast = product_velocity[product_velocity['Movement'] == 'Fast Moving'].nlargest(10, 'Order Count')
+        st.dataframe(top_fast[['Product Name', 'Category', 'Order Count', 'Revenue']],
+                    use_container_width=True, height=300)
+    
+    with col2:
+        st.markdown("#### 🐌 Top 10 Slow Moving Products")
+        top_slow = product_velocity[product_velocity['Movement'] == 'Slow Moving'].nlargest(10, 'Inventory Value')
+        st.dataframe(top_slow[['Product Name', 'Category', 'Order Count', 'Inventory Value']],
+                    use_container_width=True, height=300)
+    
+    # Stock Level & Reorder Analysis
+    st.subheader("3️⃣ Stock Level & Reorder Point Analysis")
+    
+    # Calculate daily demand for top products
+    daily_demand = df_warehouse.groupby(['order_date', 'product_id']).size().reset_index(name='quantity')
+    
+    product_demand_stats = daily_demand.groupby('product_id').agg({
+        'quantity': ['mean', 'std', 'sum']
+    }).reset_index()
+    product_demand_stats.columns = ['product_id', 'avg_daily_demand', 'std_demand', 'total_sold']
+    
+    # Merge with product info
+    product_demand_stats = product_demand_stats.merge(
+        df_warehouse[['product_id', 'product_name']].drop_duplicates(),
+        on='product_id',
+        how='left'
+    )
+    
+    # Calculate reorder point (assuming 7-day lead time and 95% service level)
+    lead_time_days = 7
+    service_level_z = 1.65  # 95% service level
+    
+    product_demand_stats['safety_stock'] = (
+        service_level_z * product_demand_stats['std_demand'] * np.sqrt(lead_time_days)
+    ).fillna(0)
+    
+    product_demand_stats['reorder_point'] = (
+        product_demand_stats['avg_daily_demand'] * lead_time_days + 
+        product_demand_stats['safety_stock']
+    ).round(0)
+    
+    product_demand_stats = product_demand_stats.nlargest(20, 'total_sold')
+    
+    st.dataframe(
+        product_demand_stats[['product_name', 'avg_daily_demand', 'safety_stock', 'reorder_point', 'total_sold']]
+        .round(2)
+        .rename(columns={
+            'product_name': 'Product',
+            'avg_daily_demand': 'Avg Daily Demand',
+            'safety_stock': 'Safety Stock',
+            'reorder_point': 'Reorder Point',
+            'total_sold': 'Total Sold'
+        }),
+        use_container_width=True,
+        height=400
+    )
+    
+    # Order Fulfillment Metrics
+    st.subheader("4️⃣ Order Fulfillment & Accuracy Metrics")
+    
+    # Calculate fulfillment metrics
+    total_orders = df_warehouse['order_id'].nunique()
+    completed_orders = df_warehouse[df_warehouse['status'] == 'Complete']['order_id'].nunique() if 'status' in df_warehouse.columns else total_orders
+    
+    # On-time shipping rate (simplified)
+    on_time_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
+    
+    # Order accuracy (assume 98% accuracy)
+    order_accuracy = 98.0
+    
+    # Backorder rate
+    backorder_rate = 2.0  # Simplified assumption
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Order Fulfillment Rate", f"{on_time_rate:.1f}%")
+        st.caption("Target: >95%")
+    
+    with col2:
+        st.metric("Order Accuracy", f"{order_accuracy:.1f}%")
+        st.caption("Target: >99%")
+    
+    with col3:
+        st.metric("Backorder Rate", f"{backorder_rate:.1f}%")
+        st.caption("Target: <5%")
+    
+    with col4:
+        avg_order_cycle = 3.5  # days
+        st.metric("Avg Order Cycle Time", f"{avg_order_cycle:.1f} days")
+        st.caption("Order to delivery")
+    
+    # Inventory Carrying Cost
+    st.subheader("5️⃣ Inventory Carrying Costs")
+    
+    total_inventory_value = avg_inventory
+    
+    # Carrying cost breakdown (typical percentages)
+    storage_cost_pct = 0.06  # 6%
+    capital_cost_pct = 0.10  # 10%
+    insurance_risk_pct = 0.04  # 4%
+    
+    total_carrying_cost_pct = storage_cost_pct + capital_cost_pct + insurance_risk_pct
+    
+    storage_cost = total_inventory_value * storage_cost_pct
+    capital_cost = total_inventory_value * capital_cost_pct
+    insurance_cost = total_inventory_value * insurance_risk_pct
+    total_carrying_cost = total_inventory_value * total_carrying_cost_pct
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        carrying_breakdown = pd.DataFrame({
+            'Cost Type': ['Storage Cost', 'Capital Cost', 'Insurance & Risk'],
+            'Amount': [storage_cost, capital_cost, insurance_cost],
+            'Percentage': [storage_cost_pct * 100, capital_cost_pct * 100, insurance_risk_pct * 100]
+        })
         
-#         # Special days: 1.1, 2.2, 3.3, etc.
-#         if day == month and day <= 12:
-#             return f'{day}.{month} Special'
-#         # Every 25th
-#         elif day == 25:
-#             return '25th Monthly'
-#         else:
-#             return 'Regular Day'
+        fig = px.pie(carrying_breakdown,
+                     values='Amount',
+                     names='Cost Type',
+                     title="Inventory Carrying Cost Breakdown",
+                     hole=0.4)
+        st.plotly_chart(fig, use_container_width=True)
     
-#     df_promo['day_type'] = df_promo.apply(classify_day_type, axis=1)
+    with col2:
+        st.metric("Total Carrying Cost", f"฿{total_carrying_cost:,.0f}")
+        st.metric("Carrying Cost %", f"{total_carrying_cost_pct * 100:.1f}%")
+        st.caption(f"Storage: ฿{storage_cost:,.0f}")
+        st.caption(f"Capital: ฿{capital_cost:,.0f}")
+        st.caption(f"Insurance: ฿{insurance_cost:,.0f}")
     
-#     # Compare performance
-#     promo_comparison = df_promo.groupby('day_type').agg({
-#         'sale_price': ['sum', 'mean', 'count'],
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     promo_comparison.columns = ['ประเภทวัน', 'ยอดขายรวม', 'ยอดเฉลี่ยต่อ Transaction', 'จำนวน Transaction', 'จำนวน Order']
+    # Cash Conversion Cycle
+    st.subheader("6️⃣ Cash Conversion Cycle")
     
-#     col1, col2 = st.columns(2)
+    # DIO calculated earlier
+    # DSO calculated earlier (in finance tab)
+    # DPO calculated earlier (in finance tab)
     
-#     with col1:
-#         fig = px.bar(promo_comparison, 
-#                      x='ประเภทวัน', 
-#                      y='ยอดเฉลี่ยต่อ Transaction',
-#                      title="ยอดขายเฉลี่ยต่อ Transaction ตามประเภทวัน",
-#                      color='ยอดเฉลี่ยต่อ Transaction',
-#                      color_continuous_scale='Blues',
-#                      text='ยอดเฉลี่ยต่อ Transaction')
-#         fig.update
+    cash_conversion_cycle = dio + dso - dpo
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Days Inventory Outstanding", f"{dio:.0f} days")
+    
+    with col2:
+        st.metric("Days Sales Outstanding", f"{dso:.0f} days")
+    
+    with col3:
+        st.metric("Days Payable Outstanding", f"{dpo:.0f} days")
+    
+    with col4:
+        st.metric("Cash Conversion Cycle", f"{cash_conversion_cycle:.0f} days")
+        st.caption("Lower is better")
 
-
-
-
-
-
-
-# # ========================================== 
-# # TAB 4: MARKETING ANALYTICS
-# # ========================================== 
-# with tab4:
-#     st.header("🎯 Marketing Analytics")
-    
-#     st.subheader("1️⃣ Campaign Effectiveness")
-    
-#     campaign_df = df_master[df_master['discount_pct'] > 0].copy()
-#     non_campaign_df = df_master[df_master['discount_pct'] == 0].copy()
-    
-#     col1, col2, col3, col4 = st.columns(4)
-    
-#     with col1:
-#         campaign_revenue = campaign_df['sale_price'].sum()
-#         non_campaign_revenue = non_campaign_df['sale_price'].sum()
-#         campaign_share = (campaign_revenue / (campaign_revenue + non_campaign_revenue) * 100)
-#         st.metric("Campaign Revenue Share", f"{campaign_share:.1f}%")
-#         st.caption(f"฿{campaign_revenue:,.0f}")
-    
-#     with col2:
-#         campaign_orders = len(campaign_df)
-#         total_orders = len(df_master)
-#         campaign_order_share = (campaign_orders / total_orders * 100)
-#         st.metric("Campaign Order Share", f"{campaign_order_share:.1f}%")
-#         st.caption(f"{campaign_orders:,} orders")
-    
-#     with col3:
-#         campaign_aov = campaign_df['sale_price'].mean()
-#         non_campaign_aov = non_campaign_df['sale_price'].mean()
-#         aov_lift = ((campaign_aov / non_campaign_aov - 1) * 100) if non_campaign_aov > 0 else 0
-#         st.metric("AOV Lift from Campaign", f"{aov_lift:+.1f}%")
-#         st.caption(f"Campaign: ฿{campaign_aov:,.0f}")
-    
-#     with col4:
-#         avg_discount = campaign_df['discount_pct'].mean() * 100
-#         st.metric("Avg Discount Rate", f"{avg_discount:.1f}%")
-#         st.caption(f"{len(campaign_df):,} discounted orders")
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         comparison = pd.DataFrame({
-#             'Type': ['With Campaign', 'Without Campaign'],
-#             'AOV': [campaign_aov, non_campaign_aov],
-#             'Orders': [len(campaign_df), len(non_campaign_df)],
-#             'Revenue': [campaign_revenue, non_campaign_revenue]
-#         })
-        
-#         fig = px.bar(comparison, 
-#                      x='Type', 
-#                      y='AOV',
-#                      title="Average Order Value: Campaign Impact",
-#                      color='Type',
-#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         fig = px.pie(comparison, 
-#                      values='Revenue', 
-#                      names='Type',
-#                      title="Revenue Distribution",
-#                      hole=0.4,
-#                      color_discrete_map={'With Campaign': '#e74c3c', 'Without Campaign': '#3498db'})
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     # Traffic source analysis
-#     st.subheader("2️⃣ Traffic Source Performance")
-    
-#     traffic_perf = df_master.groupby('traffic_source').agg({
-#         'user_id': 'nunique',
-#         'sale_price': 'sum',
-#         'profit': 'sum',
-#         'order_id': 'nunique'
-#     }).reset_index()
-#     traffic_perf.columns = ['Traffic Source', 'Customers', 'Revenue', 'Profit', 'Orders']
-#     traffic_perf['Revenue per Customer'] = (traffic_perf['Revenue'] / traffic_perf['Customers']).round(2)
-#     traffic_perf['Profit Margin (%)'] = (traffic_perf['Profit'] / traffic_perf['Revenue'] * 100).round(1)
-#     traffic_perf['Conversion Rate (%)'] = ((traffic_perf['Orders'] / traffic_perf['Customers']) * 100).round(1)
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         fig = px.bar(traffic_perf.sort_values('Revenue', ascending=True),
-#                      x='Revenue', 
-#                      y='Traffic Source',
-#                      orientation='h',
-#                      title="Revenue by Traffic Source",
-#                      color='Profit Margin (%)',
-#                      color_continuous_scale='viridis')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         fig = px.scatter(traffic_perf, 
-#                         x='Customers', 
-#                         y='Revenue per Customer',
-#                         size='Revenue',
-#                         text='Traffic Source',
-#                         title="Customer Value by Traffic Source",
-#                         labels={'Customers': 'Total Customers', 'Revenue per Customer': 'Revenue per Customer (฿)'},
-#                         color='Profit Margin (%)',
-#                         color_continuous_scale='plasma')
-#         fig.update_traces(textposition='top center')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     st.dataframe(traffic_perf.sort_values('Revenue', ascending=False), 
-#                 use_container_width=True, height=300)
-    
-#     # Customer clustering
-#     st.subheader("3️⃣ Customer Segmentation (K-Means Clustering)")
-    
-#     cluster_data = df_master.groupby('user_id').agg({
-#         'created_at': lambda x: (df_master['created_at'].max() - x.max()).days,
-#         'order_id': 'nunique',
-#         'sale_price': 'sum'
-#     }).reset_index()
-#     cluster_data.columns = ['user_id', 'recency', 'frequency', 'monetary']
-    
-#     scaler = StandardScaler()
-#     features_scaled = scaler.fit_transform(cluster_data[['recency', 'frequency', 'monetary']])
-    
-#     col1, col2, col3 = st.columns([1, 1, 1])
-#     with col1:
-#         n_clusters = st.slider("Number of Clusters", 2, 6, 4)
-    
-#     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-#     cluster_data['cluster'] = kmeans.fit_predict(features_scaled)
-    
-#     fig = px.scatter_3d(cluster_data, 
-#                         x='recency', 
-#                         y='frequency', 
-#                         z='monetary',
-#                         color='cluster',
-#                         title="Customer Clusters (3D Visualization)",
-#                         labels={'cluster': 'Cluster', 
-#                                'recency': 'Recency (days)', 
-#                                'frequency': 'Frequency (orders)', 
-#                                'monetary': 'Monetary (฿)'},
-#                         color_continuous_scale='viridis')
-#     fig.update_traces(marker=dict(size=5))
-#     st.plotly_chart(fig, use_container_width=True)
-    
-#     cluster_stats = cluster_data.groupby('cluster').agg({
-#         'recency': 'mean',
-#         'frequency': 'mean',
-#         'monetary': 'mean',
-#         'user_id': 'count'
-#     }).round(2)
-#     cluster_stats.columns = ['Avg Recency (days)', 'Avg Frequency', 'Avg Monetary (฿)', 'Customer Count']
-#     cluster_stats['Total Value (฿)'] = (cluster_stats['Avg Monetary (฿)'] * cluster_stats['Customer Count']).round(0)
-    
-#     st.subheader("Cluster Characteristics")
-#     st.dataframe(cluster_stats, use_container_width=True)
-    
-#     col1, col2 = st.columns(2)
-    
-#     with col1:
-#         cluster_dist = cluster_data['cluster'].value_counts().sort_index()
-#         fig = px.bar(x=cluster_dist.index.astype(str), 
-#                      y=cluster_dist.values,
-#                      title="Customer Distribution by Cluster",
-#                      labels={'x': 'Cluster', 'y': 'Number of Customers'},
-#                      color=cluster_dist.values,
-#                      color_continuous_scale='blues')
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     with col2:
-#         cluster_value = cluster_data.groupby('cluster')['monetary'].sum()
-#         fig = px.pie(values=cluster_value.values, 
-#                      names=[f"Cluster {i}" for i in cluster_value.index],
-#                      title="Revenue Distribution by Cluster",
-#                      hole=0.4)
-#         st.plotly_chart(fig, use_container_width=True)
-    
-#     # Marketing recommendations
-#     st.subheader("4️⃣ Marketing Insights & Recommendations")
-    
-#     with st.expander("📊 View Detailed Insights"):
-#         col1, col2 = st.columns(2)
-        
-#         with col1:
-#             st.markdown("### 🎯 Campaign Insights")
-#             if campaign_order_share > 50:
-#                 st.success(f"✅ High campaign engagement ({campaign_order_share:.0f}% of orders)")
-#             else:
-#                 st.info(f"💡 Opportunity to increase campaign coverage (current: {campaign_order_share:.0f}%)")
-            
-#             if aov_lift > 10:
-#                 st.success(f"✅ Strong AOV lift from campaigns (+{aov_lift:.1f}%)")
-#             elif aov_lift > 0:
-#                 st.warning(f"⚠️ Moderate AOV lift (+{aov_lift:.1f}%) - optimize discount strategy")
-#             else:
-#                 st.error(f"❌ Negative AOV impact ({aov_lift:.1f}%) - review campaign effectiveness")
-        
-#         with col2:
-#             st.markdown("### 📱 Channel Insights")
-#             best_channel = channel_detail.loc[channel_detail['Profit Margin (%)'].idxmax()]
-#             st.success(f"✅ Best performing channel: **{best_channel['Channel']}** ({best_channel['Type']})")
-#             st.metric("Profit Margin", f"{best_channel['Profit Margin (%)']}%")
-#             st.metric("Total Revenue", f"฿{best_channel['Revenue (฿)']:,.0f}")
-
-# st.markdown("---")
-# st.caption("📊 E-commerce Analytics Dashboard | Built with Streamlit")
-
+st.markdown("---")
+st.caption("📊 E-commerce Analytics Dashboard Pro | Powered by Streamlit")
