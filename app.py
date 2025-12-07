@@ -1077,23 +1077,74 @@ def upload_data():
 @st.cache_data
 def merge_and_preprocess(data):
     """Merge all tables and create master dataframe"""
-    df = data['order_item'].merge(
-        data['order'][['order_id', 'channel', 'discount_pct', 'status', 'num_of_item', 'created_at']],
-        on='order_id', how='left', suffixes=('', '_order')
-    )
-    df = df.merge(
-        data['product'][['product_id', 'product_category', 'product_collection', 'retail_price', 'product_name']],
-        on='product_id', how='left', suffixes=('', '_prod')
-    )
-    df = df.merge(
-        data['user'][['user_id', 'city', 'traffic_source', 'age', 'gender']],
-        on='user_id', how='left'
-    )
+    # Helper function to get available columns
+    def get_available_cols(df, desired_cols):
+        return [col for col in desired_cols if col in df.columns]
+    
+    # Start with order_item
+    df = data['order_item'].copy()
+    
+    # Merge order table
+    order_cols = ['order_id', 'channel', 'discount_pct', 'status', 'num_of_item', 'created_at']
+    available_order_cols = get_available_cols(data['order'], order_cols)
+    if 'order_id' in available_order_cols:
+        df = df.merge(
+            data['order'][available_order_cols],
+            on='order_id', how='left', suffixes=('', '_order')
+        )
+    
+    # Merge product table
+    product_cols = ['product_id', 'product_category', 'product_collection', 'retail_price', 'product_name']
+    available_product_cols = get_available_cols(data['product'], product_cols)
+    if 'product_id' in available_product_cols:
+        df = df.merge(
+            data['product'][available_product_cols],
+            on='product_id', how='left', suffixes=('', '_prod')
+        )
+    
+    # Merge user table
+    user_cols = ['user_id', 'city', 'traffic_source', 'age', 'gender']
+    available_user_cols = get_available_cols(data['user'], user_cols)
+    if 'user_id' in available_user_cols:
+        df = df.merge(
+            data['user'][available_user_cols],
+            on='user_id', how='left'
+        )
+    
+    # Add missing columns with default values
+    if 'channel' not in df.columns:
+        df['channel'] = 'Unknown'
+    if 'discount_pct' not in df.columns:
+        df['discount_pct'] = 0.0
+    if 'status' not in df.columns:
+        df['status'] = 'Complete'
+    if 'traffic_source' not in df.columns:
+        df['traffic_source'] = 'Unknown'
+    if 'product_category' not in df.columns:
+        df['product_category'] = 'Uncategorized'
+    if 'product_name' not in df.columns:
+        df['product_name'] = 'Unknown Product'
+    if 'cost' not in df.columns:
+        # Estimate cost as 60% of sale price if not available
+        if 'sale_price' in df.columns:
+            df['cost'] = df['sale_price'] * 0.6
+        else:
+            df['cost'] = 0
+    if 'sale_price' not in df.columns:
+        df['sale_price'] = 0
     
     # Date conversions
     for col in ['created_at', 'shipped_at', 'delivered_at', 'returned_at']:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce')
+    
+    # If created_at doesn't exist, try to find any date column
+    if 'created_at' not in df.columns:
+        date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+        if date_cols:
+            df['created_at'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
+        else:
+            df['created_at'] = pd.Timestamp.now()
     
     # Derived fields
     df['profit'] = df['sale_price'] - df['cost']
