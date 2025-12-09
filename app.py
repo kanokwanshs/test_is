@@ -1043,14 +1043,17 @@ def upload_data():
                 import os
                 data = {}
                 file_mapping = {
-                    "distribution_centers.csv": "dc",
-                    "user.csv": "user",
-                    "product.csv": "product",
-                    "inventory_item.csv": "inventory",
-                    "order.csv": "order",
-                    "order_item.csv": "order_item",
-                    "event.csv": "event"
-                }
+                            "distribution_centers.csv": "dc",
+                            "users.csv": "user",
+                            "products.csv": "product",
+                            "inventory_items.csv": "inventory",
+                            "orders.csv": "order",
+                            "order_items.csv": "order_item",
+                            "events.csv": "event",
+                            "sales_representatives.csv": "sales_rep",
+                            "leads.csv": "lead",
+                            "marketing_campaigns.csv": "campaign"
+                  }
                 
                 for filename, key in file_mapping.items():
                     filepath = os.path.join(data_path, filename)
