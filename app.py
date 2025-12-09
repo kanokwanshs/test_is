@@ -1644,27 +1644,27 @@ with tab4:
         avg_growth = monthly_fin['growth_%'].mean()
         st.info(f"📊 Average Monthly Growth: **{avg_growth:.2f}%**")
 
-# TAB 5: WAREHOUSE & INVENTORY
-with tab5:
-    st.header("📦 Warehouse & Inventory")
+# # TAB 5: WAREHOUSE & INVENTORY
+# with tab5:
+#     st.header("📦 Warehouse & Inventory")
     
-    st.subheader("1️⃣ Inventory Metrics")
+#     st.subheader("1️⃣ Inventory Metrics")
     
-    total_cogs = df_filtered['cost'].sum()
-    avg_inv = df_filtered['cost'].mean() * df_filtered['product_id'].nunique()
-    inv_turnover = total_cogs / avg_inv if avg_inv > 0 else 0
-    dio = 365 / inv_turnover if inv_turnover > 0 else 0
+#     total_cogs = df_filtered['cost'].sum()
+#     avg_inv = df_filtered['cost'].mean() * df_filtered['product_id'].nunique()
+#     inv_turnover = total_cogs / avg_inv if avg_inv > 0 else 0
+#     dio = 365 / inv_turnover if inv_turnover > 0 else 0
     
-    units_sold = len(df_filtered)
-    units_received = units_sold * 1.2
-    sell_through = (units_sold / units_received * 100) if units_received > 0 else 0
+#     units_sold = len(df_filtered)
+#     units_received = units_sold * 1.2
+#     sell_through = (units_sold / units_received * 100) if units_received > 0 else 0
     
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Inventory Turnover", f"{inv_turnover:.2f}x")
-    col2.metric("DIO", f"{dio:.0f} days")
-    col3.metric("Sell-Through Rate", f"{sell_through:.1f}%")
-    col4.metric("Inventory Value", f"฿{avg_inv:,.0f}")
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("Inventory Turnover", f"{inv_turnover:.2f}x")
+#     col2.metric("DIO", f"{dio:.0f} days")
+#     col3.metric("Sell-Through Rate", f"{sell_through:.1f}%")
+#     col4.metric("Inventory Value", f"฿{avg_inv:,.0f}")
     
-    st.subheader("2️⃣ Product Movement")
+#     st.subheader("2️⃣ Product Movement")
     
-    prod_vel = df_filtered.groupby(['product_id', 'product_name', 'product
+#     prod_vel = df_filtered.groupby(['product_id', 'product_name', 'product
