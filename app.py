@@ -254,15 +254,18 @@ with tab1:
     ))
     
     fig.update_layout(
-        yaxis=dict(title="Revenue (฿)"),
-        yaxis2=dict(
-            title="Profit Margin (%)",
-            overlaying='y',
-            side='right',
-            ticksuffix='%'
-        ),
-        height=400,
-        legend=dict(orientation="h", y=1.15)
+    yaxis=dict(
+        title="Revenue (฿)"
+    ),
+    yaxis2=dict(
+        title="Profit Margin (%)",
+        overlaying='y',
+        side='right',
+        ticksuffix='%',
+        range=[0, 100]   # 👈 FIX SCALE 0–100%
+    ),
+    height=400,
+    legend=dict(orientation="h", y=1.15)
     )
     
     st.plotly_chart(fig, use_container_width=True)
