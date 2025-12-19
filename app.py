@@ -91,9 +91,28 @@ def merge_data(data):
         df = df.merge(data['product'], on='product_id', how='left', suffixes=('', '_p'))
     if 'user_id' in data['user'].columns:
         df = df.merge(data['user'], on='user_id', how='left', suffixes=('', '_u'))
+
+    # 🔧 FIX USER_ID (สำคัญมาก)
+    if 'user_id' not in df.columns:
+        if 'customer_id' in df.columns:
+            df['user_id'] = df['customer_id']
+        elif 'buyer_user_id' in df.columns:
+            df['user_id'] = df['buyer_user_id']
+        elif 'user_id_o' in df.columns:
+            df['user_id'] = df['user_id_o']
+        else:
+            df['user_id'] = 'UNKNOWN_USER'
     
-    defaults = {'channel': 'Unknown', 'discount_pct': 0.0, 'status': 'Complete', 'traffic_source': 'Unknown',
-                'product_category': 'Other', 'product_name': 'Unknown', 'cost': 0, 'sale_price': 0}
+    defaults = {
+        'channel': 'Unknown',
+        'discount_pct': 0.0,
+        'status': 'Complete',
+        'traffic_source': 'Unknown',
+        'product_category': 'Other',
+        'product_name': 'Unknown',
+        'cost': 0,
+        'sale_price': 0
+    }
     for col, val in defaults.items():
         if col not in df.columns:
             df[col] = val
