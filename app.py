@@ -464,46 +464,89 @@ with tab3:
     
     st.subheader("3️⃣ RFM Analysis")
     
-    rfm = df_filtered.groupby('user_id').agg({
-        'created_at': lambda x: (analysis_date - x.max()).days,
-        'order_id': 'nunique', 'sale_price': 'sum', 'profit': 'sum'
-    }).reset_index()
-    rfm.columns = ['user_id', 'recency', 'frequency', 'monetary', 'total_profit']
+    # rfm = df_filtered.groupby('user_id').agg({
+    #     'created_at': lambda x: (analysis_date - x.max()).days,
+    #     'order_id': 'nunique', 'sale_price': 'sum', 'profit': 'sum'
+    # }).reset_index()
+    # rfm.columns = ['user_id', 'recency', 'frequency', 'monetary', 'total_profit']
     
-    rfm['R'] = pd.qcut(rfm['recency'], 4, labels=[4,3,2,1], duplicates='drop')
-    rfm['F'] = pd.qcut(rfm['frequency'], 4, labels=[1,2,3,4], duplicates='drop')
-    rfm['M'] = pd.qcut(rfm['monetary'], 4, labels=[1,2,3,4], duplicates='drop')
-    rfm['RFM_Score'] = rfm['R'].astype(int) + rfm['F'].astype(int) + rfm['M'].astype(int)
+    # rfm['R'] = pd.qcut(rfm['recency'], 4, labels=[4,3,2,1], duplicates='drop')
+    # rfm['F'] = pd.qcut(rfm['frequency'], 4, labels=[1,2,3,4], duplicates='drop')
+    # rfm['M'] = pd.qcut(rfm['monetary'], 4, labels=[1,2,3,4], duplicates='drop')
+    # rfm['RFM_Score'] = rfm['R'].astype(int) + rfm['F'].astype(int) + rfm['M'].astype(int)
     
-    def segment(s):
-        if s >= 9: return 'Champions'
-        elif s >= 6: return 'Loyal'
-        elif s >= 4: return 'At Risk'
-        return 'Lost'
+    # def segment(s):
+    #     if s >= 9: return 'Champions'
+    #     elif s >= 6: return 'Loyal'
+    #     elif s >= 4: return 'At Risk'
+    #     return 'Lost'
     
-    rfm['Segment'] = rfm['RFM_Score'].apply(segment)
+    # rfm['Segment'] = rfm['RFM_Score'].apply(segment)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        seg = rfm['Segment'].value_counts()
-        colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
-        fig = px.pie(values=seg.values, names=seg.index, title="Customer Segments", 
-                    hole=0.4, color=seg.index, color_discrete_map=colors)
-        st.plotly_chart(fig, use_container_width=True)
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     seg = rfm['Segment'].value_counts()
+    #     colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
+    #     fig = px.pie(values=seg.values, names=seg.index, title="Customer Segments", 
+    #                 hole=0.4, color=seg.index, color_discrete_map=colors)
+    #     st.plotly_chart(fig, use_container_width=True)
     
-    with col2:
-        seg_val = rfm.groupby('Segment')['monetary'].sum().sort_values(ascending=True)
-        fig = px.bar(x=seg_val.values, y=seg_val.index, orientation='h',
-                    title="Revenue by Segment", color=seg_val.index, color_discrete_map=colors)
-        st.plotly_chart(fig, use_container_width=True)
+    # with col2:
+    #     seg_val = rfm.groupby('Segment')['monetary'].sum().sort_values(ascending=True)
+    #     fig = px.bar(x=seg_val.values, y=seg_val.index, orientation='h',
+    #                 title="Revenue by Segment", color=seg_val.index, color_discrete_map=colors)
+    #     st.plotly_chart(fig, use_container_width=True)
     
-    seg_metrics = rfm.groupby('Segment').agg({
-        'user_id': 'count', 'recency': 'mean', 'frequency': 'mean',
-        'monetary': 'mean', 'total_profit': 'mean', 'RFM_Score': 'mean'
-    }).round(2)
-    seg_metrics.columns = ['Customers', 'Avg Recency', 'Avg Frequency', 
-                          'Avg Revenue', 'Avg Profit', 'Avg RFM Score']
-    st.dataframe(seg_metrics, use_container_width=True)
+    # seg_metrics = rfm.groupby('Segment').agg({
+    #     'user_id': 'count', 'recency': 'mean', 'frequency': 'mean',
+    #     'monetary': 'mean', 'total_profit': 'mean', 'RFM_Score': 'mean'
+    # }).round(2)
+    # seg_metrics.columns = ['Customers', 'Avg Recency', 'Avg Frequency', 
+    #                       'Avg Revenue', 'Avg Profit', 'Avg RFM Score']
+    # st.dataframe(seg_metrics, use_container_width=True)
+st.subheader("3️⃣ RFM Analysis")
+
+rfm = df_filtered.groupby('user_id').agg({
+    'created_at': lambda x: (analysis_date - x.max()).days,
+    'order_id': 'nunique',
+    'sale_price': 'sum',
+    'profit': 'sum'
+}).reset_index()
+
+rfm.columns = ['user_id', 'recency', 'frequency', 'monetary', 'total_profit']
+
+# =========================
+# SAFE QCUT FUNCTION
+# =========================
+def safe_qcut(series, q, labels):
+    try:
+        bins = pd.qcut(series.rank(method='first'), q=q, duplicates='drop')
+        n_bins = bins.cat.categories.size
+        return pd.qcut(
+            series.rank(method='first'),
+            q=n_bins,
+            labels=labels[:n_bins]
+        )
+    except Exception:
+        return pd.Series([labels[0]] * len(series), index=series.index)
+
+# Apply RFM scoring safely
+rfm['R'] = safe_qcut(rfm['recency'], 4, [4,3,2,1])
+rfm['F'] = safe_qcut(rfm['frequency'], 4, [1,2,3,4])
+rfm['M'] = safe_qcut(rfm['monetary'], 4, [1,2,3,4])
+
+rfm['RFM_Score'] = rfm[['R','F','M']].astype(int).sum(axis=1)
+
+def segment(score):
+    if score >= 9:
+        return 'Champions'
+    elif score >= 6:
+        return 'Loyal'
+    elif score >= 4:
+        return 'At Risk'
+    return 'Lost'
+
+rfm['Segment'] = rfm['RFM_Score'].apply(segment)
 
 # TAB 4: FINANCIAL ANALYTICS
 with tab4:
