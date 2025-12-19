@@ -37,7 +37,7 @@ def upload_data():
             try:
                 with zipfile.ZipFile(io.BytesIO(uploaded.read())) as z:
                     data = {}
-                    mapping = {"users.csv": "user", "products.csv": "product", "orders.csv": "order", 
+                    mapping = {"users.csv": "user","customers.csv": "user", "products.csv": "product", "orders.csv": "order", 
                               "order_items.csv": "order_item", "events.csv": "event"}
                     
                     for fname in z.namelist():
@@ -62,7 +62,7 @@ def upload_data():
             try:
                 import os
                 data = {}
-                mapping = {"users.csv": "user", "products.csv": "product", "orders.csv": "order", "order_items.csv": "order_item"}
+                mapping = {"users.csv": "user","customers.csv": "user", "products.csv": "product", "orders.csv": "order", "order_items.csv": "order_item"}
                 
                 for fname, key in mapping.items():
                     fp = os.path.join(path, fname)
