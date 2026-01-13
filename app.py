@@ -4097,7 +4097,7 @@ st.markdown("""
 
 
 
-# Fashion E-commerce Analytics Dashboard - Improved Version
+# Fashion E-commerce Analytics Dashboard - Fixed Version
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -4122,6 +4122,7 @@ CHANNEL_COLORS = {
     'Website': '#607D8B'      # Blue Grey
 }
 
+# Initialize session state
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 if 'data' not in st.session_state:
@@ -4138,12 +4139,23 @@ def load_data():
     st.sidebar.title("👕 Fashion Analytics Pro")
     st.sidebar.markdown("---")
     
-    uploaded = st.sidebar.file_uploader("📁 Upload CSV Files", type=['csv'], accept_multiple_files=True)
+    # Fixed: Added unique key to prevent duplicate element ID
+    uploaded = st.sidebar.file_uploader(
+        "📁 Upload CSV Files", 
+        type=['csv'], 
+        accept_multiple_files=True,
+        key="csv_uploader_main"  # Unique key added
+    )
     
-    if uploaded and st.sidebar.button("🔄 Load Data", type="primary"):
+    if uploaded and st.sidebar.button("🔄 Load Data", type="primary", key="load_data_btn"):
         data = {}
-        mapping = {"users.csv": "users", "products.csv": "products", "orders.csv": "orders", 
-                   "order_items.csv": "order_items", "inventory_movements.csv": "inventory"}
+        mapping = {
+            "users.csv": "users", 
+            "products.csv": "products", 
+            "orders.csv": "orders", 
+            "order_items.csv": "order_items", 
+            "inventory_movements.csv": "inventory"
+        }
         
         for file in uploaded:
             if file.name in mapping:
@@ -4222,7 +4234,7 @@ max_date = df_master['order_date'].max().date()
 
 st.sidebar.markdown("**📅 Select Time Period:**")
 period_options = ["Custom Range", "Last 7 Days", "Last 30 Days", "Last 90 Days", "This Month", "Last Month", "This Quarter", "This Year", "All Time"]
-selected_period = st.sidebar.selectbox("Quick Select", period_options, index=0)
+selected_period = st.sidebar.selectbox("Quick Select", period_options, index=0, key="period_selector")
 
 # Calculate date range based on selection
 if selected_period == "Last 7 Days":
@@ -4252,8 +4264,13 @@ elif selected_period == "All Time":
     start_date = min_date
     end_date = max_date
 else:  # Custom Range
-    date_range = st.sidebar.date_input("Select Custom Range", [min_date, max_date], 
-                                       min_value=min_date, max_value=max_date)
+    date_range = st.sidebar.date_input(
+        "Select Custom Range", 
+        [min_date, max_date], 
+        min_value=min_date, 
+        max_value=max_date,
+        key="custom_date_range"
+    )
     if len(date_range) == 2:
         start_date, end_date = date_range
     else:
@@ -4268,10 +4285,20 @@ df_filtered = df_master[(df_master['order_date'].dt.date >= start_date) &
 st.sidebar.markdown("---")
 
 # Other Filters
-channels = st.sidebar.multiselect("🏪 Channel", df_filtered['channel'].unique(), df_filtered['channel'].unique())
+channels = st.sidebar.multiselect(
+    "🏪 Channel", 
+    df_filtered['channel'].unique(), 
+    df_filtered['channel'].unique(),
+    key="channel_filter"
+)
 df_filtered = df_filtered[df_filtered['channel'].isin(channels)]
 
-statuses = st.sidebar.multiselect("📦 Status", df_filtered['status'].unique(), ['Completed'])
+statuses = st.sidebar.multiselect(
+    "📦 Status", 
+    df_filtered['status'].unique(), 
+    ['Completed'],
+    key="status_filter"
+)
 df_filtered = df_filtered[df_filtered['status'].isin(statuses)]
 
 # Display metrics in sidebar
@@ -4412,7 +4439,7 @@ with tab1:
     
     col1, col2 = st.columns([1, 3])
     with col1:
-        selected_month_label = st.selectbox("Select Month", month_labels, index=0)
+        selected_month_label = st.selectbox("Select Month", month_labels, index=0, key="month_selector_daily")
         selected_month = available_months[month_labels.index(selected_month_label)]
     
     # Filter data for selected month
@@ -4530,7 +4557,7 @@ with tab1:
         ))
         
         fig.update_layout(
-            title="Revenue by Channel (with Profit Margin)",
+            title="Revenue by Channel",
             xaxis_title="Revenue (฿)",
             yaxis_title="Channel",
             showlegend=False,
