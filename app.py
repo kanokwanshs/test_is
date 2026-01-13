@@ -997,13 +997,514 @@
 
 
 
-# Fashion E-commerce Analytics Dashboard
+# # Fashion E-commerce Analytics Dashboard
+# import streamlit as st
+# import pandas as pd
+# import plotly.express as px
+# import plotly.graph_objects as go
+# import numpy as np
+# import warnings
+
+# warnings.filterwarnings('ignore')
+# st.set_page_config(page_title="Fashion Analytics Pro", layout="wide", page_icon="👕")
+
+# if 'data_loaded' not in st.session_state:
+#     st.session_state.data_loaded = False
+# if 'data' not in st.session_state:
+#     st.session_state.data = {}
+
+# REQUIRED_COLUMNS = {
+#     'users': ['user_id', 'customer_type', 'created_at'],
+#     'products': ['product_id', 'category', 'sale_price', 'cost'],
+#     'orders': ['order_id', 'user_id', 'order_date', 'channel', 'status'],
+#     'order_items': ['order_id', 'product_id', 'quantity', 'net_revenue', 'cost', 'profit']
+# }
+
+# def load_data():
+#     st.sidebar.title("👕 Fashion Analytics Pro")
+#     st.sidebar.markdown("---")
+    
+#     uploaded = st.sidebar.file_uploader("📁 Upload CSV Files", type=['csv'], accept_multiple_files=True)
+    
+#     if uploaded and st.sidebar.button("🔄 Load Data", type="primary"):
+#         data = {}
+#         mapping = {"users.csv": "users", "products.csv": "products", "orders.csv": "orders", 
+#                    "order_items.csv": "order_items", "inventory_movements.csv": "inventory"}
+        
+#         for file in uploaded:
+#             if file.name in mapping:
+#                 try:
+#                     df = pd.read_csv(file)
+#                     table = mapping[file.name]
+#                     if table in REQUIRED_COLUMNS:
+#                         missing = [c for c in REQUIRED_COLUMNS[table] if c not in df.columns]
+#                         if not missing:
+#                             data[table] = df
+#                             st.sidebar.success(f"✅ {file.name}")
+#                         else:
+#                             st.sidebar.error(f"❌ {file.name} - Missing: {', '.join(missing)}")
+#                     else:
+#                         data[table] = df
+#                         st.sidebar.success(f"✅ {file.name}")
+#                 except Exception as e:
+#                     st.sidebar.error(f"❌ {file.name}: {str(e)}")
+        
+#         if all(t in data for t in ['users', 'products', 'orders', 'order_items']):
+#             st.session_state.data = data
+#             st.session_state.data_loaded = True
+#             st.sidebar.success("✅ All data loaded!")
+#             st.rerun()
+#         else:
+#             st.sidebar.error("❌ Missing required tables")
+    
+#     return st.session_state.data if st.session_state.data_loaded else None
+
+# @st.cache_data
+# def merge_data(data):
+#     df = data['order_items'].copy()
+#     df = df.merge(data['orders'], on='order_id', how='left', suffixes=('', '_o'))
+#     df = df.merge(data['products'], on='product_id', how='left', suffixes=('', '_p'))
+#     df = df.merge(data['users'], on='user_id', how='left', suffixes=('', '_u'))
+    
+#     for col in ['order_date', 'created_at']:
+#         if col in df.columns:
+#             df[col] = pd.to_datetime(df[col], errors='coerce')
+    
+#     if 'order_date' in df.columns:
+#         df['order_month'] = df['order_date'].dt.to_period('M')
+#         df['order_year'] = df['order_date'].dt.year
+    
+#     online = ['Shopee', 'Lazada', 'TikTok', 'LINE Shopping']
+#     df['channel_type'] = df['channel'].apply(lambda x: 'Online' if x in online else 'Offline')
+    
+#     return df
+
+# data = load_data()
+
+# if not data:
+#     st.title("👕 Fashion E-commerce Analytics Dashboard")
+#     st.info("👈 Please upload CSV files to begin")
+    
+#     st.markdown("### 📋 Required Columns")
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         st.code("users.csv:\n- user_id\n- customer_type\n- created_at")
+#         st.code("orders.csv:\n- order_id\n- user_id\n- order_date\n- channel\n- status")
+#     with col2:
+#         st.code("products.csv:\n- product_id\n- category\n- sale_price\n- cost")
+#         st.code("order_items.csv:\n- order_id\n- product_id\n- quantity\n- net_revenue\n- cost\n- profit")
+#     st.stop()
+
+# df_master = merge_data(data)
+
+# st.sidebar.markdown("---")
+# st.sidebar.success(f"✅ {len(df_master):,} transactions")
+
+# min_date = df_master['order_date'].min().date()
+# max_date = df_master['order_date'].max().date()
+# date_range = st.sidebar.date_input("📅 Date Range", [min_date, max_date], min_value=min_date, max_value=max_date)
+
+# if len(date_range) == 2:
+#     df_filtered = df_master[(df_master['order_date'].dt.date >= date_range[0]) & 
+#                             (df_master['order_date'].dt.date <= date_range[1])]
+# else:
+#     df_filtered = df_master
+
+# channels = st.sidebar.multiselect("Channel", df_filtered['channel'].unique(), df_filtered['channel'].unique())
+# df_filtered = df_filtered[df_filtered['channel'].isin(channels)]
+
+# statuses = st.sidebar.multiselect("Status", df_filtered['status'].unique(), ['Completed'])
+# df_filtered = df_filtered[df_filtered['status'].isin(statuses)]
+
+# st.sidebar.markdown("---")
+# st.sidebar.metric("Revenue", f"฿{df_filtered['net_revenue'].sum():,.0f}")
+# st.sidebar.metric("Profit", f"฿{df_filtered['profit'].sum():,.0f}")
+
+# tab1, tab2, tab3, tab4 = st.tabs(["💼 Sales", "📢 Marketing", "💰 Financial", "📦 Warehouse"])
+
+# with tab1:
+#     st.header("💼 Sales Analytics")
+    
+#     st.subheader("1️⃣ KPIs")
+    
+#     revenue = df_filtered['net_revenue'].sum()
+#     profit = df_filtered['profit'].sum()
+#     margin = (profit / revenue * 100) if revenue > 0 else 0
+    
+#     monthly = df_filtered.groupby('order_month')['net_revenue'].sum().sort_index()
+#     growth = ((monthly.iloc[-1] - monthly.iloc[-2]) / monthly.iloc[-2] * 100) if len(monthly) >= 2 else 0
+    
+#     aov = df_filtered.groupby('order_id')['net_revenue'].sum().mean()
+#     target = 5000000
+#     curr_sales = df_filtered[df_filtered['order_month'] == df_filtered['order_month'].max()]['net_revenue'].sum()
+#     attainment = (curr_sales / target * 100) if target > 0 else 0
+    
+#     col1, col2, col3, col4, col5 = st.columns(5)
+#     col1.metric("Monthly Growth", f"{growth:+.1f}%")
+#     col2.metric("Profit Margin", f"{margin:.1f}%")
+#     col3.metric("Target", f"{attainment:.1f}%")
+#     col4.metric("AOV", f"฿{aov:,.0f}")
+#     col5.metric("Customers", f"{df_filtered['user_id'].nunique():,}")
+    
+#     st.subheader("2️⃣ Sales Trend")
+    
+#     daily = df_filtered.groupby('order_date').agg({'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
+#     fig = go.Figure()
+#     fig.add_trace(go.Scatter(x=daily['order_date'], y=daily['net_revenue'], name='Revenue', fill='tozeroy'))
+#     fig.add_trace(go.Scatter(x=daily['order_date'], y=daily['profit'], name='Profit', yaxis='y2'))
+#     fig.update_layout(yaxis=dict(title="Revenue"), yaxis2=dict(title="Profit", overlaying='y', side='right'), height=400)
+#     st.plotly_chart(fig, use_container_width=True)
+    
+#     st.subheader("3️⃣ Channel Performance")
+    
+#     ch = df_filtered.groupby('channel').agg({'net_revenue': 'sum', 'profit': 'sum', 'order_id': 'nunique', 'user_id': 'nunique'}).reset_index()
+#     ch.columns = ['Channel', 'Revenue', 'Profit', 'Orders', 'Customers']
+#     ch['Margin %'] = (ch['Profit'] / ch['Revenue'] * 100).round(1)
+#     ch = ch.sort_values('Revenue', ascending=False)
+    
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         fig = px.pie(ch, values='Revenue', names='Channel', title="Revenue by Channel", hole=0.4)
+#         st.plotly_chart(fig, use_container_width=True)
+#     with col2:
+#         fig = px.bar(ch.sort_values('Revenue', ascending=True), x='Revenue', y='Channel', orientation='h', 
+#                     color='Margin %', color_continuous_scale='RdYlGn')
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     st.dataframe(ch.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 'Orders': '{:,}', 
+#                                   'Customers': '{:,}', 'Margin %': '{:.1f}%'}), use_container_width=True)
+    
+#     st.subheader("4️⃣ Product Performance")
+    
+#     prod = df_filtered.groupby(['product_id', 'product_name', 'category']).agg({
+#         'net_revenue': 'sum', 'profit': 'sum', 'quantity': 'sum'}).reset_index()
+#     prod.columns = ['ID', 'Product', 'Category', 'Revenue', 'Profit', 'Units']
+#     prod['Margin %'] = (prod['Profit'] / prod['Revenue'] * 100).round(1)
+#     prod = prod.sort_values('Revenue', ascending=False).head(20)
+    
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         fig = px.bar(prod.head(10), x='Revenue', y='Product', orientation='h', color='Margin %', 
+#                     color_continuous_scale='RdYlGn', title="Top 10 Products")
+#         st.plotly_chart(fig, use_container_width=True)
+#     with col2:
+#         fig = px.scatter(prod, x='Revenue', y='Profit', size='Units', color='Category', 
+#                         hover_data=['Product'], title="Revenue vs Profit")
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     st.dataframe(prod.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 
+#                                     'Units': '{:,}', 'Margin %': '{:.1f}%'}), use_container_width=True)
+    
+#     st.subheader("5️⃣ Customer Metrics")
+    
+#     marketing_cost = df_filtered['discount_amount'].sum() if 'discount_amount' in df_filtered.columns else 0
+#     new_cust = df_filtered['user_id'].nunique()
+#     cac = marketing_cost / new_cust if new_cust > 0 else 0
+    
+#     analysis_date = df_filtered['order_date'].max()
+#     last_purchase = df_filtered.groupby('user_id')['order_date'].max()
+#     churned = ((analysis_date - last_purchase).dt.days > 90).sum()
+#     churn = (churned / len(last_purchase) * 100) if len(last_purchase) > 0 else 0
+#     retention = 100 - churn
+    
+#     avg_rev = df_filtered.groupby('user_id')['net_revenue'].sum().mean()
+#     clv = (margin / 100) * (retention / 100) * avg_rev
+    
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("CAC", f"฿{cac:,.2f}")
+#     col2.metric("Retention", f"{retention:.1f}%")
+#     col3.metric("Churn", f"{churn:.1f}%")
+#     col4.metric("CLV", f"฿{clv:,.0f}")
+
+# with tab2:
+#     st.header("📢 Marketing Analytics")
+    
+#     st.subheader("1️⃣ Campaign Effectiveness")
+    
+#     if 'campaign_type' in df_filtered.columns:
+#         camp = df_filtered[df_filtered['campaign_type'].notna()]
+#         no_camp = df_filtered[df_filtered['campaign_type'].isna()]
+        
+#         if len(camp) > 0:
+#             camp_rev = camp['net_revenue'].sum()
+#             camp_share = (camp_rev / revenue * 100) if revenue > 0 else 0
+#             conv = (len(camp) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
+#             camp_aov = camp.groupby('order_id')['net_revenue'].sum().mean()
+#             no_camp_aov = no_camp.groupby('order_id')['net_revenue'].sum().mean() if len(no_camp) > 0 else 0
+            
+#             camp_cost = camp['discount_amount'].sum() if 'discount_amount' in camp.columns else 0
+#             roas = (camp_rev / camp_cost * 100) if camp_cost > 0 else 0
+            
+#             col1, col2, col3, col4 = st.columns(4)
+#             col1.metric("Campaign Revenue %", f"{camp_share:.1f}%")
+#             col2.metric("Conv Rate", f"{conv:.1f}%")
+#             col3.metric("ROAS", f"{roas:.0f}%")
+#             col4.metric("Campaign AOV", f"฿{camp_aov:,.0f}")
+            
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 comp = pd.DataFrame({'Type': ['With Campaign', 'Without'], 'AOV': [camp_aov, no_camp_aov]})
+#                 fig = px.bar(comp, x='Type', y='AOV', title="AOV Impact", color='Type', text='AOV')
+#                 fig.update_traces(texttemplate='฿%{text:,.0f}', textposition='outside')
+#                 st.plotly_chart(fig, use_container_width=True)
+#             with col2:
+#                 camp_break = camp.groupby('campaign_type')['net_revenue'].sum().sort_values(ascending=False)
+#                 fig = px.bar(x=camp_break.values, y=camp_break.index, orientation='h', title="Revenue by Campaign")
+#                 st.plotly_chart(fig, use_container_width=True)
+    
+#     st.subheader("2️⃣ Acquisition Channel")
+    
+#     if 'acquisition_channel' in df_filtered.columns:
+#         acq = df_filtered.groupby('acquisition_channel').agg({'user_id': 'nunique', 'order_id': 'nunique', 
+#                                                                'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
+#         acq.columns = ['Channel', 'Customers', 'Orders', 'Revenue', 'Profit']
+#         acq['Conv %'] = (acq['Orders'] / acq['Customers'] * 100).round(1)
+#         acq['Rev/Cust'] = (acq['Revenue'] / acq['Customers']).round(0)
+#         acq = acq.sort_values('Revenue', ascending=False)
+        
+#         col1, col2 = st.columns(2)
+#         with col1:
+#             fig = px.bar(acq.sort_values('Revenue', ascending=True), x='Revenue', y='Channel', orientation='h')
+#             st.plotly_chart(fig, use_container_width=True)
+#         with col2:
+#             fig = px.scatter(acq, x='Customers', y='Rev/Cust', size='Revenue', color='Channel')
+#             st.plotly_chart(fig, use_container_width=True)
+        
+#         st.dataframe(acq.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 
+#                                        'Rev/Cust': '฿{:,.0f}', 'Conv %': '{:.1f}%'}), use_container_width=True)
+    
+#     st.subheader("3️⃣ RFM Analysis")
+    
+#     rfm = df_filtered.groupby('user_id').agg({'order_date': lambda x: (analysis_date - x.max()).days, 
+#                                                'order_id': 'nunique', 'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
+#     rfm.columns = ['user_id', 'recency', 'frequency', 'monetary', 'profit']
+    
+#     def safe_qcut(s, q, labels):
+#         try:
+#             return pd.qcut(s.rank(method='first'), q=q, labels=labels, duplicates='drop')
+#         except:
+#             return pd.Series([labels[0]] * len(s), index=s.index)
+    
+#     rfm['R'] = safe_qcut(rfm['recency'], 4, [4,3,2,1])
+#     rfm['F'] = safe_qcut(rfm['frequency'], 4, [1,2,3,4])
+#     rfm['M'] = safe_qcut(rfm['monetary'], 4, [1,2,3,4])
+#     rfm['RFM_Score'] = rfm[['R','F','M']].astype(int).sum(axis=1)
+    
+#     def segment(s):
+#         if s >= 9: return 'Champions'
+#         elif s >= 6: return 'Loyal'
+#         elif s >= 4: return 'At Risk'
+#         return 'Lost'
+    
+#     rfm['Segment'] = rfm['RFM_Score'].apply(segment)
+    
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         seg = rfm['Segment'].value_counts()
+#         colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
+#         fig = px.pie(values=seg.values, names=seg.index, hole=0.4, color=seg.index, color_discrete_map=colors)
+#         st.plotly_chart(fig, use_container_width=True)
+#     with col2:
+#         seg_val = rfm.groupby('Segment')['monetary'].sum().sort_values(ascending=True)
+#         fig = px.bar(x=seg_val.values, y=seg_val.index, orientation='h', color=seg_val.index, color_discrete_map=colors)
+#         st.plotly_chart(fig, use_container_width=True)
+
+# with tab3:
+#     st.header("💰 Financial Analytics")
+    
+#     st.subheader("1️⃣ Financial KPIs")
+    
+#     cogs = df_filtered['cost'].sum()
+#     gross_profit = revenue - cogs
+#     gross_margin = (gross_profit / revenue * 100) if revenue > 0 else 0
+#     net_margin = (profit / revenue * 100) if revenue > 0 else 0
+    
+#     col1, col2, col3, col4, col5 = st.columns(5)
+#     col1.metric("Revenue", f"฿{revenue:,.0f}")
+#     col2.metric("COGS", f"฿{cogs:,.0f}")
+#     col3.metric("Gross Profit", f"฿{gross_profit:,.0f}", f"{gross_margin:.1f}%")
+#     col4.metric("Net Profit", f"฿{profit:,.0f}", f"{net_margin:.1f}%")
+#     col5.metric("ROS", f"{net_margin:.1f}%")
+    
+#     st.subheader("2️⃣ Monthly Performance")
+    
+#     mon_fin = df_filtered.groupby('order_month').agg({'net_revenue': 'sum', 'cost': 'sum', 'profit': 'sum'}).reset_index()
+#     mon_fin['order_month'] = mon_fin['order_month'].dt.to_timestamp()
+#     mon_fin['margin_%'] = (mon_fin['profit'] / mon_fin['net_revenue'] * 100).round(2)
+    
+#     fig = go.Figure()
+#     fig.add_trace(go.Bar(x=mon_fin['order_month'], y=mon_fin['net_revenue'], name='Revenue', marker_color='lightblue'))
+#     fig.add_trace(go.Bar(x=mon_fin['order_month'], y=mon_fin['cost'], name='COGS', marker_color='lightcoral'))
+#     fig.add_trace(go.Scatter(x=mon_fin['order_month'], y=mon_fin['margin_%'], name='Margin %', yaxis='y2', 
+#                             mode='lines+markers', line=dict(color='green', width=3)))
+#     fig.update_layout(yaxis=dict(title="Amount"), yaxis2=dict(title="Margin %", overlaying='y', side='right'), 
+#                      barmode='group', height=400)
+#     st.plotly_chart(fig, use_container_width=True)
+    
+#     st.subheader("3️⃣ AR/AP Turnover")
+    
+#     avg_monthly_rev = mon_fin['net_revenue'].mean()
+#     avg_ar = avg_monthly_rev * 0.3
+#     ar_turnover = revenue * 0.3 / avg_ar if avg_ar > 0 else 0
+#     dso = 365 / ar_turnover if ar_turnover > 0 else 0
+    
+#     avg_ap = cogs * 0.25
+#     ap_turnover = cogs / avg_ap if avg_ap > 0 else 0
+#     dpo = 365 / ap_turnover if ap_turnover > 0 else 0
+    
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("AR Turnover", f"{ar_turnover:.2f}x")
+#     col2.metric("DSO", f"{dso:.0f} days")
+#     col3.metric("AP Turnover", f"{ap_turnover:.2f}x")
+#     col4.metric("DPO", f"{dpo:.0f} days")
+
+# with tab4:
+#     st.header("📦 Warehouse & Inventory")
+    
+#     st.subheader("1️⃣ Inventory Metrics")
+    
+#     avg_inv = df_filtered['cost'].mean() * df_filtered['product_id'].nunique()
+#     inv_turnover = cogs / avg_inv if avg_inv > 0 else 0
+#     dio = 365 / inv_turnover if inv_turnover > 0 else 0
+    
+#     units_sold = df_filtered['quantity'].sum()
+#     units_received = units_sold * 1.2
+#     sell_through = (units_sold / units_received * 100) if units_received > 0 else 0
+    
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("Inventory Turnover", f"{inv_turnover:.2f}x")
+#     col2.metric("DIO", f"{dio:.0f} days")
+#     col3.metric("Sell-Through Rate", f"{sell_through:.1f}%")
+#     col4.metric("Inventory Value", f"฿{avg_inv:,.0f}")
+    
+#     st.subheader("2️⃣ Product Movement")
+    
+#     prod_vel = df_filtered.groupby(['product_id', 'product_name', 'category']).agg({
+#         'order_id': 'nunique', 'net_revenue': 'sum', 'cost': 'sum'}).reset_index()
+#     prod_vel.columns = ['ID', 'Product', 'Category', 'Orders', 'Revenue', 'Cost']
+    
+#     fast_th = prod_vel['Orders'].quantile(0.75)
+#     slow_th = prod_vel['Orders'].quantile(0.25)
+    
+#     def classify(cnt):
+#         if cnt >= fast_th: return 'Fast Moving'
+#         elif cnt <= slow_th: return 'Slow Moving'
+#         return 'Medium Moving'
+    
+#     prod_vel['Movement'] = prod_vel['Orders'].apply(classify)
+    
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         mov = prod_vel['Movement'].value_counts()
+#         colors = {'Fast Moving': '#2ecc71', 'Medium Moving': '#f39c12', 'Slow Moving': '#e74c3c'}
+#         fig = px.pie(values=mov.values, names=mov.index, hole=0.4, color=mov.index, color_discrete_map=colors)
+#         st.plotly_chart(fig, use_container_width=True)
+#     with col2:
+#         mov_val = prod_vel.groupby('Movement')['Cost'].sum().sort_values(ascending=True)
+#         fig = px.bar(x=mov_val.values, y=mov_val.index, orientation='h', color=mov_val.index, color_discrete_map=colors)
+#         st.plotly_chart(fig, use_container_width=True)
+    
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         st.markdown("#### 🚀 Top 10 Fast Moving")
+#         fast = prod_vel[prod_vel['Movement'] == 'Fast Moving'].nlargest(10, 'Orders')
+#         st.dataframe(fast[['Product', 'Category', 'Orders', 'Revenue']].style.format({'Revenue': '฿{:,.0f}'}), height=300)
+#     with col2:
+#         st.markdown("#### 🐌 Top 10 Slow Moving")
+#         slow = prod_vel[prod_vel['Movement'] == 'Slow Moving'].nlargest(10, 'Cost')
+#         st.dataframe(slow[['Product', 'Category', 'Orders', 'Cost']].style.format({'Cost': '฿{:,.0f}'}), height=300)
+    
+#     st.subheader("3️⃣ Cash Conversion Cycle")
+    
+#     ccc = dio + dso - dpo
+    
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("DIO", f"{dio:.0f} days")
+#     col2.metric("DSO", f"{dso:.0f} days")
+#     col3.metric("DPO", f"{dpo:.0f} days")
+#     col4.metric("CCC", f"{ccc:.0f} days")
+
+# st.markdown("---")
+# st.caption("📊 Fashion E-commerce Analytics | Powered by Streamlit")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Fashion E-commerce Analytics Dashboard - Improved Version
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import warnings
+from datetime import datetime, timedelta
 
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Fashion Analytics Pro", layout="wide", page_icon="👕")
@@ -1073,6 +1574,7 @@ def merge_data(data):
     if 'order_date' in df.columns:
         df['order_month'] = df['order_date'].dt.to_period('M')
         df['order_year'] = df['order_date'].dt.year
+        df['order_day'] = df['order_date'].dt.day
     
     online = ['Shopee', 'Lazada', 'TikTok', 'LINE Shopping']
     df['channel_type'] = df['channel'].apply(lambda x: 'Online' if x in online else 'Offline')
@@ -1097,35 +1599,82 @@ if not data:
 
 df_master = merge_data(data)
 
+# ==================== IMPROVED FILTERS ====================
 st.sidebar.markdown("---")
-st.sidebar.success(f"✅ {len(df_master):,} transactions")
+st.sidebar.markdown("### 🔍 Filters")
 
+# Date Range Filter with Quick Selections
 min_date = df_master['order_date'].min().date()
 max_date = df_master['order_date'].max().date()
-date_range = st.sidebar.date_input("📅 Date Range", [min_date, max_date], min_value=min_date, max_value=max_date)
 
-if len(date_range) == 2:
-    df_filtered = df_master[(df_master['order_date'].dt.date >= date_range[0]) & 
-                            (df_master['order_date'].dt.date <= date_range[1])]
-else:
-    df_filtered = df_master
+st.sidebar.markdown("**📅 Select Time Period:**")
+period_options = ["Custom Range", "Last 7 Days", "Last 30 Days", "Last 90 Days", "This Month", "Last Month", "This Quarter", "This Year", "All Time"]
+selected_period = st.sidebar.selectbox("Quick Select", period_options, index=0)
 
-channels = st.sidebar.multiselect("Channel", df_filtered['channel'].unique(), df_filtered['channel'].unique())
-df_filtered = df_filtered[df_filtered['channel'].isin(channels)]
+# Calculate date range based on selection
+if selected_period == "Last 7 Days":
+    start_date = max_date - timedelta(days=7)
+    end_date = max_date
+elif selected_period == "Last 30 Days":
+    start_date = max_date - timedelta(days=30)
+    end_date = max_date
+elif selected_period == "Last 90 Days":
+    start_date = max_date - timedelta(days=90)
+    end_date = max_date
+elif selected_period == "This Month":
+    start_date = max_date.replace(day=1)
+    end_date = max_date
+elif selected_period == "Last Month":
+    first_day_this_month = max_date.replace(day=1)
+    end_date = first_day_this_month - timedelta(days=1)
+    start_date = end_date.replace(day=1)
+elif selected_period == "This Quarter":
+    quarter = (max_date.month - 1) // 3
+    start_date = datetime(max_date.year, quarter * 3 + 1, 1).date()
+    end_date = max_date
+elif selected_period == "This Year":
+    start_date = datetime(max_date.year, 1, 1).date()
+    end_date = max_date
+elif selected_period == "All Time":
+    start_date = min_date
+    end_date = max_date
+else:  # Custom Range
+    date_range = st.sidebar.date_input("Select Custom Range", [min_date, max_date], 
+                                       min_value=min_date, max_value=max_date)
+    if len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        start_date, end_date = min_date, max_date
 
-statuses = st.sidebar.multiselect("Status", df_filtered['status'].unique(), ['Completed'])
-df_filtered = df_filtered[df_filtered['status'].isin(statuses)]
+# Display selected date range
+st.sidebar.info(f"📆 From: {start_date.strftime('%d %b %Y')}\n\n📆 To: {end_date.strftime('%d %b %Y')}")
+
+df_filtered = df_master[(df_master['order_date'].dt.date >= start_date) & 
+                        (df_master['order_date'].dt.date <= end_date)]
 
 st.sidebar.markdown("---")
-st.sidebar.metric("Revenue", f"฿{df_filtered['net_revenue'].sum():,.0f}")
-st.sidebar.metric("Profit", f"฿{df_filtered['profit'].sum():,.0f}")
+
+# Other Filters
+channels = st.sidebar.multiselect("🏪 Channel", df_filtered['channel'].unique(), df_filtered['channel'].unique())
+df_filtered = df_filtered[df_filtered['channel'].isin(channels)]
+
+statuses = st.sidebar.multiselect("📦 Status", df_filtered['status'].unique(), ['Completed'])
+df_filtered = df_filtered[df_filtered['status'].isin(statuses)]
+
+# Display metrics in sidebar
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📊 Quick Stats")
+st.sidebar.metric("💰 Total Revenue", f"฿{df_filtered['net_revenue'].sum():,.0f}")
+st.sidebar.metric("💵 Total Profit", f"฿{df_filtered['profit'].sum():,.0f}")
+st.sidebar.metric("📝 Total Orders", f"{df_filtered['order_id'].nunique():,}")
+st.sidebar.metric("👥 Total Customers", f"{df_filtered['user_id'].nunique():,}")
 
 tab1, tab2, tab3, tab4 = st.tabs(["💼 Sales", "📢 Marketing", "💰 Financial", "📦 Warehouse"])
 
 with tab1:
     st.header("💼 Sales Analytics")
     
-    st.subheader("1️⃣ KPIs")
+    st.subheader("1️⃣ Key Performance Indicators")
     
     revenue = df_filtered['net_revenue'].sum()
     profit = df_filtered['profit'].sum()
@@ -1140,62 +1689,305 @@ with tab1:
     attainment = (curr_sales / target * 100) if target > 0 else 0
     
     col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Monthly Growth", f"{growth:+.1f}%")
-    col2.metric("Profit Margin", f"{margin:.1f}%")
-    col3.metric("Target", f"{attainment:.1f}%")
-    col4.metric("AOV", f"฿{aov:,.0f}")
-    col5.metric("Customers", f"{df_filtered['user_id'].nunique():,}")
+    col1.metric("📈 Monthly Growth", f"{growth:+.1f}%", help="เปรียบเทียบเดือนปัจจุบันกับเดือนที่แล้ว")
+    col2.metric("💹 Profit Margin", f"{margin:.1f}%", help="กำไรหารด้วยยอดขาย")
+    col3.metric("🎯 Target Achievement", f"{attainment:.1f}%", help="เทียบกับเป้า 5M/เดือน")
+    col4.metric("🛒 Avg Order Value", f"฿{aov:,.0f}", help="ยอดขายเฉลี่ยต่อออเดอร์")
+    col5.metric("👥 Total Customers", f"{df_filtered['user_id'].nunique():,}", help="จำนวนลูกค้าทั้งหมด")
     
-    st.subheader("2️⃣ Sales Trend")
+    # ==================== IMPROVED SALES TREND ====================
+    st.subheader("2️⃣ Sales Trend Analysis")
     
-    daily = df_filtered.groupby('order_date').agg({'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=daily['order_date'], y=daily['net_revenue'], name='Revenue', fill='tozeroy'))
-    fig.add_trace(go.Scatter(x=daily['order_date'], y=daily['profit'], name='Profit', yaxis='y2'))
-    fig.update_layout(yaxis=dict(title="Revenue"), yaxis2=dict(title="Profit", overlaying='y', side='right'), height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    # Monthly Bar Chart with Profit Margin %
+    monthly_data = df_filtered.groupby('order_month').agg({
+        'net_revenue': 'sum', 
+        'cost': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    monthly_data['order_month'] = monthly_data['order_month'].dt.to_timestamp()
+    monthly_data['margin_%'] = (monthly_data['profit'] / monthly_data['net_revenue'] * 100).clip(0, 100)
+    monthly_data['month_label'] = monthly_data['order_month'].dt.strftime('%b %Y')
     
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("**📊 Monthly Revenue & Profit Margin**")
+        fig = go.Figure()
+        
+        # Revenue bars
+        fig.add_trace(go.Bar(
+            x=monthly_data['month_label'],
+            y=monthly_data['net_revenue'],
+            name='Revenue',
+            marker_color='#3498db',
+            text=monthly_data['net_revenue'],
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside',
+            hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+        ))
+        
+        # Profit margin line
+        fig.add_trace(go.Scatter(
+            x=monthly_data['month_label'],
+            y=monthly_data['margin_%'],
+            name='Profit Margin %',
+            yaxis='y2',
+            mode='lines+markers+text',
+            line=dict(color='#27ae60', width=3),
+            marker=dict(size=10),
+            text=monthly_data['margin_%'],
+            texttemplate='%{text:.1f}%',
+            textposition='top center',
+            hovertemplate='<b>%{x}</b><br>Margin: %{y:.1f}%<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            yaxis=dict(title="Revenue (฿)", showgrid=True, gridcolor='lightgray'),
+            yaxis2=dict(
+                title="Profit Margin (%)", 
+                overlaying='y', 
+                side='right',
+                range=[0, 100],
+                showgrid=False
+            ),
+            height=450,
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("**📈 Margin Gauge**")
+        current_margin = monthly_data['margin_%'].iloc[-1] if len(monthly_data) > 0 else 0
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=current_margin,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Current Month<br>Profit Margin"},
+            delta={'reference': monthly_data['margin_%'].iloc[-2] if len(monthly_data) >= 2 else current_margin},
+            gauge={
+                'axis': {'range': [None, 100], 'ticksuffix': '%'},
+                'bar': {'color': "#27ae60"},
+                'steps': [
+                    {'range': [0, 30], 'color': "#e74c3c"},
+                    {'range': [30, 50], 'color': "#f39c12"},
+                    {'range': [50, 100], 'color': "#d5f4e6"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 40
+                }
+            }
+        ))
+        
+        fig_gauge.update_layout(height=450)
+        st.plotly_chart(fig_gauge, use_container_width=True)
+    
+    # Daily Trend for Selected Month
+    st.markdown("**📅 Daily Sales Breakdown**")
+    
+    # Month selector
+    available_months = sorted(df_filtered['order_month'].unique(), reverse=True)
+    month_labels = [m.strftime('%B %Y') for m in available_months]
+    
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        selected_month_label = st.selectbox("Select Month", month_labels, index=0)
+        selected_month = available_months[month_labels.index(selected_month_label)]
+    
+    # Filter data for selected month
+    month_filtered = df_filtered[df_filtered['order_month'] == selected_month]
+    
+    if len(month_filtered) > 0:
+        daily_data = month_filtered.groupby(month_filtered['order_date'].dt.date).agg({
+            'net_revenue': 'sum',
+            'profit': 'sum',
+            'order_id': 'nunique'
+        }).reset_index()
+        daily_data.columns = ['date', 'revenue', 'profit', 'orders']
+        daily_data['margin_%'] = (daily_data['profit'] / daily_data['revenue'] * 100).fillna(0)
+        
+        fig_daily = go.Figure()
+        
+        # Revenue line
+        fig_daily.add_trace(go.Scatter(
+            x=daily_data['date'],
+            y=daily_data['revenue'],
+            name='Daily Revenue',
+            mode='lines+markers',
+            line=dict(color='#3498db', width=2),
+            marker=dict(size=6),
+            fill='tozeroy',
+            fillcolor='rgba(52, 152, 219, 0.1)',
+            hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+        ))
+        
+        # Orders line
+        fig_daily.add_trace(go.Scatter(
+            x=daily_data['date'],
+            y=daily_data['orders'],
+            name='Number of Orders',
+            mode='lines+markers',
+            line=dict(color='#9b59b6', width=2, dash='dash'),
+            marker=dict(size=6),
+            yaxis='y2',
+            hovertemplate='<b>%{x}</b><br>Orders: %{y}<extra></extra>'
+        ))
+        
+        fig_daily.update_layout(
+            yaxis=dict(title="Revenue (฿)", showgrid=True, gridcolor='lightgray'),
+            yaxis2=dict(title="Number of Orders", overlaying='y', side='right', showgrid=False),
+            height=400,
+            hovermode='x unified',
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        st.plotly_chart(fig_daily, use_container_width=True)
+        
+        # Summary stats for selected month
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("📊 Total Revenue", f"฿{daily_data['revenue'].sum():,.0f}")
+        col2.metric("📝 Total Orders", f"{daily_data['orders'].sum():,}")
+        col3.metric("📈 Avg Daily Revenue", f"฿{daily_data['revenue'].mean():,.0f}")
+        col4.metric("🎯 Best Day", f"฿{daily_data['revenue'].max():,.0f}")
+    else:
+        st.info("No data available for the selected month")
+    
+    st.markdown("---")
+    
+    # ==================== IMPROVED CHANNEL PERFORMANCE ====================
     st.subheader("3️⃣ Channel Performance")
     
-    ch = df_filtered.groupby('channel').agg({'net_revenue': 'sum', 'profit': 'sum', 'order_id': 'nunique', 'user_id': 'nunique'}).reset_index()
+    ch = df_filtered.groupby('channel').agg({
+        'net_revenue': 'sum', 
+        'profit': 'sum', 
+        'order_id': 'nunique', 
+        'user_id': 'nunique'
+    }).reset_index()
     ch.columns = ['Channel', 'Revenue', 'Profit', 'Orders', 'Customers']
     ch['Margin %'] = (ch['Profit'] / ch['Revenue'] * 100).round(1)
+    ch['AOV'] = (ch['Revenue'] / ch['Orders']).round(0)
     ch = ch.sort_values('Revenue', ascending=False)
     
     col1, col2 = st.columns(2)
     with col1:
-        fig = px.pie(ch, values='Revenue', names='Channel', title="Revenue by Channel", hole=0.4)
+        fig = px.pie(
+            ch, 
+            values='Revenue', 
+            names='Channel', 
+            title="Revenue Distribution by Channel", 
+            hole=0.4,
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        fig.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            hovertemplate='<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>Share: %{percent}<extra></extra>'
+        )
         st.plotly_chart(fig, use_container_width=True)
+    
     with col2:
-        fig = px.bar(ch.sort_values('Revenue', ascending=True), x='Revenue', y='Channel', orientation='h', 
-                    color='Margin %', color_continuous_scale='RdYlGn')
+        fig = px.bar(
+            ch.sort_values('Revenue', ascending=True), 
+            x='Revenue', 
+            y='Channel', 
+            orientation='h',
+            title="Revenue by Channel (with Profit Margin)",
+            color='Margin %', 
+            color_continuous_scale='RdYlGn',
+            text='Revenue'
+        )
+        fig.update_traces(
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<br>Margin: %{marker.color:.1f}%<extra></extra>'
+        )
         st.plotly_chart(fig, use_container_width=True)
     
-    st.dataframe(ch.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 'Orders': '{:,}', 
-                                  'Customers': '{:,}', 'Margin %': '{:.1f}%'}), use_container_width=True)
+    st.markdown("**📋 Detailed Channel Metrics**")
+    st.dataframe(
+        ch.style.format({
+            'Revenue': '฿{:,.0f}', 
+            'Profit': '฿{:,.0f}', 
+            'Orders': '{:,}',
+            'Customers': '{:,}', 
+            'Margin %': '{:.1f}%',
+            'AOV': '฿{:,.0f}'
+        }).background_gradient(subset=['Margin %'], cmap='RdYlGn', vmin=0, vmax=100),
+        use_container_width=True
+    )
     
-    st.subheader("4️⃣ Product Performance")
+    st.markdown("---")
+    
+    # ==================== IMPROVED PRODUCT PERFORMANCE ====================
+    st.subheader("4️⃣ Top Product Performance")
     
     prod = df_filtered.groupby(['product_id', 'product_name', 'category']).agg({
-        'net_revenue': 'sum', 'profit': 'sum', 'quantity': 'sum'}).reset_index()
+        'net_revenue': 'sum', 
+        'profit': 'sum', 
+        'quantity': 'sum'
+    }).reset_index()
     prod.columns = ['ID', 'Product', 'Category', 'Revenue', 'Profit', 'Units']
     prod['Margin %'] = (prod['Profit'] / prod['Revenue'] * 100).round(1)
     prod = prod.sort_values('Revenue', ascending=False).head(20)
     
     col1, col2 = st.columns(2)
     with col1:
-        fig = px.bar(prod.head(10), x='Revenue', y='Product', orientation='h', color='Margin %', 
-                    color_continuous_scale='RdYlGn', title="Top 10 Products")
+        top10 = prod.head(10).sort_values('Revenue', ascending=True)
+        fig = px.bar(
+            top10, 
+            x='Revenue', 
+            y='Product', 
+            orientation='h',
+            title="Top 10 Products by Revenue",
+            color='Margin %',
+            color_continuous_scale='RdYlGn',
+            text='Revenue'
+        )
+        fig.update_traces(
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<br>Margin: %{marker.color:.1f}%<extra></extra>'
+        )
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'})
         st.plotly_chart(fig, use_container_width=True)
+    
     with col2:
-        fig = px.scatter(prod, x='Revenue', y='Profit', size='Units', color='Category', 
-                        hover_data=['Product'], title="Revenue vs Profit")
+        fig = px.scatter(
+            prod, 
+            x='Revenue', 
+            y='Profit', 
+            size='Units',
+            color='Category',
+            hover_data=['Product'],
+            title="Revenue vs Profit (size = units sold)",
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig.update_traces(
+            hovertemplate='<b>%{customdata[0]}</b><br>Revenue: ฿%{x:,.0f}<br>Profit: ฿%{y:,.0f}<br>Units: %{marker.size}<extra></extra>'
+        )
         st.plotly_chart(fig, use_container_width=True)
     
-    st.dataframe(prod.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 
-                                    'Units': '{:,}', 'Margin %': '{:.1f}%'}), use_container_width=True)
+    st.markdown("**📋 Top 20 Products Detail**")
+    st.dataframe(
+        prod.style.format({
+            'Revenue': '฿{:,.0f}', 
+            'Profit': '฿{:,.0f}',
+            'Units': '{:,}', 
+            'Margin %': '{:.1f}%'
+        }).background_gradient(subset=['Margin %'], cmap='RdYlGn', vmin=0, vmax=100),
+        use_container_width=True
+    )
     
-    st.subheader("5️⃣ Customer Metrics")
+    st.markdown("---")
+    
+    # ==================== IMPROVED CUSTOMER METRICS ====================
+    st.subheader("5️⃣ Customer Lifetime Value Metrics")
     
     marketing_cost = df_filtered['discount_amount'].sum() if 'discount_amount' in df_filtered.columns else 0
     new_cust = df_filtered['user_id'].nunique()
@@ -1211,10 +2003,45 @@ with tab1:
     clv = (margin / 100) * (retention / 100) * avg_rev
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("CAC", f"฿{cac:,.2f}")
-    col2.metric("Retention", f"{retention:.1f}%")
-    col3.metric("Churn", f"{churn:.1f}%")
-    col4.metric("CLV", f"฿{clv:,.0f}")
+    col1.metric("💳 CAC", f"฿{cac:,.2f}", help="Customer Acquisition Cost (ค่าใช้จ่ายในการหาลูกค้าใหม่)")
+    col2.metric("🔄 Retention Rate", f"{retention:.1f}%", help="ลูกค้าที่ซื้อซ้ำภายใน 90 วัน")
+    col3.metric("❌ Churn Rate", f"{churn:.1f}%", help="ลูกค้าที่หายไป (ไม่ซื้อเกิน 90 วัน)")
+    col4.metric("💎 CLV", f"฿{clv:,.0f}", help="Customer Lifetime Value (มูลค่าของลูกค้าตลอดชีพ)")
+    
+    # Customer cohort visualization
+    st.markdown("**👥 Customer Segmentation by Purchase Frequency**")
+    
+    cust_orders = df_filtered.groupby('user_id')['order_id'].nunique().reset_index()
+    cust_orders.columns = ['user_id', 'order_count']
+    
+    def segment_customer(count):
+        if count == 1:
+            return 'One-time'
+        elif count <= 3:
+            return 'Occasional'
+        elif count <= 5:
+            return 'Regular'
+        else:
+            return 'Loyal'
+    
+    cust_orders['segment'] = cust_orders['order_count'].apply(segment_customer)
+    segment_dist = cust_orders['segment'].value_counts()
+    
+    colors = {'One-time': '#e74c3c', 'Occasional': '#f39c12', 'Regular': '#3498db', 'Loyal': '#27ae60'}
+    fig = px.pie(
+        values=segment_dist.values,
+        names=segment_dist.index,
+        title="Customer Distribution by Purchase Frequency",
+        hole=0.4,
+        color=segment_dist.index,
+        color_discrete_map=colors
+    )
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        hovertemplate='<b>%{label}</b><br>Customers: %{value}<br>Share: %{percent}<extra></extra>'
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.header("📢 Marketing Analytics")
@@ -1236,27 +2063,62 @@ with tab2:
             roas = (camp_rev / camp_cost * 100) if camp_cost > 0 else 0
             
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Campaign Revenue %", f"{camp_share:.1f}%")
-            col2.metric("Conv Rate", f"{conv:.1f}%")
-            col3.metric("ROAS", f"{roas:.0f}%")
-            col4.metric("Campaign AOV", f"฿{camp_aov:,.0f}")
+            col1.metric("📊 Campaign Revenue Share", f"{camp_share:.1f}%", help="สัดส่วนยอดขายจากแคมเปญ")
+            col2.metric("🎯 Conversion Rate", f"{conv:.1f}%", help="อัตราการซื้อจากแคมเปญ")
+            col3.metric("💰 ROAS", f"{roas:.0f}%", help="Return on Ad Spend (ผลตอบแทนจากการโฆษณา)")
+            col4.metric("🛒 Campaign AOV", f"฿{camp_aov:,.0f}", help="ค่าเฉลี่ยต่อออเดอร์จากแคมเปญ")
             
             col1, col2 = st.columns(2)
             with col1:
-                comp = pd.DataFrame({'Type': ['With Campaign', 'Without'], 'AOV': [camp_aov, no_camp_aov]})
-                fig = px.bar(comp, x='Type', y='AOV', title="AOV Impact", color='Type', text='AOV')
-                fig.update_traces(texttemplate='฿%{text:,.0f}', textposition='outside')
+                comp = pd.DataFrame({
+                    'Type': ['With Campaign', 'Without Campaign'],
+                    'AOV': [camp_aov, no_camp_aov]
+                })
+                fig = px.bar(
+                    comp, 
+                    x='Type', 
+                    y='AOV',
+                    title="AOV Comparison: Campaign vs Non-Campaign",
+                    color='Type',
+                    text='AOV',
+                    color_discrete_map={'With Campaign': '#27ae60', 'Without Campaign': '#95a5a6'}
+                )
+                fig.update_traces(
+                    texttemplate='฿%{text:,.0f}',
+                    textposition='outside'
+                )
                 st.plotly_chart(fig, use_container_width=True)
+            
             with col2:
                 camp_break = camp.groupby('campaign_type')['net_revenue'].sum().sort_values(ascending=False)
-                fig = px.bar(x=camp_break.values, y=camp_break.index, orientation='h', title="Revenue by Campaign")
+                fig = px.bar(
+                    x=camp_break.values,
+                    y=camp_break.index,
+                    orientation='h',
+                    title="Revenue by Campaign Type",
+                    labels={'x': 'Revenue', 'y': 'Campaign Type'},
+                    text=camp_break.values
+                )
+                fig.update_traces(
+                    texttemplate='฿%{text:,.0f}',
+                    textposition='outside',
+                    marker_color='#9b59b6'
+                )
                 st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Campaign data not available in the dataset")
     
-    st.subheader("2️⃣ Acquisition Channel")
+    st.markdown("---")
+    
+    st.subheader("2️⃣ Acquisition Channel Analysis")
     
     if 'acquisition_channel' in df_filtered.columns:
-        acq = df_filtered.groupby('acquisition_channel').agg({'user_id': 'nunique', 'order_id': 'nunique', 
-                                                               'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
+        acq = df_filtered.groupby('acquisition_channel').agg({
+            'user_id': 'nunique',
+            'order_id': 'nunique',
+            'net_revenue': 'sum',
+            'profit': 'sum'
+        }).reset_index()
         acq.columns = ['Channel', 'Customers', 'Orders', 'Revenue', 'Profit']
         acq['Conv %'] = (acq['Orders'] / acq['Customers'] * 100).round(1)
         acq['Rev/Cust'] = (acq['Revenue'] / acq['Customers']).round(0)
@@ -1264,19 +2126,62 @@ with tab2:
         
         col1, col2 = st.columns(2)
         with col1:
-            fig = px.bar(acq.sort_values('Revenue', ascending=True), x='Revenue', y='Channel', orientation='h')
-            st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            fig = px.scatter(acq, x='Customers', y='Rev/Cust', size='Revenue', color='Channel')
+            fig = px.bar(
+                acq.sort_values('Revenue', ascending=True),
+                x='Revenue',
+                y='Channel',
+                orientation='h',
+                title="Revenue by Acquisition Channel",
+                text='Revenue',
+                color='Conv %',
+                color_continuous_scale='Blues'
+            )
+            fig.update_traces(
+                texttemplate='฿%{text:,.0f}',
+                textposition='outside'
+            )
             st.plotly_chart(fig, use_container_width=True)
         
-        st.dataframe(acq.style.format({'Revenue': '฿{:,.0f}', 'Profit': '฿{:,.0f}', 
-                                       'Rev/Cust': '฿{:,.0f}', 'Conv %': '{:.1f}%'}), use_container_width=True)
+        with col2:
+            fig = px.scatter(
+                acq,
+                x='Customers',
+                y='Rev/Cust',
+                size='Revenue',
+                color='Channel',
+                title="Customer Efficiency by Channel",
+                labels={'Rev/Cust': 'Revenue per Customer'},
+                color_discrete_sequence=px.colors.qualitative.Set2
+            )
+            fig.update_traces(
+                hovertemplate='<b>%{fullData.name}</b><br>Customers: %{x}<br>Rev/Cust: ฿%{y:,.0f}<extra></extra>'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("**📋 Acquisition Channel Details**")
+        st.dataframe(
+            acq.style.format({
+                'Revenue': '฿{:,.0f}',
+                'Profit': '฿{:,.0f}',
+                'Rev/Cust': '฿{:,.0f}',
+                'Conv %': '{:.1f}%'
+            }).background_gradient(subset=['Conv %'], cmap='Blues'),
+            use_container_width=True
+        )
+    else:
+        st.info("Acquisition channel data not available in the dataset")
     
-    st.subheader("3️⃣ RFM Analysis")
+    st.markdown("---")
     
-    rfm = df_filtered.groupby('user_id').agg({'order_date': lambda x: (analysis_date - x.max()).days, 
-                                               'order_id': 'nunique', 'net_revenue': 'sum', 'profit': 'sum'}).reset_index()
+    st.subheader("3️⃣ RFM Customer Segmentation")
+    
+    analysis_date = df_filtered['order_date'].max()
+    rfm = df_filtered.groupby('user_id').agg({
+        'order_date': lambda x: (analysis_date - x.max()).days,
+        'order_id': 'nunique',
+        'net_revenue': 'sum',
+        'profit': 'sum'
+    }).reset_index()
     rfm.columns = ['user_id', 'recency', 'frequency', 'monetary', 'profit']
     
     def safe_qcut(s, q, labels):
@@ -1285,15 +2190,18 @@ with tab2:
         except:
             return pd.Series([labels[0]] * len(s), index=s.index)
     
-    rfm['R'] = safe_qcut(rfm['recency'], 4, [4,3,2,1])
-    rfm['F'] = safe_qcut(rfm['frequency'], 4, [1,2,3,4])
-    rfm['M'] = safe_qcut(rfm['monetary'], 4, [1,2,3,4])
-    rfm['RFM_Score'] = rfm[['R','F','M']].astype(int).sum(axis=1)
+    rfm['R'] = safe_qcut(rfm['recency'], 4, [4, 3, 2, 1])
+    rfm['F'] = safe_qcut(rfm['frequency'], 4, [1, 2, 3, 4])
+    rfm['M'] = safe_qcut(rfm['monetary'], 4, [1, 2, 3, 4])
+    rfm['RFM_Score'] = rfm[['R', 'F', 'M']].astype(int).sum(axis=1)
     
     def segment(s):
-        if s >= 9: return 'Champions'
-        elif s >= 6: return 'Loyal'
-        elif s >= 4: return 'At Risk'
+        if s >= 9:
+            return 'Champions'
+        elif s >= 6:
+            return 'Loyal Customers'
+        elif s >= 4:
+            return 'At Risk'
         return 'Lost'
     
     rfm['Segment'] = rfm['RFM_Score'].apply(segment)
@@ -1301,18 +2209,64 @@ with tab2:
     col1, col2 = st.columns(2)
     with col1:
         seg = rfm['Segment'].value_counts()
-        colors = {'Champions': '#2ecc71', 'Loyal': '#3498db', 'At Risk': '#f39c12', 'Lost': '#e74c3c'}
-        fig = px.pie(values=seg.values, names=seg.index, hole=0.4, color=seg.index, color_discrete_map=colors)
+        colors = {
+            'Champions': '#27ae60',
+            'Loyal Customers': '#3498db',
+            'At Risk': '#f39c12',
+            'Lost': '#e74c3c'
+        }
+        fig = px.pie(
+            values=seg.values,
+            names=seg.index,
+            hole=0.4,
+            title="Customer Segmentation by RFM Score",
+            color=seg.index,
+            color_discrete_map=colors
+        )
+        fig.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            hovertemplate='<b>%{label}</b><br>Customers: %{value}<br>Share: %{percent}<extra></extra>'
+        )
         st.plotly_chart(fig, use_container_width=True)
+    
     with col2:
         seg_val = rfm.groupby('Segment')['monetary'].sum().sort_values(ascending=True)
-        fig = px.bar(x=seg_val.values, y=seg_val.index, orientation='h', color=seg_val.index, color_discrete_map=colors)
+        fig = px.bar(
+            x=seg_val.values,
+            y=seg_val.index,
+            orientation='h',
+            title="Total Revenue by Customer Segment",
+            color=seg_val.index,
+            color_discrete_map=colors,
+            text=seg_val.values
+        )
+        fig.update_traces(
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside'
+        )
         st.plotly_chart(fig, use_container_width=True)
+    
+    # Segment descriptions
+    st.markdown("**📊 Segment Descriptions:**")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.success("**Champions** 🏆")
+        st.write("ลูกค้าระดับพรีเมียม ซื้อบ่อย ซื้อเยอะ ซื้อเมื่อไม่นานมานี้")
+    with col2:
+        st.info("**Loyal Customers** 💙")
+        st.write("ลูกค้าภักดี ซื้อสม่ำเสมอ มีศักยภาพเป็น Champions")
+    with col3:
+        st.warning("**At Risk** ⚠️")
+        st.write("ลูกค้าที่อาจจะหายไป ต้องดูแลเป็นพิเศษ")
+    with col4:
+        st.error("**Lost** 😢")
+        st.write("ลูกค้าที่หายไปแล้ว ต้องมีแคมเปญดึงกลับมา")
 
 with tab3:
     st.header("💰 Financial Analytics")
     
-    st.subheader("1️⃣ Financial KPIs")
+    st.subheader("1️⃣ Financial Summary")
     
     cogs = df_filtered['cost'].sum()
     gross_profit = revenue - cogs
@@ -1320,28 +2274,71 @@ with tab3:
     net_margin = (profit / revenue * 100) if revenue > 0 else 0
     
     col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Revenue", f"฿{revenue:,.0f}")
-    col2.metric("COGS", f"฿{cogs:,.0f}")
-    col3.metric("Gross Profit", f"฿{gross_profit:,.0f}", f"{gross_margin:.1f}%")
-    col4.metric("Net Profit", f"฿{profit:,.0f}", f"{net_margin:.1f}%")
-    col5.metric("ROS", f"{net_margin:.1f}%")
+    col1.metric("💵 Revenue", f"฿{revenue:,.0f}", help="ยอดขายรวม")
+    col2.metric("📦 COGS", f"฿{cogs:,.0f}", help="ต้นทุนสินค้า")
+    col3.metric("💚 Gross Profit", f"฿{gross_profit:,.0f}", f"{gross_margin:.1f}%", help="กำไรขั้นต้น")
+    col4.metric("💎 Net Profit", f"฿{profit:,.0f}", f"{net_margin:.1f}%", help="กำไรสุทธิ")
+    col5.metric("📊 ROS", f"{net_margin:.1f}%", help="Return on Sales (กำไรสุทธิ/ยอดขาย)")
     
-    st.subheader("2️⃣ Monthly Performance")
+    st.markdown("---")
     
-    mon_fin = df_filtered.groupby('order_month').agg({'net_revenue': 'sum', 'cost': 'sum', 'profit': 'sum'}).reset_index()
+    st.subheader("2️⃣ Monthly Financial Performance")
+    
+    mon_fin = df_filtered.groupby('order_month').agg({
+        'net_revenue': 'sum',
+        'cost': 'sum',
+        'profit': 'sum'
+    }).reset_index()
     mon_fin['order_month'] = mon_fin['order_month'].dt.to_timestamp()
     mon_fin['margin_%'] = (mon_fin['profit'] / mon_fin['net_revenue'] * 100).round(2)
+    mon_fin['month_label'] = mon_fin['order_month'].dt.strftime('%b %Y')
     
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=mon_fin['order_month'], y=mon_fin['net_revenue'], name='Revenue', marker_color='lightblue'))
-    fig.add_trace(go.Bar(x=mon_fin['order_month'], y=mon_fin['cost'], name='COGS', marker_color='lightcoral'))
-    fig.add_trace(go.Scatter(x=mon_fin['order_month'], y=mon_fin['margin_%'], name='Margin %', yaxis='y2', 
-                            mode='lines+markers', line=dict(color='green', width=3)))
-    fig.update_layout(yaxis=dict(title="Amount"), yaxis2=dict(title="Margin %", overlaying='y', side='right'), 
-                     barmode='group', height=400)
+    
+    # Revenue bars
+    fig.add_trace(go.Bar(
+        x=mon_fin['month_label'],
+        y=mon_fin['net_revenue'],
+        name='Revenue',
+        marker_color='#3498db',
+        hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+    ))
+    
+    # COGS bars
+    fig.add_trace(go.Bar(
+        x=mon_fin['month_label'],
+        y=mon_fin['cost'],
+        name='COGS',
+        marker_color='#e74c3c',
+        hovertemplate='<b>%{x}</b><br>COGS: ฿%{y:,.0f}<extra></extra>'
+    ))
+    
+    # Margin line
+    fig.add_trace(go.Scatter(
+        x=mon_fin['month_label'],
+        y=mon_fin['margin_%'],
+        name='Profit Margin %',
+        yaxis='y2',
+        mode='lines+markers',
+        line=dict(color='#27ae60', width=3),
+        marker=dict(size=10),
+        hovertemplate='<b>%{x}</b><br>Margin: %{y:.1f}%<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        yaxis=dict(title="Amount (฿)", showgrid=True),
+        yaxis2=dict(title="Profit Margin (%)", overlaying='y', side='right', showgrid=False),
+        barmode='group',
+        height=400,
+        hovermode='x unified',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
     
-    st.subheader("3️⃣ AR/AP Turnover")
+    st.markdown("---")
+    
+    st.subheader("3️⃣ Working Capital Ratios")
     
     avg_monthly_rev = mon_fin['net_revenue'].mean()
     avg_ar = avg_monthly_rev * 0.3
@@ -1353,15 +2350,15 @@ with tab3:
     dpo = 365 / ap_turnover if ap_turnover > 0 else 0
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("AR Turnover", f"{ar_turnover:.2f}x")
-    col2.metric("DSO", f"{dso:.0f} days")
-    col3.metric("AP Turnover", f"{ap_turnover:.2f}x")
-    col4.metric("DPO", f"{dpo:.0f} days")
+    col1.metric("🔄 AR Turnover", f"{ar_turnover:.2f}x", help="เร็วเท่าไรที่เราเก็บเงินจากลูกค้าได้")
+    col2.metric("📅 DSO", f"{dso:.0f} days", help="Days Sales Outstanding (จำนวนวันที่เก็บเงินได้)")
+    col3.metric("🔄 AP Turnover", f"{ap_turnover:.2f}x", help="เร็วเท่าไรที่เราจ่ายเงินซัพพลายเออร์")
+    col4.metric("📅 DPO", f"{dpo:.0f} days", help="Days Payable Outstanding (จำนวนวันที่เราจ่ายเงิน)")
 
 with tab4:
-    st.header("📦 Warehouse & Inventory")
+    st.header("📦 Warehouse & Inventory Management")
     
-    st.subheader("1️⃣ Inventory Metrics")
+    st.subheader("1️⃣ Inventory Performance Metrics")
     
     avg_inv = df_filtered['cost'].mean() * df_filtered['product_id'].nunique()
     inv_turnover = cogs / avg_inv if avg_inv > 0 else 0
@@ -1372,23 +2369,31 @@ with tab4:
     sell_through = (units_sold / units_received * 100) if units_received > 0 else 0
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Inventory Turnover", f"{inv_turnover:.2f}x")
-    col2.metric("DIO", f"{dio:.0f} days")
-    col3.metric("Sell-Through Rate", f"{sell_through:.1f}%")
-    col4.metric("Inventory Value", f"฿{avg_inv:,.0f}")
+    col1.metric("🔄 Inventory Turnover", f"{inv_turnover:.2f}x", help="จำนวนครั้งที่สินค้าหมุนเวียนต่อปี")
+    col2.metric("📅 DIO", f"{dio:.0f} days", help="Days Inventory Outstanding (จำนวนวันที่สินค้าอยู่ในคลัง)")
+    col3.metric("📈 Sell-Through Rate", f"{sell_through:.1f}%", help="อัตราการขายสินค้าที่รับเข้ามา")
+    col4.metric("💰 Inventory Value", f"฿{avg_inv:,.0f}", help="มูลค่าสินค้าคงคลัง")
     
-    st.subheader("2️⃣ Product Movement")
+    st.markdown("---")
+    
+    st.subheader("2️⃣ Product Movement Analysis")
     
     prod_vel = df_filtered.groupby(['product_id', 'product_name', 'category']).agg({
-        'order_id': 'nunique', 'net_revenue': 'sum', 'cost': 'sum'}).reset_index()
-    prod_vel.columns = ['ID', 'Product', 'Category', 'Orders', 'Revenue', 'Cost']
+        'order_id': 'nunique',
+        'net_revenue': 'sum',
+        'cost': 'sum',
+        'quantity': 'sum'
+    }).reset_index()
+    prod_vel.columns = ['ID', 'Product', 'Category', 'Orders', 'Revenue', 'Cost', 'Units']
     
     fast_th = prod_vel['Orders'].quantile(0.75)
     slow_th = prod_vel['Orders'].quantile(0.25)
     
     def classify(cnt):
-        if cnt >= fast_th: return 'Fast Moving'
-        elif cnt <= slow_th: return 'Slow Moving'
+        if cnt >= fast_th:
+            return 'Fast Moving'
+        elif cnt <= slow_th:
+            return 'Slow Moving'
         return 'Medium Moving'
     
     prod_vel['Movement'] = prod_vel['Orders'].apply(classify)
@@ -1396,33 +2401,147 @@ with tab4:
     col1, col2 = st.columns(2)
     with col1:
         mov = prod_vel['Movement'].value_counts()
-        colors = {'Fast Moving': '#2ecc71', 'Medium Moving': '#f39c12', 'Slow Moving': '#e74c3c'}
-        fig = px.pie(values=mov.values, names=mov.index, hole=0.4, color=mov.index, color_discrete_map=colors)
+        colors = {
+            'Fast Moving': '#27ae60',
+            'Medium Moving': '#f39c12',
+            'Slow Moving': '#e74c3c'
+        }
+        fig = px.pie(
+            values=mov.values,
+            names=mov.index,
+            hole=0.4,
+            title="Product Distribution by Movement Speed",
+            color=mov.index,
+            color_discrete_map=colors
+        )
+        fig.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            hovertemplate='<b>%{label}</b><br>Products: %{value}<br>Share: %{percent}<extra></extra>'
+        )
         st.plotly_chart(fig, use_container_width=True)
+    
     with col2:
         mov_val = prod_vel.groupby('Movement')['Cost'].sum().sort_values(ascending=True)
-        fig = px.bar(x=mov_val.values, y=mov_val.index, orientation='h', color=mov_val.index, color_discrete_map=colors)
+        fig = px.bar(
+            x=mov_val.values,
+            y=mov_val.index,
+            orientation='h',
+            title="Inventory Value by Movement Speed",
+            color=mov_val.index,
+            color_discrete_map=colors,
+            text=mov_val.values
+        )
+        fig.update_traces(
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside'
+        )
         st.plotly_chart(fig, use_container_width=True)
+    
+    # Movement recommendations
+    st.markdown("**💡 Inventory Recommendations:**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.success("**Fast Moving** 🚀")
+        st.write("- เพิ่ม stock level")
+        st.write("- ลดโอกาสขาดสต็อก")
+        st.write("- พิจารณา bulk order")
+    with col2:
+        st.info("**Medium Moving** ⚖️")
+        st.write("- รักษาระดับ stock ปกติ")
+        st.write("- ติดตาม trend")
+        st.write("- พิจารณาโปรโมชั่น")
+    with col3:
+        st.warning("**Slow Moving** 🐌")
+        st.write("- ลด stock level")
+        st.write("- จัด clearance sale")
+        st.write("- หยุดสั่งซื้อชั่วคราว")
+    
+    st.markdown("---")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("#### 🚀 Top 10 Fast Moving")
+        st.markdown("#### 🚀 Top 10 Fast Moving Products")
         fast = prod_vel[prod_vel['Movement'] == 'Fast Moving'].nlargest(10, 'Orders')
-        st.dataframe(fast[['Product', 'Category', 'Orders', 'Revenue']].style.format({'Revenue': '฿{:,.0f}'}), height=300)
+        st.dataframe(
+            fast[['Product', 'Category', 'Orders', 'Units', 'Revenue']].style.format({
+                'Revenue': '฿{:,.0f}',
+                'Orders': '{:,}',
+                'Units': '{:,}'
+            }),
+            height=350,
+            use_container_width=True
+        )
+    
     with col2:
-        st.markdown("#### 🐌 Top 10 Slow Moving")
+        st.markdown("#### 🐌 Top 10 Slow Moving Products")
         slow = prod_vel[prod_vel['Movement'] == 'Slow Moving'].nlargest(10, 'Cost')
-        st.dataframe(slow[['Product', 'Category', 'Orders', 'Cost']].style.format({'Cost': '฿{:,.0f}'}), height=300)
+        st.dataframe(
+            slow[['Product', 'Category', 'Orders', 'Units', 'Cost']].style.format({
+                'Cost': '฿{:,.0f}',
+                'Orders': '{:,}',
+                'Units': '{:,}'
+            }),
+            height=350,
+            use_container_width=True
+        )
+    
+    st.markdown("---")
     
     st.subheader("3️⃣ Cash Conversion Cycle")
     
     ccc = dio + dso - dpo
     
+    st.markdown("""
+    **Cash Conversion Cycle (CCC)** คือระยะเวลาที่เงินสดถูกล็อคอยู่ในธุรกิจ ตั้งแต่จ่ายเงินซื้อสินค้า จนกระทั่งได้รับเงินจากลูกค้า
+    
+    - **สูตร:** CCC = DIO + DSO - DPO
+    - **เป้าหมาย:** ยิ่งต่ำยิ่งดี (แสดงว่าเงินสดหมุนเวียนเร็ว)
+    """)
+    
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("DIO", f"{dio:.0f} days")
-    col2.metric("DSO", f"{dso:.0f} days")
-    col3.metric("DPO", f"{dpo:.0f} days")
-    col4.metric("CCC", f"{ccc:.0f} days")
+    col1.metric("📦 DIO", f"{dio:.0f} days", help="วันที่สินค้าอยู่ในคลัง")
+    col2.metric("💳 DSO", f"{dso:.0f} days", help="วันที่รอเก็บเงินจากลูกค้า")
+    col3.metric("💰 DPO", f"{dpo:.0f} days", help="วันที่เราจ่ายเงินซัพพลายเออร์")
+    col4.metric("⏱️ CCC", f"{ccc:.0f} days", 
+                help="ระยะเวลารอบวงจรเงินสด (ยิ่งต่ำยิ่งดี)",
+                delta=f"{'Better' if ccc < 60 else 'Needs improvement'}")
+    
+    # CCC visualization
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=['DIO', 'DSO', 'DPO', 'CCC'],
+        y=[dio, dso, -dpo, ccc],
+        text=[f"{dio:.0f}", f"{dso:.0f}", f"{dpo:.0f}", f"{ccc:.0f}"],
+        textposition='outside',
+        marker_color=['#3498db', '#9b59b6', '#e74c3c', '#27ae60'],
+        hovertemplate='<b>%{x}</b><br>Days: %{y:.0f}<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title="Cash Conversion Cycle Breakdown (days)",
+        yaxis_title="Days",
+        height=400,
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # CCC interpretation
+    if ccc < 30:
+        st.success("✅ **Excellent!** CCC ต่ำมาก เงินสดหมุนเวียนได้อย่างรวดเร็ว")
+    elif ccc < 60:
+        st.info("✔️ **Good!** CCC อยู่ในเกณฑ์ดี แต่ยังมีพื้นที่ปรับปรุงได้")
+    elif ccc < 90:
+        st.warning("⚠️ **Fair** CCC สูงพอสมควร ควรพิจารณาปรับปรุงการจัดการเงินสด")
+    else:
+        st.error("❌ **Needs Attention!** CCC สูงเกินไป เงินสดถูกล็อคอยู่นานเกินไป")
 
 st.markdown("---")
-st.caption("📊 Fashion E-commerce Analytics | Powered by Streamlit")
+st.markdown("""
+<div style='text-align: center; padding: 20px; background-color: #f8f9fa; border-radius: 10px;'>
+    <h4>📊 Fashion E-commerce Analytics Dashboard</h4>
+    <p>Built with Streamlit | Data-Driven Insights for Better Business Decisions</p>
+</div>
+""", unsafe_allow_html=True)
