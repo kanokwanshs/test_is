@@ -4399,7 +4399,7 @@ with tab1:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="monthly_revenue_chart")
     
     with col2:
         st.markdown("**📈 Margin Gauge**")
@@ -4428,7 +4428,7 @@ with tab1:
         ))
         
         fig_gauge.update_layout(height=450)
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        st.plotly_chart(fig_gauge, use_container_width=True, key="margin_gauge_chart")
     
     # Daily Trend for Selected Month
     st.markdown("**📅 Daily Sales Breakdown**")
@@ -4490,7 +4490,7 @@ with tab1:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
-        st.plotly_chart(fig_daily, use_container_width=True)
+        st.plotly_chart(fig_daily, use_container_width=True, key="daily_trend_chart")
         
         # Summary stats for selected month
         col1, col2, col3, col4 = st.columns(4)
@@ -4533,7 +4533,7 @@ with tab1:
             textinfo='percent+label',
             hovertemplate='<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>Share: %{percent}<extra></extra>'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="channel_pie_chart")
     
     with col2:
         # Create color list matching the sorted channel order
@@ -4563,7 +4563,7 @@ with tab1:
             showlegend=False,
             height=400
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="channel_bar_chart")
     
     st.markdown("**📋 Detailed Channel Metrics**")
     st.dataframe(
@@ -4612,7 +4612,7 @@ with tab1:
             hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<br>Margin: %{marker.color:.1f}%<extra></extra>'
         )
         fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="product_top10_chart")
     
     with col2:
         fig = px.scatter(
@@ -4628,7 +4628,7 @@ with tab1:
         fig.update_traces(
             hovertemplate='<b>%{customdata[0]}</b><br>Revenue: ฿%{x:,.0f}<br>Profit: ฿%{y:,.0f}<br>Units: %{marker.size}<extra></extra>'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="product_scatter_chart")
     
     st.markdown("**📋 Top 20 Products Detail**")
     st.dataframe(
@@ -4698,7 +4698,7 @@ with tab1:
         textinfo='percent+label',
         hovertemplate='<b>%{label}</b><br>Customers: %{value}<br>Share: %{percent}<extra></extra>'
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="customer_segment_chart")
 
 with tab2:
     st.header("📢 Marketing Analytics")
@@ -4744,7 +4744,7 @@ with tab2:
                     texttemplate='฿%{text:,.0f}',
                     textposition='outside'
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="campaign_aov_chart")
             
             with col2:
                 camp_break = camp.groupby('campaign_type')['net_revenue'].sum().sort_values(ascending=False)
@@ -4761,7 +4761,7 @@ with tab2:
                     textposition='outside',
                     marker_color='#9b59b6'
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="campaign_revenue_chart")
     else:
         st.info("Campaign data not available in the dataset")
     
@@ -4804,7 +4804,7 @@ with tab2:
                 showlegend=False,
                 height=400
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="acquisition_revenue_chart")
         
         with col2:
             fig = px.scatter(
@@ -4820,7 +4820,7 @@ with tab2:
             fig.update_traces(
                 hovertemplate='<b>%{fullData.name}</b><br>Customers: %{x}<br>Rev/Cust: ฿%{y:,.0f}<extra></extra>'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="acquisition_efficiency_chart")
         
         st.markdown("**📋 Acquisition Channel Details**")
         st.dataframe(
@@ -4892,7 +4892,7 @@ with tab2:
             textinfo='percent+label',
             hovertemplate='<b>%{label}</b><br>Customers: %{value}<br>Share: %{percent}<extra></extra>'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="rfm_segment_pie_chart")
     
     with col2:
         seg_val = rfm.groupby('Segment')['monetary'].sum().sort_values(ascending=True)
@@ -4909,7 +4909,7 @@ with tab2:
             texttemplate='฿%{text:,.0f}',
             textposition='outside'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="rfm_segment_bar_chart")
     
     # Segment descriptions
     st.markdown("**📊 Segment Descriptions:**")
@@ -5007,7 +5007,7 @@ with tab3:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="financial_monthly_chart")
     
     st.markdown("---")
     
@@ -5092,7 +5092,7 @@ with tab4:
             textinfo='percent+label',
             hovertemplate='<b>%{label}</b><br>Products: %{value}<br>Share: %{percent}<extra></extra>'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="inventory_movement_pie_chart")
     
     with col2:
         mov_val = prod_vel.groupby('Movement')['Cost'].sum().sort_values(ascending=True)
@@ -5109,7 +5109,7 @@ with tab4:
             texttemplate='฿%{text:,.0f}',
             textposition='outside'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="inventory_value_bar_chart")
     
     # Movement recommendations
     st.markdown("**💡 Inventory Recommendations:**")
@@ -5199,7 +5199,7 @@ with tab4:
         showlegend=False
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="ccc_breakdown_chart")
     
     # CCC interpretation
     if ccc < 30:
