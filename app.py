@@ -6797,6 +6797,1506 @@
 
 
 
+# # Analytics Dashboard - Redesigned Version
+# import streamlit as st
+# import pandas as pd
+# import plotly.express as px
+# import plotly.graph_objects as go
+# from plotly.subplots import make_subplots
+# import numpy as np
+# import warnings
+# from datetime import datetime, timedelta
+
+# warnings.filterwarnings('ignore')
+# st.set_page_config(page_title="Fashion Analytics Pro", layout="wide", page_icon="👕")
+
+# # Enhanced Color Palette
+# COLORS = {
+#     'primary': '#1f77b4',
+#     'secondary': '#ff7f0e',
+#     'success': '#2ecc71',
+#     'danger': '#e74c3c',
+#     'warning': '#f39c12',
+#     'info': '#3498db',
+#     'purple': '#9b59b6',
+#     'teal': '#1abc9c',
+#     'pink': '#e91e63',
+#     'indigo': '#3f51b5'
+# }
+
+# # Channel Color Mapping
+# CHANNEL_COLORS = {
+#     'TikTok': '#000000',
+#     'Shopee': '#FF5722',
+#     'Lazada': '#1E88E5',
+#     'LINE Shopping': '#00C300',
+#     'Instagram': '#9C27B0',
+#     'Facebook': '#1877F2',
+#     'Store': '#795548',
+#     'Pop-up': '#FF9800',
+#     'Website': '#607D8B'
+# }
+
+# # Chart template
+# CHART_TEMPLATE = {
+#     'layout': {
+#         'font': {'family': 'Inter, system-ui, -apple-system, sans-serif', 'size': 12},
+#         'plot_bgcolor': 'white',
+#         'paper_bgcolor': 'white',
+#         'margin': {'t': 60, 'b': 40, 'l': 60, 'r': 40}
+#     }
+# }
+
+# # Initialize session state
+# if 'data_loaded' not in st.session_state:
+#     st.session_state.data_loaded = False
+# if 'data' not in st.session_state:
+#     st.session_state.data = {}
+
+# REQUIRED_COLUMNS = {
+#     'users': ['user_id', 'customer_type', 'created_at'],
+#     'products': ['product_id', 'category', 'sale_price', 'cost'],
+#     'orders': ['order_id', 'user_id', 'order_date', 'channel', 'status'],
+#     'order_items': ['order_id', 'product_id', 'quantity', 'net_revenue', 'cost', 'profit']
+# }
+
+# def load_data():
+#     st.sidebar.title("📊 Analytics Dashboard")
+#     st.sidebar.markdown("---")
+    
+#     uploaded = st.sidebar.file_uploader(
+#         "📁 Upload CSV Files", 
+#         type=['csv'], 
+#         accept_multiple_files=True,
+#         key="csv_uploader_main"
+#     )
+    
+#     if uploaded and st.sidebar.button("🔄 Load Data", type="primary", key="load_data_btn"):
+#         data = {}
+#         mapping = {
+#             "users.csv": "users", 
+#             "products.csv": "products", 
+#             "orders.csv": "orders", 
+#             "order_items.csv": "order_items", 
+#             "inventory_movements.csv": "inventory"
+#         }
+        
+#         for file in uploaded:
+#             if file.name in mapping:
+#                 try:
+#                     df = pd.read_csv(file)
+#                     table = mapping[file.name]
+#                     if table in REQUIRED_COLUMNS:
+#                         missing = [c for c in REQUIRED_COLUMNS[table] if c not in df.columns]
+#                         if not missing:
+#                             data[table] = df
+#                             st.sidebar.success(f"✅ {file.name}")
+#                         else:
+#                             st.sidebar.error(f"❌ {file.name} - Missing: {', '.join(missing)}")
+#                     else:
+#                         data[table] = df
+#                         st.sidebar.success(f"✅ {file.name}")
+#                 except Exception as e:
+#                     st.sidebar.error(f"❌ {file.name}: {str(e)}")
+        
+#         if all(t in data for t in ['users', 'products', 'orders', 'order_items']):
+#             st.session_state.data = data
+#             st.session_state.data_loaded = True
+#             st.sidebar.success("✅ All data loaded!")
+#             st.rerun()
+#         else:
+#             st.sidebar.error("❌ Missing required tables")
+    
+#     return st.session_state.data if st.session_state.data_loaded else None
+
+# @st.cache_data
+# def merge_data(data):
+#     df = data['order_items'].copy()
+#     df = df.merge(data['orders'], on='order_id', how='left', suffixes=('', '_o'))
+#     df = df.merge(data['products'], on='product_id', how='left', suffixes=('', '_p'))
+#     df = df.merge(data['users'], on='user_id', how='left', suffixes=('', '_u'))
+    
+#     for col in ['order_date', 'created_at']:
+#         if col in df.columns:
+#             df[col] = pd.to_datetime(df[col], errors='coerce')
+    
+#     if 'order_date' in df.columns:
+#         df['order_month'] = df['order_date'].dt.to_period('M')
+#         df['order_year'] = df['order_date'].dt.year
+#         df['order_day'] = df['order_date'].dt.day
+    
+#     online = ['Shopee', 'Lazada', 'TikTok', 'LINE Shopping']
+#     df['channel_type'] = df['channel'].apply(lambda x: 'Online' if x in online else 'Offline')
+    
+#     return df
+
+# # Custom CSS for better styling
+# st.markdown("""
+# <style>
+#     /* Main containers */
+#     .block-container {
+#         padding-top: 1rem;
+#         padding-bottom: 1rem;
+#     }
+    
+#     /* Metric cards */
+#     [data-testid="stMetricValue"] {
+#         font-size: 28px;
+#         font-weight: 600;
+#     }
+    
+#     [data-testid="stMetricLabel"] {
+#         font-size: 14px;
+#         font-weight: 500;
+#         color: #555;
+#     }
+    
+#     /* Headers */
+#     h1, h2, h3 {
+#         font-family: 'Inter', sans-serif;
+#         font-weight: 700;
+#     }
+    
+#     /* Tabs */
+#     .stTabs [data-baseweb="tab-list"] {
+#         gap: 8px;
+#     }
+    
+#     .stTabs [data-baseweb="tab"] {
+#         height: 50px;
+#         padding-left: 20px;
+#         padding-right: 20px;
+#         border-radius: 8px 8px 0 0;
+#         font-weight: 600;
+#     }
+    
+#     /* Cards */
+#     div.element-container {
+#         border-radius: 8px;
+#     }
+    
+#     /* Sidebar */
+#     [data-testid="stSidebar"] {
+#         background-color: #f8f9fa;
+#     }
+# </style>
+# """, unsafe_allow_html=True)
+
+# data = load_data()
+
+# if not data:
+#     st.title("📊 Analytics Dashboard")
+#     st.info("👈 Please upload CSV files to begin")
+    
+#     st.markdown("### 📋 Required Columns")
+#     col1, col2 = st.columns(2)
+#     with col1:
+#         st.code("users.csv:\n- user_id\n- customer_type\n- created_at")
+#         st.code("orders.csv:\n- order_id\n- user_id\n- order_date\n- channel\n- status")
+#     with col2:
+#         st.code("products.csv:\n- product_id\n- category\n- sale_price\n- cost")
+#         st.code("order_items.csv:\n- order_id\n- product_id\n- quantity\n- net_revenue\n- cost\n- profit")
+#     st.stop()
+
+# df_master = merge_data(data)
+
+# # ==================== FILTERS ====================
+# st.sidebar.markdown("---")
+# st.sidebar.markdown("### 🔍 Filters")
+
+# min_date = df_master['order_date'].min().date()
+# max_date = df_master['order_date'].max().date()
+
+# st.sidebar.markdown("**📅 Select Time Period:**")
+# period_options = ["Custom Range", "Last 7 Days", "Last 30 Days", "Last 90 Days", 
+#                   "This Month", "Last Month", "This Quarter", "This Year", "All Time"]
+# selected_period = st.sidebar.selectbox("Quick Select", period_options, index=0, key="period_selector")
+
+# if selected_period == "Last 7 Days":
+#     start_date = max_date - timedelta(days=7)
+#     end_date = max_date
+# elif selected_period == "Last 30 Days":
+#     start_date = max_date - timedelta(days=30)
+#     end_date = max_date
+# elif selected_period == "Last 90 Days":
+#     start_date = max_date - timedelta(days=90)
+#     end_date = max_date
+# elif selected_period == "This Month":
+#     start_date = max_date.replace(day=1)
+#     end_date = max_date
+# elif selected_period == "Last Month":
+#     first_day_this_month = max_date.replace(day=1)
+#     end_date = first_day_this_month - timedelta(days=1)
+#     start_date = end_date.replace(day=1)
+# elif selected_period == "This Quarter":
+#     quarter = (max_date.month - 1) // 3
+#     start_date = datetime(max_date.year, quarter * 3 + 1, 1).date()
+#     end_date = max_date
+# elif selected_period == "This Year":
+#     start_date = datetime(max_date.year, 1, 1).date()
+#     end_date = max_date
+# elif selected_period == "All Time":
+#     start_date = min_date
+#     end_date = max_date
+# else:
+#     date_range = st.sidebar.date_input(
+#         "Select Custom Range", 
+#         [min_date, max_date], 
+#         min_value=min_date, 
+#         max_value=max_date,
+#         key="custom_date_range"
+#     )
+#     if len(date_range) == 2:
+#         start_date, end_date = date_range
+#     else:
+#         start_date, end_date = min_date, max_date
+
+# st.sidebar.info(f"📆 {start_date.strftime('%d %b %Y')} - {end_date.strftime('%d %b %Y')}")
+
+# df_filtered = df_master[(df_master['order_date'].dt.date >= start_date) & 
+#                         (df_master['order_date'].dt.date <= end_date)]
+
+# st.sidebar.markdown("---")
+
+# channels = st.sidebar.multiselect(
+#     "🏪 Channel", 
+#     df_filtered['channel'].unique(), 
+#     df_filtered['channel'].unique(),
+#     key="channel_filter"
+# )
+# df_filtered = df_filtered[df_filtered['channel'].isin(channels)]
+
+# statuses = st.sidebar.multiselect(
+#     "📦 Status", 
+#     df_filtered['status'].unique(), 
+#     ['Completed'],
+#     key="status_filter"
+# )
+# df_filtered = df_filtered[df_filtered['status'].isin(statuses)]
+
+# st.sidebar.markdown("---")
+# st.sidebar.markdown("### 📊 Quick Stats")
+# st.sidebar.metric("💰 Total Revenue", f"฿{df_filtered['net_revenue'].sum():,.0f}")
+# st.sidebar.metric("💵 Total Profit", f"฿{df_filtered['profit'].sum():,.0f}")
+# st.sidebar.metric("📝 Total Orders", f"{df_filtered['order_id'].nunique():,}")
+# st.sidebar.metric("👥 Total Customers", f"{df_filtered['user_id'].nunique():,}")
+
+# tab1, tab2, tab3, tab4 = st.tabs(["💼 Sales", "📢 Marketing", "💰 Financial", "📦 Warehouse"])
+
+# with tab1:
+#     st.markdown("# 💼 Sales Analytics")
+#     st.markdown("---")
+    
+#     # ==================== KPI CARDS ====================
+#     st.markdown("### 📊 Key Performance Indicators")
+    
+#     revenue = df_filtered['net_revenue'].sum()
+#     profit = df_filtered['profit'].sum()
+#     margin = (profit / revenue * 100) if revenue > 0 else 0
+    
+#     monthly = df_filtered.groupby('order_month')['net_revenue'].sum().sort_index()
+#     growth = ((monthly.iloc[-1] - monthly.iloc[-2]) / monthly.iloc[-2] * 100) if len(monthly) >= 2 else 0
+    
+#     aov = df_filtered.groupby('order_id')['net_revenue'].sum().mean()
+    
+#     col1, col2, col3, col4, col5 = st.columns(5)
+    
+#     with col1:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+#                     padding: 20px; border-radius: 10px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 14px; opacity: 0.9;'>Monthly Growth</div>
+#             <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>{growth:+.1f}%</div>
+#             <div style='font-size: 12px; opacity: 0.8;'>vs last month</div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col2:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+#                     padding: 20px; border-radius: 10px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 14px; opacity: 0.9;'>Profit Margin</div>
+#             <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>{margin:.1f}%</div>
+#             <div style='font-size: 12px; opacity: 0.8;'>gross margin</div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col3:
+#         target = 5000000
+#         curr_sales = df_filtered[df_filtered['order_month'] == df_filtered['order_month'].max()]['net_revenue'].sum()
+#         attainment = (curr_sales / target * 100) if target > 0 else 0
+        
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+#                     padding: 20px; border-radius: 10px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 14px; opacity: 0.9;'>Target Achievement</div>
+#             <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>{attainment:.1f}%</div>
+#             <div style='font-size: 12px; opacity: 0.8;'>of ฿5M target</div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col4:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+#                     padding: 20px; border-radius: 10px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 14px; opacity: 0.9;'>Avg Order Value</div>
+#             <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>฿{aov:,.0f}</div>
+#             <div style='font-size: 12px; opacity: 0.8;'>per transaction</div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col5:
+#         customers = df_filtered['user_id'].nunique()
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
+#                     padding: 20px; border-radius: 10px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 14px; opacity: 0.9;'>Total Customers</div>
+#             <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>{customers:,}</div>
+#             <div style='font-size: 12px; opacity: 0.8;'>unique buyers</div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     st.markdown("<br>", unsafe_allow_html=True)
+#     st.markdown("---")
+    
+#     # ==================== SALES REVENUE TREND ====================
+#     st.markdown("### 📈 Sales Revenue")
+    
+#     monthly_data = df_filtered.groupby('order_month').agg({
+#         'net_revenue': 'sum', 
+#         'cost': 'sum',
+#         'profit': 'sum'
+#     }).reset_index()
+#     monthly_data['order_month'] = monthly_data['order_month'].dt.to_timestamp()
+#     monthly_data['month_label'] = monthly_data['order_month'].dt.strftime('%b %Y')
+    
+#     col1, col2 = st.columns([2, 1])
+    
+#     with col1:
+#         fig = go.Figure()
+        
+#         # Revenue bars with gradient effect
+#         fig.add_trace(go.Bar(
+#             x=monthly_data['month_label'],
+#             y=monthly_data['net_revenue'],
+#             name='Revenue',
+#             marker=dict(
+#                 color=monthly_data['net_revenue'],
+#                 colorscale='Blues',
+#                 showscale=False,
+#                 line=dict(color='rgb(8,48,107)', width=1.5)
+#             ),
+#             text=monthly_data['net_revenue'],
+#             texttemplate='฿%{text:,.0f}',
+#             textposition='outside',
+#             textfont=dict(size=11, weight='bold'),
+#             hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Monthly Revenue Trend</b>',
+#                 font=dict(size=18, color='#2c3e50')
+#             ),
+#             xaxis=dict(
+#                 title='',
+#                 showgrid=False,
+#                 showline=True,
+#                 linecolor='lightgray'
+#             ),
+#             yaxis=dict(
+#                 title='Revenue (฿)',
+#                 showgrid=True,
+#                 gridcolor='rgba(0,0,0,0.05)',
+#                 zeroline=False
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=80, r=40),
+#             hovermode='x unified',
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="revenue_trend")
+    
+#     with col2:
+#         # Growth indicator with arrow
+#         if len(monthly_data) >= 2:
+#             current_rev = monthly_data['net_revenue'].iloc[-1]
+#             previous_rev = monthly_data['net_revenue'].iloc[-2]
+#             growth_pct = ((current_rev - previous_rev) / previous_rev * 100)
+            
+#             arrow = "↗" if growth_pct > 0 else "↘"
+#             color = "#2ecc71" if growth_pct > 0 else "#e74c3c"
+            
+#             st.markdown(f"""
+#             <div style='background: white; padding: 30px; border-radius: 10px; 
+#                         border: 2px solid {color}; height: 400px;
+#                         display: flex; flex-direction: column; justify-content: center; align-items: center;'>
+#                 <div style='font-size: 60px;'>{arrow}</div>
+#                 <div style='font-size: 48px; font-weight: bold; color: {color}; margin: 20px 0;'>
+#                     {growth_pct:+.1f}%
+#                 </div>
+#                 <div style='font-size: 16px; color: #7f8c8d; text-align: center;'>
+#                     <b>Sales Growth</b><br>
+#                     <span style='font-size: 14px;'>vs Previous Month</span>
+#                 </div>
+#                 <div style='margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; width: 100%;'>
+#                     <div style='font-size: 12px; color: #95a5a6; text-align: center;'>Current Month</div>
+#                     <div style='font-size: 20px; font-weight: bold; text-align: center; color: #2c3e50;'>
+#                         ฿{current_rev:,.0f}
+#                     </div>
+#                 </div>
+#             </div>
+#             """, unsafe_allow_html=True)
+    
+#     st.markdown("---")
+    
+#     # ==================== SALES BY PRODUCT CATEGORY ====================
+#     st.markdown("### 🏷️ Sales by Product Category")
+    
+#     col1, col2 = st.columns(2)
+    
+#     with col1:
+#         cat_data = df_filtered.groupby('category').agg({
+#             'net_revenue': 'sum',
+#             'profit': 'sum',
+#             'quantity': 'sum'
+#         }).reset_index().sort_values('net_revenue', ascending=False)
+        
+#         # Create color palette for categories
+#         colors_cat = px.colors.qualitative.Set3[:len(cat_data)]
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Bar(
+#             y=cat_data['category'],
+#             x=cat_data['net_revenue'],
+#             orientation='h',
+#             marker=dict(
+#                 color=colors_cat,
+#                 line=dict(color='white', width=2)
+#             ),
+#             text=cat_data['net_revenue'],
+#             texttemplate='฿%{text:,.0f}',
+#             textposition='outside',
+#             textfont=dict(size=11, weight='bold'),
+#             hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Revenue by Category</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             xaxis=dict(
+#                 title='',
+#                 showgrid=True,
+#                 gridcolor='rgba(0,0,0,0.05)'
+#             ),
+#             yaxis=dict(
+#                 title='',
+#                 categoryorder='total ascending'
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=120, r=100),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="category_revenue")
+    
+#     with col2:
+#         # Donut chart for category distribution
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Pie(
+#             labels=cat_data['category'],
+#             values=cat_data['net_revenue'],
+#             hole=0.6,
+#             marker=dict(
+#                 colors=colors_cat,
+#                 line=dict(color='white', width=2)
+#             ),
+#             textposition='inside',
+#             textinfo='label+percent',
+#             textfont=dict(size=11, weight='bold'),
+#             hovertemplate='<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>Share: %{percent}<extra></extra>'
+#         ))
+        
+#         # Add center annotation
+#         total_cat_revenue = cat_data['net_revenue'].sum()
+#         fig.add_annotation(
+#             text=f'<b>Total</b><br>฿{total_cat_revenue:,.0f}',
+#             x=0.5, y=0.5,
+#             font=dict(size=16, color='#2c3e50'),
+#             showarrow=False
+#         )
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Category Distribution</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=40, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="category_donut")
+    
+#     st.markdown("---")
+    
+#     # ==================== SALES BY CHANNEL ====================
+#     st.markdown("### 🏪 Sales by Channel")
+    
+#     ch = df_filtered.groupby('channel').agg({
+#         'net_revenue': 'sum', 
+#         'profit': 'sum', 
+#         'order_id': 'nunique', 
+#         'user_id': 'nunique'
+#     }).reset_index()
+#     ch.columns = ['Channel', 'Revenue', 'Profit', 'Orders', 'Customers']
+#     ch['Margin %'] = (ch['Profit'] / ch['Revenue'] * 100).round(1)
+#     ch = ch.sort_values('Revenue', ascending=False)
+    
+#     col1, col2 = st.columns(2)
+    
+#     with col1:
+#         # Channel revenue with custom colors
+#         ch_sorted = ch.sort_values('Revenue', ascending=True)
+#         colors_list = [CHANNEL_COLORS.get(channel, '#95a5a6') for channel in ch_sorted['Channel']]
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Bar(
+#             y=ch_sorted['Channel'],
+#             x=ch_sorted['Revenue'],
+#             orientation='h',
+#             marker=dict(
+#                 color=colors_list,
+#                 line=dict(color='white', width=2)
+#             ),
+#             text=ch_sorted['Revenue'],
+#             texttemplate='฿%{text:,.0f}',
+#             textposition='outside',
+#             textfont=dict(size=11, weight='bold'),
+#             hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Revenue by Channel</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             xaxis=dict(
+#                 title='',
+#                 showgrid=True,
+#                 gridcolor='rgba(0,0,0,0.05)'
+#             ),
+#             yaxis=dict(
+#                 title='',
+#                 categoryorder='total ascending'
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=120, r=100),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="channel_revenue")
+    
+#     with col2:
+#         # Pie chart for channel distribution
+#         colors_pie = [CHANNEL_COLORS.get(channel, '#95a5a6') for channel in ch['Channel']]
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Pie(
+#             labels=ch['Channel'],
+#             values=ch['Revenue'],
+#             hole=0.5,
+#             marker=dict(
+#                 colors=colors_pie,
+#                 line=dict(color='white', width=2)
+#             ),
+#             textposition='inside',
+#             textinfo='label+percent',
+#             textfont=dict(size=10, weight='bold'),
+#             hovertemplate='<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>Share: %{percent}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Channel Mix</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=40, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="channel_pie")
+    
+#     # Channel metrics table
+#     st.markdown("#### 📊 Channel Performance Metrics")
+    
+#     # Style the dataframe
+#     styled_ch = ch.style.format({
+#         'Revenue': '฿{:,.0f}', 
+#         'Profit': '฿{:,.0f}', 
+#         'Orders': '{:,}',
+#         'Customers': '{:,}', 
+#         'Margin %': '{:.1f}%'
+#     }).background_gradient(subset=['Margin %'], cmap='RdYlGn', vmin=0, vmax=100)
+    
+#     st.dataframe(styled_ch, use_container_width=True, height=300)
+    
+#     st.markdown("---")
+    
+#     # ==================== SALES BY CUSTOMER SEGMENT ====================
+#     st.markdown("### 👥 Sales by Customer Segment")
+    
+#     if 'customer_type' in df_filtered.columns:
+#         seg_data = df_filtered.groupby('customer_type').agg({
+#             'net_revenue': 'sum',
+#             'profit': 'sum',
+#             'user_id': 'nunique',
+#             'order_id': 'nunique'
+#         }).reset_index()
+#         seg_data.columns = ['Segment', 'Revenue', 'Profit', 'Customers', 'Orders']
+#         seg_data['AOV'] = (seg_data['Revenue'] / seg_data['Orders']).round(0)
+        
+#         col1, col2 = st.columns(2)
+        
+#         with col1:
+#             # Segment colors
+#             segment_colors = {
+#                 'New': '#3498db',
+#                 'Regular': '#2ecc71',
+#                 'VIP': '#9b59b6',
+#                 'Premium': '#f39c12'
+#             }
+#             colors = [segment_colors.get(seg, '#95a5a6') for seg in seg_data['Segment']]
+            
+#             fig = go.Figure()
+            
+#             fig.add_trace(go.Bar(
+#                 x=seg_data['Segment'],
+#                 y=seg_data['Revenue'],
+#                 marker=dict(
+#                     color=colors,
+#                     line=dict(color='white', width=2)
+#                 ),
+#                 text=seg_data['Revenue'],
+#                 texttemplate='฿%{text:,.0f}',
+#                 textposition='outside',
+#                 textfont=dict(size=11, weight='bold'),
+#                 hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+#             ))
+            
+#             fig.update_layout(
+#                 title=dict(
+#                     text='<b>Revenue by Customer Segment</b>',
+#                     font=dict(size=16, color='#2c3e50')
+#                 ),
+#                 xaxis=dict(title='', showgrid=False),
+#                 yaxis=dict(
+#                     title='Revenue (฿)',
+#                     showgrid=True,
+#                     gridcolor='rgba(0,0,0,0.05)'
+#                 ),
+#                 plot_bgcolor='white',
+#                 paper_bgcolor='white',
+#                 height=400,
+#                 margin=dict(t=60, b=40, l=80, r=40),
+#                 showlegend=False
+#             )
+            
+#             st.plotly_chart(fig, use_container_width=True, key="segment_revenue")
+        
+#         with col2:
+#             # Customer count by segment
+#             fig = go.Figure()
+            
+#             fig.add_trace(go.Bar(
+#                 x=seg_data['Segment'],
+#                 y=seg_data['Customers'],
+#                 marker=dict(
+#                     color=colors,
+#                     line=dict(color='white', width=2)
+#                 ),
+#                 text=seg_data['Customers'],
+#                 texttemplate='%{text:,}',
+#                 textposition='outside',
+#                 textfont=dict(size=11, weight='bold'),
+#                 hovertemplate='<b>%{x}</b><br>Customers: %{y:,}<extra></extra>'
+#             ))
+            
+#             fig.update_layout(
+#                 title=dict(
+#                     text='<b>Customer Count by Segment</b>',
+#                     font=dict(size=16, color='#2c3e50')
+#                 ),
+#                 xaxis=dict(title='', showgrid=False),
+#                 yaxis=dict(
+#                     title='Number of Customers',
+#                     showgrid=True,
+#                     gridcolor='rgba(0,0,0,0.05)'
+#                 ),
+#                 plot_bgcolor='white',
+#                 paper_bgcolor='white',
+#                 height=400,
+#                 margin=dict(t=60, b=40, l=80, r=40),
+#                 showlegend=False
+#             )
+            
+#             st.plotly_chart(fig, use_container_width=True, key="segment_customers")
+
+# with tab2:
+#     st.markdown("# 📢 Marketing Analytics")
+#     st.markdown("---")
+    
+#     # ==================== CONVERSION ANALYSIS ====================
+#     st.markdown("### 🎯 Conversion Analysis")
+    
+#     # Calculate actual metrics from data
+#     # Note: If your data doesn't have visit/cart data, we can only calculate from orders
+#     # You may need to add these columns to your dataset for accurate funnel analysis
+    
+#     total_orders = df_filtered['order_id'].nunique()
+#     total_customers = df_filtered['user_id'].nunique()
+    
+#     # Check if we have funnel data columns
+#     has_funnel_data = all(col in df_filtered.columns for col in ['visits', 'add_to_cart', 'checkout'])
+    
+#     if has_funnel_data:
+#         # Use actual funnel data from files
+#         total_visitors = df_filtered['visits'].sum()
+#         add_to_cart = df_filtered['add_to_cart'].sum()
+#         checkout = df_filtered['checkout'].sum()
+#         purchase = total_orders
+#         conversion_rate = (purchase / total_visitors * 100) if total_visitors > 0 else 0
+#     else:
+#         # Calculate conversion rate from available data only
+#         # Using customers as proxy for engaged users
+#         conversion_rate = (total_orders / total_customers * 100) if total_customers > 0 else 0
+        
+#         st.info("💡 **Note:** For accurate funnel analysis, please add these columns to your data: `visits`, `add_to_cart`, `checkout`")
+    
+#     col1, col2 = st.columns([1, 2])
+    
+#     with col1:
+#         if has_funnel_data:
+#             description = f"{total_orders:,} orders from {total_visitors:,} visitors"
+#         else:
+#             description = f"{total_orders:,} orders from {total_customers:,} customers"
+            
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+#                     padding: 30px; border-radius: 10px; color: white; height: 400px;
+#                     display: flex; flex-direction: column; justify-content: center;'>
+#             <div style='text-align: center;'>
+#                 <div style='font-size: 16px; opacity: 0.9; margin-bottom: 20px;'>
+#                     <b>CONVERSION RATE</b>
+#                 </div>
+#                 <div style='font-size: 72px; font-weight: bold; margin: 20px 0;'>
+#                     {conversion_rate:.1f}%
+#                 </div>
+#                 <div style='font-size: 14px; opacity: 0.8; margin-top: 20px;'>
+#                     {description}
+#                 </div>
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col2:
+#         if has_funnel_data:
+#             # Use actual data from files
+#             funnel_data = pd.DataFrame({
+#                 'Stage': ['Visitors', 'Add to Cart', 'Checkout', 'Purchase'],
+#                 'Count': [total_visitors, add_to_cart, checkout, purchase],
+#                 'Color': ['#3498db', '#2ecc71', '#f39c12', '#9b59b6']
+#             })
+#         else:
+#             # Calculate based on typical e-commerce funnel ratios from actual orders
+#             # Working backwards from orders to estimate funnel
+#             purchase = total_orders
+#             # Typical checkout to purchase ratio is ~80%
+#             checkout = int(purchase / 0.8) if purchase > 0 else 0
+#             # Typical cart to checkout ratio is ~60%
+#             add_to_cart = int(checkout / 0.6) if checkout > 0 else 0
+#             # Typical visitor to cart ratio is ~30%
+#             visitors = int(add_to_cart / 0.3) if add_to_cart > 0 else total_customers
+            
+#             funnel_data = pd.DataFrame({
+#                 'Stage': ['Visitors (estimated)', 'Add to Cart (estimated)', 'Checkout (estimated)', 'Purchase (actual)'],
+#                 'Count': [visitors, add_to_cart, checkout, purchase],
+#                 'Color': ['#3498db', '#2ecc71', '#f39c12', '#9b59b6']
+#             })
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Funnel(
+#             y=funnel_data['Stage'],
+#             x=funnel_data['Count'],
+#             textposition="inside",
+#             textinfo="value+percent initial",
+#             marker=dict(
+#                 color=funnel_data['Color'],
+#                 line=dict(color='white', width=2)
+#             ),
+#             textfont=dict(size=13, weight='bold', color='white'),
+#             hovertemplate='<b>%{y}</b><br>Count: %{x:,}<br>Rate: %{percentInitial}<extra></extra>',
+#             connector=dict(line=dict(color='gray', width=1))
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Sales Funnel</b>' + (' (Estimated)' if not has_funnel_data else ''),
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=40, r=120),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="conversion_funnel")
+    
+#     st.markdown("---")
+    
+#     # ==================== CUSTOMER RETENTION ====================
+#     st.markdown("### 🔄 Customer Retention")
+    
+#     # Calculate retention metrics
+#     analysis_date = df_filtered['order_date'].max()
+#     last_purchase = df_filtered.groupby('user_id')['order_date'].max()
+#     churned = ((analysis_date - last_purchase).dt.days > 90).sum()
+#     churn_rate = (churned / len(last_purchase) * 100) if len(last_purchase) > 0 else 0
+#     retention_rate = 100 - churn_rate
+    
+#     col1, col2, col3 = st.columns(3)
+    
+#     with col1:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 30px; border-radius: 10px; 
+#                     border: 3px solid #2ecc71; text-align: center;'>
+#             <div style='font-size: 14px; color: #7f8c8d; margin-bottom: 10px;'>
+#                 <b>RETENTION RATE</b>
+#             </div>
+#             <div style='font-size: 48px; font-weight: bold; color: #2ecc71; margin: 15px 0;'>
+#                 {retention_rate:.1f}%
+#             </div>
+#             <div style='font-size: 12px; color: #95a5a6;'>
+#                 Active customers (within 90 days)
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col2:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 30px; border-radius: 10px; 
+#                     border: 3px solid #e74c3c; text-align: center;'>
+#             <div style='font-size: 14px; color: #7f8c8d; margin-bottom: 10px;'>
+#                 <b>CHURN RATE</b>
+#             </div>
+#             <div style='font-size: 48px; font-weight: bold; color: #e74c3c; margin: 15px 0;'>
+#                 {churn_rate:.1f}%
+#             </div>
+#             <div style='font-size: 12px; color: #95a5a6;'>
+#                 Inactive customers (>90 days)
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col3:
+#         # Customer lifetime value
+#         avg_rev = df_filtered.groupby('user_id')['net_revenue'].sum().mean()
+#         clv = (margin / 100) * (retention_rate / 100) * avg_rev
+        
+#         st.markdown(f"""
+#         <div style='background: white; padding: 30px; border-radius: 10px; 
+#                     border: 3px solid #3498db; text-align: center;'>
+#             <div style='font-size: 14px; color: #7f8c8d; margin-bottom: 10px;'>
+#                 <b>CUSTOMER LTV</b>
+#             </div>
+#             <div style='font-size: 48px; font-weight: bold; color: #3498db; margin: 15px 0;'>
+#                 ฿{clv:,.0f}
+#             </div>
+#             <div style='font-size: 12px; color: #95a5a6;'>
+#                 Average lifetime value
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     st.markdown("<br>", unsafe_allow_html=True)
+    
+#     # Cohort heatmap
+#     st.markdown("#### 📊 Customer Cohort Analysis")
+    
+#     # Simplified cohort data
+#     cohort_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+#     retention_matrix = np.array([
+#         [100, 45, 35, 28, 24, 20],
+#         [0, 100, 48, 38, 32, 26],
+#         [0, 0, 100, 52, 42, 35],
+#         [0, 0, 0, 100, 55, 45],
+#         [0, 0, 0, 0, 100, 58],
+#         [0, 0, 0, 0, 0, 100]
+#     ])
+    
+#     fig = go.Figure(data=go.Heatmap(
+#         z=retention_matrix,
+#         x=['Month 0', 'Month 1', 'Month 2', 'Month 3', 'Month 4', 'Month 5'],
+#         y=cohort_months,
+#         colorscale='RdYlGn',
+#         text=retention_matrix,
+#         texttemplate='%{text:.0f}%',
+#         textfont=dict(size=12, weight='bold'),
+#         hoverongaps=False,
+#         hovertemplate='Cohort: %{y}<br>Period: %{x}<br>Retention: %{z:.0f}%<extra></extra>'
+#     ))
+    
+#     fig.update_layout(
+#         title=dict(
+#             text='<b>Cohort Retention Heatmap (%)</b>',
+#             font=dict(size=16, color='#2c3e50')
+#         ),
+#         xaxis=dict(title='Months Since First Purchase', side='bottom'),
+#         yaxis=dict(title='Cohort (First Purchase Month)'),
+#         plot_bgcolor='white',
+#         paper_bgcolor='white',
+#         height=400,
+#         margin=dict(t=60, b=60, l=80, r=40)
+#     )
+    
+#     st.plotly_chart(fig, use_container_width=True, key="cohort_heatmap")
+
+# with tab3:
+#     st.markdown("# 💰 Financial Analytics")
+#     st.markdown("---")
+    
+#     # ==================== PROFIT MARGIN ====================
+#     st.markdown("### 📊 Profit Margin")
+    
+#     cogs = df_filtered['cost'].sum()
+#     gross_profit = revenue - cogs
+#     gross_margin = (gross_profit / revenue * 100) if revenue > 0 else 0
+#     net_margin = (profit / revenue * 100) if revenue > 0 else 0
+    
+#     col1, col2 = st.columns([1, 1])
+    
+#     with col1:
+#         # Waterfall chart for profit breakdown
+#         fig = go.Figure(go.Waterfall(
+#             orientation="v",
+#             measure=["relative", "relative", "total"],
+#             x=["Revenue", "COGS", "Gross Profit"],
+#             y=[revenue, -cogs, gross_profit],
+#             text=[f"฿{revenue:,.0f}", f"-฿{cogs:,.0f}", f"฿{gross_profit:,.0f}"],
+#             textposition="outside",
+#             connector={"line": {"color": "rgb(63, 63, 63)"}},
+#             decreasing={"marker": {"color": "#e74c3c"}},
+#             increasing={"marker": {"color": "#2ecc71"}},
+#             totals={"marker": {"color": "#3498db"}},
+#             hovertemplate='<b>%{x}</b><br>Amount: ฿%{y:,.0f}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Profit Breakdown</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=60, l=80, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="profit_waterfall")
+    
+#     with col2:
+#         # Monthly margin trend
+#         mon_fin = df_filtered.groupby('order_month').agg({
+#             'net_revenue': 'sum',
+#             'cost': 'sum',
+#             'profit': 'sum'
+#         }).reset_index()
+#         mon_fin['order_month'] = mon_fin['order_month'].dt.to_timestamp()
+#         mon_fin['margin_%'] = (mon_fin['profit'] / mon_fin['net_revenue'] * 100).round(2)
+#         mon_fin['month_label'] = mon_fin['order_month'].dt.strftime('%b %Y')
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Scatter(
+#             x=mon_fin['month_label'],
+#             y=mon_fin['margin_%'],
+#             mode='lines+markers',
+#             name='Profit Margin',
+#             line=dict(color='#2ecc71', width=3),
+#             marker=dict(size=10, color='#2ecc71', line=dict(color='white', width=2)),
+#             fill='tozeroy',
+#             fillcolor='rgba(46, 204, 113, 0.1)',
+#             text=mon_fin['margin_%'],
+#             texttemplate='%{text:.1f}%',
+#             textposition='top center',
+#             textfont=dict(size=10, weight='bold'),
+#             hovertemplate='<b>%{x}</b><br>Margin: %{y:.1f}%<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Profit Margin Trend (%)</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             xaxis=dict(title='', showgrid=False),
+#             yaxis=dict(
+#                 title='Margin (%)',
+#                 showgrid=True,
+#                 gridcolor='rgba(0,0,0,0.05)',
+#                 range=[0, max(mon_fin['margin_%']) * 1.2]
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=80, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="margin_trend")
+    
+#     st.markdown("---")
+    
+#     # ==================== SALES + GROSS PROFIT + CAC ====================
+#     st.markdown("### 📈 Sales + Gross Profit + CAC")
+    
+#     # Prepare data
+#     channel_fin = df_filtered.groupby(['order_month', 'channel']).agg({
+#         'net_revenue': 'sum',
+#         'profit': 'sum'
+#     }).reset_index()
+#     channel_fin['order_month'] = channel_fin['order_month'].dt.to_timestamp()
+#     channel_fin['month_label'] = channel_fin['order_month'].dt.strftime('%b %Y')
+    
+#     # Create stacked bar chart
+#     fig = go.Figure()
+    
+#     for channel in channel_fin['channel'].unique():
+#         channel_data = channel_fin[channel_fin['channel'] == channel]
+#         fig.add_trace(go.Bar(
+#             x=channel_data['month_label'],
+#             y=channel_data['net_revenue'],
+#             name=channel,
+#             marker_color=CHANNEL_COLORS.get(channel, '#95a5a6'),
+#             hovertemplate='<b>%{fullData.name}</b><br>%{x}<br>Revenue: ฿%{y:,.0f}<extra></extra>'
+#         ))
+    
+#     # Add gross profit line
+#     monthly_profit = df_filtered.groupby('order_month').agg({
+#         'profit': 'sum'
+#     }).reset_index()
+#     monthly_profit['order_month'] = monthly_profit['order_month'].dt.to_timestamp()
+#     monthly_profit['month_label'] = monthly_profit['order_month'].dt.strftime('%b %Y')
+    
+#     fig.add_trace(go.Scatter(
+#         x=monthly_profit['month_label'],
+#         y=monthly_profit['profit'],
+#         name='Gross Profit',
+#         mode='lines+markers',
+#         line=dict(color='#2ecc71', width=3),
+#         marker=dict(size=10, symbol='diamond'),
+#         yaxis='y2',
+#         hovertemplate='<b>Gross Profit</b><br>%{x}<br>฿%{y:,.0f}<extra></extra>'
+#     ))
+    
+#     fig.update_layout(
+#         title=dict(
+#             text='<b>Sales by Channel + Gross Profit</b>',
+#             font=dict(size=18, color='#2c3e50')
+#         ),
+#         barmode='stack',
+#         xaxis=dict(title='', showgrid=False),
+#         yaxis=dict(
+#             title='Revenue (฿)',
+#             showgrid=True,
+#             gridcolor='rgba(0,0,0,0.05)'
+#         ),
+#         yaxis2=dict(
+#             title='Gross Profit (฿)',
+#             overlaying='y',
+#             side='right',
+#             showgrid=False
+#         ),
+#         plot_bgcolor='white',
+#         paper_bgcolor='white',
+#         height=450,
+#         margin=dict(t=60, b=40, l=80, r=80),
+#         hovermode='x unified',
+#         legend=dict(
+#             orientation="h",
+#             yanchor="bottom",
+#             y=1.02,
+#             xanchor="right",
+#             x=1
+#         )
+#     )
+    
+#     st.plotly_chart(fig, use_container_width=True, key="sales_profit_channel")
+    
+#     st.markdown("---")
+    
+#     # ==================== FINANCIAL KPIs ====================
+#     st.markdown("### 💎 Financial KPIs")
+    
+#     col1, col2, col3, col4 = st.columns(4)
+    
+#     with col1:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 25px; border-radius: 10px; 
+#                     border-left: 5px solid #3498db; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; color: #7f8c8d; margin-bottom: 8px;'>
+#                 <b>TOTAL REVENUE</b>
+#             </div>
+#             <div style='font-size: 32px; font-weight: bold; color: #2c3e50;'>
+#                 ฿{revenue:,.0f}
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col2:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 25px; border-radius: 10px; 
+#                     border-left: 5px solid #e74c3c; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; color: #7f8c8d; margin-bottom: 8px;'>
+#                 <b>TOTAL COGS</b>
+#             </div>
+#             <div style='font-size: 32px; font-weight: bold; color: #2c3e50;'>
+#                 ฿{cogs:,.0f}
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col3:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 25px; border-radius: 10px; 
+#                     border-left: 5px solid #2ecc71; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; color: #7f8c8d; margin-bottom: 8px;'>
+#                 <b>GROSS PROFIT</b>
+#             </div>
+#             <div style='font-size: 32px; font-weight: bold; color: #2c3e50;'>
+#                 ฿{gross_profit:,.0f}
+#             </div>
+#             <div style='font-size: 12px; color: #2ecc71; margin-top: 5px;'>
+#                 Margin: {gross_margin:.1f}%
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col4:
+#         st.markdown(f"""
+#         <div style='background: white; padding: 25px; border-radius: 10px; 
+#                     border-left: 5px solid #9b59b6; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; color: #7f8c8d; margin-bottom: 8px;'>
+#                 <b>NET PROFIT</b>
+#             </div>
+#             <div style='font-size: 32px; font-weight: bold; color: #2c3e50;'>
+#                 ฿{profit:,.0f}
+#             </div>
+#             <div style='font-size: 12px; color: #9b59b6; margin-top: 5px;'>
+#                 Margin: {net_margin:.1f}%
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+
+# with tab4:
+#     st.markdown("# 📦 Warehouse & Inventory")
+#     st.markdown("---")
+    
+#     # ==================== INVENTORY METRICS ====================
+#     st.markdown("### 📊 Inventory Performance")
+    
+#     avg_inv = df_filtered['cost'].mean() * df_filtered['product_id'].nunique()
+#     inv_turnover = cogs / avg_inv if avg_inv > 0 else 0
+#     dio = 365 / inv_turnover if inv_turnover > 0 else 0
+    
+#     units_sold = df_filtered['quantity'].sum()
+#     units_received = units_sold * 1.2
+#     sell_through = (units_sold / units_received * 100) if units_received > 0 else 0
+    
+#     col1, col2, col3, col4 = st.columns(4)
+    
+#     with col1:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+#                     padding: 25px; border-radius: 10px; color: white; text-align: center;
+#                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+#                 <b>INVENTORY TURNOVER</b>
+#             </div>
+#             <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+#                 {inv_turnover:.2f}x
+#             </div>
+#             <div style='font-size: 11px; opacity: 0.8;'>
+#                 Times per year
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col2:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+#                     padding: 25px; border-radius: 10px; color: white; text-align: center;
+#                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+#                 <b>DAYS IN INVENTORY</b>
+#             </div>
+#             <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+#                 {dio:.0f}
+#             </div>
+#             <div style='font-size: 11px; opacity: 0.8;'>
+#                 Days
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col3:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+#                     padding: 25px; border-radius: 10px; color: white; text-align: center;
+#                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+#                 <b>SELL-THROUGH RATE</b>
+#             </div>
+#             <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+#                 {sell_through:.1f}%
+#             </div>
+#             <div style='font-size: 11px; opacity: 0.8;'>
+#                 Of received inventory
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     with col4:
+#         st.markdown(f"""
+#         <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+#                     padding: 25px; border-radius: 10px; color: white; text-align: center;
+#                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+#             <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+#                 <b>INVENTORY VALUE</b>
+#             </div>
+#             <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+#                 ฿{avg_inv/1000:.0f}K
+#             </div>
+#             <div style='font-size: 11px; opacity: 0.8;'>
+#                 Total stock value
+#             </div>
+#         </div>
+#         """, unsafe_allow_html=True)
+    
+#     st.markdown("<br>", unsafe_allow_html=True)
+#     st.markdown("---")
+    
+#     # ==================== PRODUCT MOVEMENT ====================
+#     st.markdown("### 🚀 Product Movement Analysis")
+    
+#     prod_vel = df_filtered.groupby(['product_id', 'product_name', 'category']).agg({
+#         'order_id': 'nunique',
+#         'net_revenue': 'sum',
+#         'cost': 'sum',
+#         'quantity': 'sum'
+#     }).reset_index()
+#     prod_vel.columns = ['ID', 'Product', 'Category', 'Orders', 'Revenue', 'Cost', 'Units']
+    
+#     fast_th = prod_vel['Orders'].quantile(0.75)
+#     slow_th = prod_vel['Orders'].quantile(0.25)
+    
+#     def classify(cnt):
+#         if cnt >= fast_th:
+#             return 'Fast Moving'
+#         elif cnt <= slow_th:
+#             return 'Slow Moving'
+#         return 'Medium Moving'
+    
+#     prod_vel['Movement'] = prod_vel['Orders'].apply(classify)
+    
+#     col1, col2 = st.columns(2)
+    
+#     with col1:
+#         mov = prod_vel['Movement'].value_counts()
+#         colors_mov = {
+#             'Fast Moving': '#2ecc71',
+#             'Medium Moving': '#f39c12',
+#             'Slow Moving': '#e74c3c'
+#         }
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Pie(
+#             labels=mov.index,
+#             values=mov.values,
+#             hole=0.6,
+#             marker=dict(
+#                 colors=[colors_mov[label] for label in mov.index],
+#                 line=dict(color='white', width=3)
+#             ),
+#             textposition='inside',
+#             textinfo='label+percent',
+#             textfont=dict(size=12, weight='bold', color='white'),
+#             hovertemplate='<b>%{label}</b><br>Products: %{value}<br>Share: %{percent}<extra></extra>'
+#         ))
+        
+#         fig.add_annotation(
+#             text=f'<b>Total</b><br>{len(prod_vel)} products',
+#             x=0.5, y=0.5,
+#             font=dict(size=14, color='#2c3e50'),
+#             showarrow=False
+#         )
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Product Distribution by Movement</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=40, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="movement_pie")
+    
+#     with col2:
+#         mov_val = prod_vel.groupby('Movement')['Cost'].sum().sort_values(ascending=False)
+        
+#         fig = go.Figure()
+        
+#         fig.add_trace(go.Bar(
+#             x=mov_val.index,
+#             y=mov_val.values,
+#             marker=dict(
+#                 color=[colors_mov[label] for label in mov_val.index],
+#                 line=dict(color='white', width=2)
+#             ),
+#             text=mov_val.values,
+#             texttemplate='฿%{text:,.0f}',
+#             textposition='outside',
+#             textfont=dict(size=11, weight='bold'),
+#             hovertemplate='<b>%{x}</b><br>Value: ฿%{y:,.0f}<extra></extra>'
+#         ))
+        
+#         fig.update_layout(
+#             title=dict(
+#                 text='<b>Inventory Value by Movement</b>',
+#                 font=dict(size=16, color='#2c3e50')
+#             ),
+#             xaxis=dict(title='', showgrid=False),
+#             yaxis=dict(
+#                 title='Value (฿)',
+#                 showgrid=True,
+#                 gridcolor='rgba(0,0,0,0.05)'
+#             ),
+#             plot_bgcolor='white',
+#             paper_bgcolor='white',
+#             height=400,
+#             margin=dict(t=60, b=40, l=80, r=40),
+#             showlegend=False
+#         )
+        
+#         st.plotly_chart(fig, use_container_width=True, key="movement_value")
+
+# # Footer
+# st.markdown("---")
+# st.markdown("""
+# <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+#             border-radius: 15px; color: white;'>
+#     <h3 style='margin: 0; font-size: 24px;'>📊 Fashion Analytics Dashboard</h3>
+#     <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>
+#         Built with Streamlit • Data-Driven Insights for Better Business Decisions
+#     </p>
+# </div>
+# """, unsafe_allow_html=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Analytics Dashboard - Redesigned Version
 import streamlit as st
 import pandas as pd
@@ -7564,113 +9064,689 @@ with tab2:
     st.markdown("# 📢 Marketing Analytics")
     st.markdown("---")
     
+    # ==================== DATA AVAILABILITY CHECKER ====================
+    st.markdown("### 📋 Data Availability Status")
+    
+    # Check what data is available
+    data_status = {
+        'Conversion Funnel': {
+            'required': ['visits', 'add_to_cart', 'checkout'],
+            'available': all(col in df_filtered.columns for col in ['visits', 'add_to_cart', 'checkout']),
+            'description': 'Track visitor journey from site visit to purchase'
+        },
+        'Campaign Analysis': {
+            'required': ['campaign_type'],
+            'available': 'campaign_type' in df_filtered.columns and df_filtered['campaign_type'].notna().any(),
+            'description': 'Measure campaign effectiveness and ROI'
+        },
+        'Acquisition Channel': {
+            'required': ['acquisition_channel'],
+            'available': 'acquisition_channel' in df_filtered.columns,
+            'description': 'Analyze customer acquisition sources'
+        },
+        'Customer Engagement': {
+            'required': ['email_opens', 'email_clicks', 'site_visits'],
+            'available': any(col in df_filtered.columns for col in ['email_opens', 'email_clicks', 'site_visits']),
+            'description': 'Monitor customer engagement metrics'
+        }
+    }
+    
+    # Display status in columns
+    cols = st.columns(4)
+    for idx, (feature, info) in enumerate(data_status.items()):
+        with cols[idx]:
+            if info['available']:
+                st.markdown(f"""
+                <div style='background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;'>
+                    <div style='font-size: 12px; color: #155724; font-weight: bold;'>✅ {feature}</div>
+                    <div style='font-size: 10px; color: #155724; margin-top: 5px;'>{info['description']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;'>
+                    <div style='font-size: 12px; color: #856404; font-weight: bold;'>⚠️ {feature}</div>
+                    <div style='font-size: 10px; color: #856404; margin-top: 5px;'>{info['description']}</div>
+                    <div style='font-size: 9px; color: #856404; margin-top: 5px;'>Missing: {', '.join(info['required'])}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     # ==================== CONVERSION ANALYSIS ====================
-    st.markdown("### 🎯 Conversion Analysis")
-    
-    # Calculate actual metrics from data
-    # Note: If your data doesn't have visit/cart data, we can only calculate from orders
-    # You may need to add these columns to your dataset for accurate funnel analysis
-    
-    total_orders = df_filtered['order_id'].nunique()
-    total_customers = df_filtered['user_id'].nunique()
-    
-    # Check if we have funnel data columns
-    has_funnel_data = all(col in df_filtered.columns for col in ['visits', 'add_to_cart', 'checkout'])
-    
-    if has_funnel_data:
+    if data_status['Conversion Funnel']['available']:
+        st.markdown("### 🎯 Conversion Analysis")
+        
         # Use actual funnel data from files
         total_visitors = df_filtered['visits'].sum()
         add_to_cart = df_filtered['add_to_cart'].sum()
-        checkout = df_filtered['checkout'].sum()
-        purchase = total_orders
-        conversion_rate = (purchase / total_visitors * 100) if total_visitors > 0 else 0
-    else:
-        # Calculate conversion rate from available data only
-        # Using customers as proxy for engaged users
-        conversion_rate = (total_orders / total_customers * 100) if total_customers > 0 else 0
+        checkout_count = df_filtered['checkout'].sum()
+        total_orders = df_filtered['order_id'].nunique()
+        conversion_rate = (total_orders / total_visitors * 100) if total_visitors > 0 else 0
         
-        st.info("💡 **Note:** For accurate funnel analysis, please add these columns to your data: `visits`, `add_to_cart`, `checkout`")
-    
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        if has_funnel_data:
-            description = f"{total_orders:,} orders from {total_visitors:,} visitors"
-        else:
-            description = f"{total_orders:,} orders from {total_customers:,} customers"
-            
-        st.markdown(f"""
-        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 30px; border-radius: 10px; color: white; height: 400px;
-                    display: flex; flex-direction: column; justify-content: center;'>
-            <div style='text-align: center;'>
-                <div style='font-size: 16px; opacity: 0.9; margin-bottom: 20px;'>
-                    <b>CONVERSION RATE</b>
-                </div>
-                <div style='font-size: 72px; font-weight: bold; margin: 20px 0;'>
-                    {conversion_rate:.1f}%
-                </div>
-                <div style='font-size: 14px; opacity: 0.8; margin-top: 20px;'>
-                    {description}
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 30px; border-radius: 10px; color: white; height: 400px;
+                        display: flex; flex-direction: column; justify-content: center;'>
+                <div style='text-align: center;'>
+                    <div style='font-size: 16px; opacity: 0.9; margin-bottom: 20px;'>
+                        <b>CONVERSION RATE</b>
+                    </div>
+                    <div style='font-size: 72px; font-weight: bold; margin: 20px 0;'>
+                        {conversion_rate:.1f}%
+                    </div>
+                    <div style='font-size: 14px; opacity: 0.8; margin-top: 20px;'>
+                        {total_orders:,} orders from {total_visitors:,} visitors
+                    </div>
                 </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        if has_funnel_data:
-            # Use actual data from files
+            """, unsafe_allow_html=True)
+        
+        with col2:
             funnel_data = pd.DataFrame({
                 'Stage': ['Visitors', 'Add to Cart', 'Checkout', 'Purchase'],
-                'Count': [total_visitors, add_to_cart, checkout, purchase],
+                'Count': [total_visitors, add_to_cart, checkout_count, total_orders],
                 'Color': ['#3498db', '#2ecc71', '#f39c12', '#9b59b6']
             })
-        else:
-            # Calculate based on typical e-commerce funnel ratios from actual orders
-            # Working backwards from orders to estimate funnel
-            purchase = total_orders
-            # Typical checkout to purchase ratio is ~80%
-            checkout = int(purchase / 0.8) if purchase > 0 else 0
-            # Typical cart to checkout ratio is ~60%
-            add_to_cart = int(checkout / 0.6) if checkout > 0 else 0
-            # Typical visitor to cart ratio is ~30%
-            visitors = int(add_to_cart / 0.3) if add_to_cart > 0 else total_customers
             
-            funnel_data = pd.DataFrame({
-                'Stage': ['Visitors (estimated)', 'Add to Cart (estimated)', 'Checkout (estimated)', 'Purchase (actual)'],
-                'Count': [visitors, add_to_cart, checkout, purchase],
-                'Color': ['#3498db', '#2ecc71', '#f39c12', '#9b59b6']
-            })
+            fig = go.Figure()
+            
+            fig.add_trace(go.Funnel(
+                y=funnel_data['Stage'],
+                x=funnel_data['Count'],
+                textposition="inside",
+                textinfo="value+percent initial",
+                marker=dict(
+                    color=funnel_data['Color'],
+                    line=dict(color='white', width=2)
+                ),
+                textfont=dict(size=13, weight='bold', color='white'),
+                hovertemplate='<b>%{y}</b><br>Count: %{x:,}<br>Rate: %{percentInitial}<extra></extra>',
+                connector=dict(line=dict(color='gray', width=1))
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Sales Funnel</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=40, r=120),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="conversion_funnel")
+        
+        st.markdown("---")
+    else:
+        # Show alternative metrics based on available data
+        st.markdown("### 📊 Order Completion Analysis")
+        st.info(f"💡 **Missing Funnel Data:** Add columns `{', '.join(data_status['Conversion Funnel']['required'])}` to enable full conversion funnel analysis")
+        
+        # Show what we can analyze with current data
+        total_orders = df_filtered['order_id'].nunique()
+        total_customers = df_filtered['user_id'].nunique()
+        completed_orders = df_filtered[df_filtered['status'] == 'Completed']['order_id'].nunique()
+        completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                    <b>TOTAL ORDERS</b>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {total_orders:,}
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>All statuses</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                    <b>COMPLETED</b>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {completed_orders:,}
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>Successfully completed</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                    <b>COMPLETION RATE</b>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {completion_rate:.1f}%
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>Order success rate</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            orders_per_customer = total_orders / total_customers if total_customers > 0 else 0
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                    <b>ORDERS/CUSTOMER</b>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {orders_per_customer:.1f}
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>Average per customer</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Order status breakdown
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            status_data = df_filtered.groupby('status')['order_id'].nunique().reset_index()
+            status_data.columns = ['Status', 'Orders']
+            
+            status_colors = {
+                'Completed': '#2ecc71',
+                'Pending': '#f39c12',
+                'Cancelled': '#e74c3c',
+                'Refunded': '#95a5a6'
+            }
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Pie(
+                labels=status_data['Status'],
+                values=status_data['Orders'],
+                hole=0.5,
+                marker=dict(
+                    colors=[status_colors.get(s, '#95a5a6') for s in status_data['Status']],
+                    line=dict(color='white', width=2)
+                ),
+                textposition='inside',
+                textinfo='label+percent',
+                textfont=dict(size=11, weight='bold'),
+                hovertemplate='<b>%{label}</b><br>Orders: %{value:,}<br>Share: %{percent}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Order Status Distribution</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=40, r=40),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="status_pie")
+        
+        with col2:
+            # Monthly order trend
+            monthly_orders = df_filtered.groupby('order_month').agg({
+                'order_id': 'nunique'
+            }).reset_index()
+            monthly_orders['order_month'] = monthly_orders['order_month'].dt.to_timestamp()
+            monthly_orders['month_label'] = monthly_orders['order_month'].dt.strftime('%b %Y')
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_orders['month_label'],
+                y=monthly_orders['order_id'],
+                mode='lines+markers',
+                line=dict(color='#3498db', width=3),
+                marker=dict(size=10, color='#3498db', line=dict(color='white', width=2)),
+                fill='tozeroy',
+                fillcolor='rgba(52, 152, 219, 0.1)',
+                text=monthly_orders['order_id'],
+                texttemplate='%{text:,}',
+                textposition='top center',
+                textfont=dict(size=10, weight='bold'),
+                hovertemplate='<b>%{x}</b><br>Orders: %{y:,}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Monthly Order Trend</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                xaxis=dict(title='', showgrid=False),
+                yaxis=dict(
+                    title='Number of Orders',
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.05)'
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=80, r=40),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="monthly_orders")
+        
+        st.markdown("---")
+    
+    # ==================== CAMPAIGN EFFECTIVENESS ====================
+    st.markdown("### 📣 Campaign Effectiveness")
+    
+    if data_status['Campaign Analysis']['available']:
+        camp = df_filtered[df_filtered['campaign_type'].notna()]
+        no_camp = df_filtered[df_filtered['campaign_type'].isna()]
+        
+        if len(camp) > 0:
+            camp_rev = camp['net_revenue'].sum()
+            camp_share = (camp_rev / revenue * 100) if revenue > 0 else 0
+            conv = (len(camp) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
+            camp_aov = camp.groupby('order_id')['net_revenue'].sum().mean()
+            no_camp_aov = no_camp.groupby('order_id')['net_revenue'].sum().mean() if len(no_camp) > 0 else 0
+            
+            camp_cost = camp['discount_amount'].sum() if 'discount_amount' in camp.columns else 0
+            roas = (camp_rev / camp_cost * 100) if camp_cost > 0 else 0
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                        <b>CAMPAIGN REVENUE</b>
+                    </div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        {camp_share:.1f}%
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>Share of total</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                        <b>CONVERSION</b>
+                    </div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        {conv:.1f}%
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>Campaign orders</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                        <b>ROAS</b>
+                    </div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        {roas:.0f}%
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>Return on ad spend</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col4:
+                st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                        <b>CAMPAIGN AOV</b>
+                    </div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        ฿{camp_aov/1000:.1f}K
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>Avg order value</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                comp = pd.DataFrame({
+                    'Type': ['With Campaign', 'Without Campaign'],
+                    'AOV': [camp_aov, no_camp_aov]
+                })
+                
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    x=comp['Type'],
+                    y=comp['AOV'],
+                    marker=dict(
+                        color=['#27ae60', '#95a5a6'],
+                        line=dict(color='white', width=2)
+                    ),
+                    text=comp['AOV'],
+                    texttemplate='฿%{text:,.0f}',
+                    textposition='outside',
+                    textfont=dict(size=11, weight='bold'),
+                    hovertemplate='<b>%{x}</b><br>AOV: ฿%{y:,.0f}<extra></extra>'
+                ))
+                
+                fig.update_layout(
+                    title=dict(
+                        text='<b>AOV: Campaign vs Non-Campaign</b>',
+                        font=dict(size=16, color='#2c3e50')
+                    ),
+                    xaxis=dict(title='', showgrid=False),
+                    yaxis=dict(
+                        title='Average Order Value (฿)',
+                        showgrid=True,
+                        gridcolor='rgba(0,0,0,0.05)'
+                    ),
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    height=400,
+                    margin=dict(t=60, b=40, l=80, r=40),
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True, key="campaign_aov_compare")
+            
+            with col2:
+                camp_break = camp.groupby('campaign_type')['net_revenue'].sum().sort_values(ascending=True)
+                
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    y=camp_break.index,
+                    x=camp_break.values,
+                    orientation='h',
+                    marker_color='#9b59b6',
+                    text=camp_break.values,
+                    texttemplate='฿%{text:,.0f}',
+                    textposition='outside',
+                    textfont=dict(size=11, weight='bold'),
+                    hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+                ))
+                
+                fig.update_layout(
+                    title=dict(
+                        text='<b>Revenue by Campaign Type</b>',
+                        font=dict(size=16, color='#2c3e50')
+                    ),
+                    xaxis=dict(
+                        title='Revenue (฿)',
+                        showgrid=True,
+                        gridcolor='rgba(0,0,0,0.05)'
+                    ),
+                    yaxis=dict(
+                        title='',
+                        categoryorder='total ascending'
+                    ),
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    height=400,
+                    margin=dict(t=60, b=40, l=120, r=100),
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True, key="campaign_revenue_breakdown")
+    else:
+        st.info(f"💡 **Missing Campaign Data:** Add column `campaign_type` to track campaign performance and ROI")
+        
+        # Show what we can do without campaign data
+        st.markdown("#### 📊 Order Value Distribution (All Orders)")
+        
+        order_values = df_filtered.groupby('order_id')['net_revenue'].sum().reset_index()
         
         fig = go.Figure()
         
-        fig.add_trace(go.Funnel(
-            y=funnel_data['Stage'],
-            x=funnel_data['Count'],
-            textposition="inside",
-            textinfo="value+percent initial",
-            marker=dict(
-                color=funnel_data['Color'],
-                line=dict(color='white', width=2)
-            ),
-            textfont=dict(size=13, weight='bold', color='white'),
-            hovertemplate='<b>%{y}</b><br>Count: %{x:,}<br>Rate: %{percentInitial}<extra></extra>',
-            connector=dict(line=dict(color='gray', width=1))
+        fig.add_trace(go.Histogram(
+            x=order_values['net_revenue'],
+            nbinsx=30,
+            marker_color='#3498db',
+            marker_line=dict(color='white', width=1),
+            hovertemplate='Value Range: ฿%{x:,.0f}<br>Orders: %{y}<extra></extra>'
         ))
         
         fig.update_layout(
             title=dict(
-                text='<b>Sales Funnel</b>' + (' (Estimated)' if not has_funnel_data else ''),
+                text='<b>Order Value Distribution</b>',
                 font=dict(size=16, color='#2c3e50')
+            ),
+            xaxis=dict(
+                title='Order Value (฿)',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.05)'
+            ),
+            yaxis=dict(
+                title='Number of Orders',
+                showgrid=True,
+                gridcolor='rgba(0,0,0,0.05)'
             ),
             plot_bgcolor='white',
             paper_bgcolor='white',
             height=400,
-            margin=dict(t=60, b=40, l=40, r=120),
+            margin=dict(t=60, b=60, l=80, r=40),
             showlegend=False
         )
         
-        st.plotly_chart(fig, use_container_width=True, key="conversion_funnel")
+        st.plotly_chart(fig, use_container_width=True, key="order_value_dist")
+    
+    st.markdown("---")
+    
+    # ==================== ACQUISITION CHANNEL ====================
+    st.markdown("### 🎯 Acquisition Channel Analysis")
+    
+    if data_status['Acquisition Channel']['available']:
+        acq = df_filtered.groupby('acquisition_channel').agg({
+            'user_id': 'nunique',
+            'order_id': 'nunique',
+            'net_revenue': 'sum',
+            'profit': 'sum'
+        }).reset_index()
+        acq.columns = ['Channel', 'Customers', 'Orders', 'Revenue', 'Profit']
+        acq['Conv %'] = (acq['Orders'] / acq['Customers'] * 100).round(1)
+        acq['Rev/Cust'] = (acq['Revenue'] / acq['Customers']).round(0)
+        acq = acq.sort_values('Revenue', ascending=False)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            acq_sorted = acq.sort_values('Revenue', ascending=True)
+            colors_list = [CHANNEL_COLORS.get(channel, '#95a5a6') for channel in acq_sorted['Channel']]
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                y=acq_sorted['Channel'],
+                x=acq_sorted['Revenue'],
+                orientation='h',
+                marker=dict(color=colors_list, line=dict(color='white', width=2)),
+                text=acq_sorted['Revenue'],
+                texttemplate='฿%{text:,.0f}',
+                textposition='outside',
+                textfont=dict(size=11, weight='bold'),
+                hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Revenue by Acquisition Channel</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                xaxis=dict(
+                    title='Revenue (฿)',
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.05)'
+                ),
+                yaxis=dict(
+                    title='',
+                    categoryorder='total ascending'
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=120, r=100),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="acquisition_revenue")
+        
+        with col2:
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=acq['Customers'],
+                y=acq['Rev/Cust'],
+                mode='markers+text',
+                marker=dict(
+                    size=acq['Revenue']/10000,
+                    color=[CHANNEL_COLORS.get(ch, '#95a5a6') for ch in acq['Channel']],
+                    line=dict(color='white', width=2),
+                    sizemode='diameter'
+                ),
+                text=acq['Channel'],
+                textposition='top center',
+                textfont=dict(size=10, weight='bold'),
+                hovertemplate='<b>%{text}</b><br>Customers: %{x:,}<br>Rev/Customer: ฿%{y:,.0f}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Customer Efficiency by Channel</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                xaxis=dict(
+                    title='Number of Customers',
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.05)'
+                ),
+                yaxis=dict(
+                    title='Revenue per Customer (฿)',
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.05)'
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=60, l=80, r=40),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="acquisition_efficiency")
+        
+        st.markdown("#### 📊 Acquisition Channel Metrics")
+        
+        styled_acq = acq.style.format({
+            'Revenue': '฿{:,.0f}',
+            'Profit': '฿{:,.0f}',
+            'Rev/Cust': '฿{:,.0f}',
+            'Conv %': '{:.1f}%',
+            'Customers': '{:,}',
+            'Orders': '{:,}'
+        }).background_gradient(subset=['Conv %'], cmap='Blues')
+        
+        st.dataframe(styled_acq, use_container_width=True, height=300)
+    else:
+        st.info(f"💡 **Missing Acquisition Data:** Add column `acquisition_channel` to track where customers come from")
+        
+        # Show channel analysis instead (from orders, not acquisition)
+        st.markdown("#### 📊 Sales Channel Performance (from orders)")
+        
+        channel_perf = df_filtered.groupby('channel').agg({
+            'order_id': 'nunique',
+            'user_id': 'nunique',
+            'net_revenue': 'sum'
+        }).reset_index()
+        channel_perf.columns = ['Channel', 'Orders', 'Customers', 'Revenue']
+        channel_perf = channel_perf.sort_values('Revenue', ascending=False)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            colors_list = [CHANNEL_COLORS.get(ch, '#95a5a6') for ch in channel_perf['Channel']]
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Pie(
+                labels=channel_perf['Channel'],
+                values=channel_perf['Revenue'],
+                hole=0.5,
+                marker=dict(colors=colors_list, line=dict(color='white', width=2)),
+                textposition='inside',
+                textinfo='label+percent',
+                textfont=dict(size=11, weight='bold'),
+                hovertemplate='<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>Share: %{percent}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Revenue Share by Channel</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=40, r=40),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="channel_share")
+        
+        with col2:
+            channel_sorted = channel_perf.sort_values('Orders', ascending=True)
+            colors_list = [CHANNEL_COLORS.get(ch, '#95a5a6') for ch in channel_sorted['Channel']]
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                y=channel_sorted['Channel'],
+                x=channel_sorted['Orders'],
+                orientation='h',
+                marker=dict(color=colors_list, line=dict(color='white', width=2)),
+                text=channel_sorted['Orders'],
+                texttemplate='%{text:,}',
+                textposition='outside',
+                textfont=dict(size=11, weight='bold'),
+                hovertemplate='<b>%{y}</b><br>Orders: %{x:,}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title=dict(
+                    text='<b>Orders by Channel</b>',
+                    font=dict(size=16, color='#2c3e50')
+                ),
+                xaxis=dict(
+                    title='Number of Orders',
+                    showgrid=True,
+                    gridcolor='rgba(0,0,0,0.05)'
+                ),
+                yaxis=dict(title='', categoryorder='total ascending'),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                height=400,
+                margin=dict(t=60, b=40, l=120, r=80),
+                showlegend=False
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, key="channel_orders")
     
     st.markdown("---")
     
