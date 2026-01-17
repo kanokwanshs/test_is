@@ -16808,7 +16808,7 @@ import warnings
 from datetime import datetime, timedelta
 
 warnings.filterwarnings('ignore')
-st.set_page_config(page_title="Fashion Analytics Pro", layout="wide", page_icon="👕")
+st.set_page_config(page_title="Analytics Pro", layout="wide", page_icon="👕")
 
 # Enhanced Color Palette
 COLORS = {
@@ -17058,7 +17058,7 @@ if not data:
 df_master = merge_data(data)
 
 # ==================== MAIN FILTERS ====================
-st.title("📊 Fashion Analytics Dashboard")
+st.title("📊Analytics Dashboard")
 st.markdown("---")
 
 st.markdown("### 🔍 Filter Data")
@@ -19095,7 +19095,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             border-radius: 15px; color: white;'>
-    <h3 style='margin: 0; font-size: 24px;'>📊 Fashion Analytics Dashboard</h3>
+    <h3 style='margin: 0; font-size: 24px;'>📊 Analytics Dashboard</h3>
     <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>
         Built with Streamlit • Data-Driven Insights with Professional KPIs
     </p>
