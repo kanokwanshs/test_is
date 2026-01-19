@@ -2024,8 +2024,457 @@ with tab4:
         )
 
     st.markdown("---")
-    
-    # END OF TAB 4
+
+    # ==================== PRODUCT MOVEMENT CLASSIFICATION ====================
+    st.markdown("### 🚀 Product Movement Classification")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown(
+            """
+        <div class='metric-explanation'>
+            <b>📖 คำอธิบาย:</b> จัดกลุ่มสินค้าตามความเร็วในการขาย<br>
+            • <b style='color: #2ecc71;'>Fast Moving:</b> ขายดี ควรเพิ่ม stock<br>
+            • <b style='color: #f39c12;'>Medium Moving:</b> ขายปานกลาง รักษาระดับปกติ<br>
+            • <b style='color: #e74c3c;'>Slow Moving:</b> ขายช้า ลด stock หรือทำ clearance
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    product_velocity = (
+        df_filtered.groupby(["product_id", "product_name", "category"])
+        .agg(
+            {"order_id": "nunique", "net_revenue": "sum", "cost": "sum", "quantity": "sum"}
+        )
+        .reset_index()
+    )
+    product_velocity.columns = [
+        "ID",
+        "Product",
+        "Category",
+        "Orders",
+        "Revenue",
+        "Cost",
+        "Units",
+    ]
+
+    fast_threshold = product_velocity["Orders"].quantile(0.75)
+    slow_threshold = product_velocity["Orders"].quantile(0.25)
+
+    def classify_movement(orders):
+        if orders >= fast_threshold:
+            return "Fast Moving"
+        elif orders <= slow_threshold:
+            return "Slow Moving"
+        return "Medium Moving"
+
+    product_velocity["Movement"] = product_velocity["Orders"].apply(classify_movement)
+
+    movement_summary = (
+        product_velocity.groupby("Movement")
+        .agg({"Product": "count", "Revenue": "sum", "Cost": "sum"})
+        .reset_index()
+    )
+    movement_summary.columns = ["Movement", "Products", "Revenue", "Inventory_Value"]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Stacked bar chart
+        movement_order = ["Fast Moving", "Medium Moving", "Slow Moving"]
+        movement_colors = {
+            "Fast Moving": "#2ecc71",
+            "Medium Moving": "#f39c12",
+            "Slow Moving": "#e74c3c",
+        }
+
+        fig = go.Figure()
+
+        for movement in movement_order:
+            movement_data = movement_summary[movement_summary["Movement"] == movement]
+            if not movement_data.empty:
+                count = movement_data["Products"].values[0]
+                
+                fig.add_trace(
+                    go.Bar(
+                        y=["Product Count"],
+                        x=[count],
+                        name=movement,
+                        orientation="h",
+                        marker_color=movement_colors[movement],
+                        text=[count],
+                        texttemplate="%{text}",
+                        textposition="inside",
+                        hovertemplate=f"<b>{movement}</b><br>Products: %{{x}}<extra></extra>",
+                    )
+                )
+
+        fig.update_layout(
+            title="<b>Product Distribution by Movement Speed</b>",
+            xaxis=dict(title="Number of Products"),
+            yaxis=dict(title=""),
+            barmode="stack",
+            plot_bgcolor="white",
+            height=400,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        # Inventory value by movement
+        movement_sorted = movement_summary.sort_values("Inventory_Value", ascending=True)
+        colors = [movement_colors[m] for m in movement_sorted["Movement"]]
+
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Bar(
+                y=movement_sorted["Movement"],
+                x=movement_sorted["Inventory_Value"],
+                orientation="h",
+                marker=dict(color=colors),
+                text=movement_sorted["Inventory_Value"],
+                texttemplate="฿%{text:,.0f}",
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>Value: ฿%{x:,.0f}<extra></extra>",
+            )
+        )
+
+        fig.update_layout(
+            title="<b>Inventory Value by Movement</b>",
+            xaxis=dict(
+                title="Inventory Value (฿)", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
+            ),
+            yaxis=dict(title=""),
+            plot_bgcolor="white",
+            height=400,
+            showlegend=False,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Show top products in each category
+    st.markdown("#### 📋 Movement Classification Details")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.success("**🚀 Fast Moving (Top 10)**")
+        fast_products = product_velocity[
+            product_velocity["Movement"] == "Fast Moving"
+        ].nlargest(10, "Orders")
+        
+        if not fast_products.empty:
+            st.dataframe(
+                fast_products[["Product", "Orders", "Units"]].style.format(
+                    {"Orders": "{:,}", "Units": "{:,}"}
+                ),
+                height=300,
+                use_container_width=True,
+            )
+        else:
+            st.info("No fast moving products")
+
+    with col2:
+        st.warning("**⚖️ Medium Moving (Top 10)**")
+        medium_products = product_velocity[
+            product_velocity["Movement"] == "Medium Moving"
+        ].nlargest(10, "Orders")
+        
+        if not medium_products.empty:
+            st.dataframe(
+                medium_products[["Product", "Orders", "Units"]].style.format(
+                    {"Orders": "{:,}", "Units": "{:,}"}
+                ),
+                height=300,
+                use_container_width=True,
+            )
+        else:
+            st.info("No medium moving products")
+
+    with col3:
+        st.error("**🐌 Slow Moving (Top 10)**")
+        slow_products = product_velocity[
+            product_velocity["Movement"] == "Slow Moving"
+        ].nlargest(10, "Cost")
+        
+        if not slow_products.empty:
+            st.dataframe(
+                slow_products[["Product", "Orders", "Cost"]].style.format(
+                    {"Orders": "{:,}", "Cost": "฿{:,.0f}"}
+                ),
+                height=300,
+                use_container_width=True,
+            )
+        else:
+            st.info("No slow moving products")
+
+    st.markdown("---")
+
+    # ==================== ABC ANALYSIS ====================
+    st.markdown("### 📊 ABC Analysis (Pareto Principle)")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown(
+            """
+        <div class='metric-explanation'>
+            <b>📖 ABC Analysis:</b> จัดกลุ่มสินค้าตามมูลค่ายอดขาย (80/20 rule)<br>
+            • <b style='color: #e74c3c;'>Class A:</b> 20% ของสินค้า สร้าง 80% ของรายได้ → ดูแลอย่างใกล้ชิด<br>
+            • <b style='color: #f39c12;'>Class B:</b> 30% ของสินค้า สร้าง 15% ของรายได้ → ดูแลปานกลาง<br>
+            • <b style='color: #95a5a6;'>Class C:</b> 50% ของสินค้า สร้าง 5% ของรายได้ → ดูแลน้อยที่สุด<br>
+            <b>💡 การใช้ประโยชน์:</b> มุ่งเน้นทรัพยากรกับสินค้าที่สำคัญ (Class A)
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    # Calculate ABC classification
+    abc_analysis = product_velocity.copy()
+    abc_analysis = abc_analysis.sort_values("Revenue", ascending=False)
+    abc_analysis["Revenue_Cumulative"] = abc_analysis["Revenue"].cumsum()
+    abc_analysis["Revenue_Cumulative_%"] = (
+        abc_analysis["Revenue_Cumulative"] / abc_analysis["Revenue"].sum() * 100
+    )
+
+    def classify_abc(cum_pct):
+        if cum_pct <= 80:
+            return "Class A"
+        elif cum_pct <= 95:
+            return "Class B"
+        else:
+            return "Class C"
+
+    abc_analysis["ABC_Class"] = abc_analysis["Revenue_Cumulative_%"].apply(classify_abc)
+
+    # ABC Summary
+    abc_summary = (
+        abc_analysis.groupby("ABC_Class")
+        .agg({"Product": "count", "Revenue": "sum", "Cost": "sum"})
+        .reset_index()
+    )
+    abc_summary.columns = ["Class", "Products", "Revenue", "Inventory_Value"]
+    abc_summary["Revenue_%"] = (abc_summary["Revenue"] / abc_summary["Revenue"].sum() * 100).round(1)
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        # ABC Summary Cards
+        abc_colors = {
+            "Class A": "#e74c3c",
+            "Class B": "#f39c12",
+            "Class C": "#95a5a6"
+        }
+
+        for abc_class in ["Class A", "Class B", "Class C"]:
+            class_data = abc_summary[abc_summary["Class"] == abc_class]
+            if not class_data.empty:
+                products = class_data["Products"].values[0]
+                revenue = class_data["Revenue"].values[0]
+                revenue_pct = class_data["Revenue_%"].values[0]
+                color = abc_colors[abc_class]
+
+                st.markdown(
+                    f"""
+                <div style='background: white; padding: 20px; margin: 10px 0; border-radius: 10px; 
+                            border-left: 5px solid {color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                    <div style='font-size: 14px; color: #7f8c8d; margin-bottom: 5px;'>
+                        <b>{abc_class}</b>
+                    </div>
+                    <div style='font-size: 24px; font-weight: bold; color: {color}; margin: 5px 0;'>
+                        {products} products
+                    </div>
+                    <div style='font-size: 12px; color: #95a5a6;'>
+                        ฿{revenue/1000:.0f}K ({revenue_pct:.1f}% of revenue)
+                    </div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
+                )
+
+    with col2:
+        # Pareto Chart
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Bar(
+                x=abc_analysis["Product"].head(20),
+                y=abc_analysis["Revenue"].head(20),
+                name="Revenue",
+                marker_color="#3498db",
+                yaxis="y",
+                hovertemplate="<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>",
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=abc_analysis["Product"].head(20),
+                y=abc_analysis["Revenue_Cumulative_%"].head(20),
+                name="Cumulative %",
+                mode="lines+markers",
+                line=dict(color="#e74c3c", width=3),
+                marker=dict(size=8),
+                yaxis="y2",
+                hovertemplate="<b>%{x}</b><br>Cumulative: %{y:.1f}%<extra></extra>",
+            )
+        )
+
+        # Add 80% line
+        fig.add_hline(
+            y=80,
+            line_dash="dash",
+            line_color="gray",
+            opacity=0.5,
+            annotation_text="80%",
+            annotation_position="right",
+            yref="y2"
+        )
+
+        fig.update_layout(
+            title="<b>Pareto Chart - Top 20 Products</b>",
+            xaxis=dict(title="", showticklabels=False),
+            yaxis=dict(
+                title="Revenue (฿)", 
+                showgrid=True, 
+                gridcolor="rgba(0,0,0,0.05)"
+            ),
+            yaxis2=dict(
+                title="Cumulative %",
+                overlaying="y",
+                side="right",
+                showgrid=False,
+                range=[0, 100]
+            ),
+            plot_bgcolor="white",
+            height=400,
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==================== STOCK HEALTH DASHBOARD ====================
+    st.markdown("### 🏥 Stock Health Dashboard")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown(
+            """
+        <div class='metric-explanation'>
+            <b>📖 Stock Health:</b> ประเมินสุขภาพของสินค้าคงคลัง<br>
+            • <b style='color: #2ecc71;'>Healthy:</b> ขายดี หมุนเวียนเร็ว<br>
+            • <b style='color: #f39c12;'>Watch:</b> ต้องติดตาม อาจมีปัญหา<br>
+            • <b style='color: #e74c3c;'>Critical:</b> ขายช้า หมุนเวียนช้า ควรทำ clearance
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    # Calculate stock health
+    stock_health = product_velocity.copy()
+    stock_health["Days_in_Stock"] = (stock_health["Cost"] / stock_health["Revenue"] * 365) if revenue > 0 else 999
+
+    def classify_health(row):
+        if row["Movement"] == "Fast Moving" and row["Days_in_Stock"] < 60:
+            return "Healthy"
+        elif row["Movement"] == "Slow Moving" or row["Days_in_Stock"] > 120:
+            return "Critical"
+        else:
+            return "Watch"
+
+    stock_health["Health_Status"] = stock_health.apply(classify_health, axis=1)
+
+    # Health summary
+    health_summary = stock_health.groupby("Health_Status").agg({
+        "Product": "count",
+        "Revenue": "sum",
+        "Cost": "sum"
+    }).reset_index()
+    health_summary.columns = ["Status", "Products", "Revenue", "Inventory_Value"]
+
+    col1, col2, col3 = st.columns(3)
+
+    health_colors = {
+        "Healthy": "#2ecc71",
+        "Watch": "#f39c12",
+        "Critical": "#e74c3c"
+    }
+
+    for idx, (col, status) in enumerate(zip([col1, col2, col3], ["Healthy", "Watch", "Critical"])):
+        status_data = health_summary[health_summary["Status"] == status]
+        if not status_data.empty:
+            products = status_data["Products"].values[0]
+            inventory_val = status_data["Inventory_Value"].values[0]
+            color = health_colors[status]
+
+            with col:
+                icon = "✅" if status == "Healthy" else "⚠️" if status == "Watch" else "🚨"
+                st.markdown(
+                    f"""
+                <div style='background: linear-gradient(135deg, {color} 0%, {color}dd 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 36px; margin-bottom: 10px;'>{icon}</div>
+                    <div style='font-size: 14px; opacity: 0.9;'>{status.upper()}</div>
+                    <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>
+                        {products}
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>
+                        Products (฿{inventory_val/1000:.0f}K)
+                    </div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
+                )
+        else:
+            with col:
+                icon = "✅" if status == "Healthy" else "⚠️" if status == "Watch" else "🚨"
+                color = health_colors[status]
+                st.markdown(
+                    f"""
+                <div style='background: linear-gradient(135deg, {color} 0%, {color}dd 100%); 
+                            padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                    <div style='font-size: 36px; margin-bottom: 10px;'>{icon}</div>
+                    <div style='font-size: 14px; opacity: 0.9;'>{status.upper()}</div>
+                    <div style='font-size: 32px; font-weight: bold; margin: 10px 0;'>
+                        0
+                    </div>
+                    <div style='font-size: 11px; opacity: 0.8;'>
+                        Products
+                    </div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
+                )
+
+    # Critical products list
+    critical_products = stock_health[stock_health["Health_Status"] == "Critical"].nlargest(10, "Cost")
+
+    if not critical_products.empty:
+        st.markdown("#### 🚨 Critical Products Requiring Action")
+        
+        critical_display = critical_products[[
+            "Product", "Category", "Orders", "Revenue", "Cost", "Movement"
+        ]].copy()
+        
+        styled_critical = critical_display.style.format({
+            "Orders": "{:,}",
+            "Revenue": "฿{:,.0f}",
+            "Cost": "฿{:,.0f}"
+        }).apply(lambda x: ["background-color: #ffebee"] * len(x), axis=1)
+        
+        st.dataframe(styled_critical, use_container_width=True)
+        
+        st.warning("""
+        💡 **Recommended Actions:**
+        - Launch clearance sale (30-50% discount)
+        - Bundle with fast-moving products
+        - Consider donation for tax benefits
+        - Stop reordering until stock clears
+        """)
+    else:
+        st.success("✅ No critical stock issues detected!")
 
 # ==================== TAB 5 START ====================
 with tab5:
