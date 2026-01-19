@@ -9442,6 +9442,7 @@ with col2:
     )
     
     st.plotly_chart(fig, use_container_width=True)
+    
 with tab5:
     st.markdown("# 🔮 Forecasting & Planning")
     st.markdown("---")
