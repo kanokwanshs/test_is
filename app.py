@@ -9443,15 +9443,16 @@ with col2:
     
     st.plotly_chart(fig, use_container_width=True)
 with tab5:
-st.markdown("# 🔮 Forecasting & Planning")
-st.markdown("---")
-with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-    st.markdown("""
-    <div class='metric-explanation'>
-        <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
-        <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("# 🔮 Forecasting & Planning")
+    st.markdown("---")
+    
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
+            <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== REVENUE FORECAST ====================
 st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
