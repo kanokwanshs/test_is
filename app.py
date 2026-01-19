@@ -4960,7 +4960,8 @@ with tab3:
             x=["Revenue", "COGS", "Other Costs", "Net Profit"],
             y=[revenue, -cogs, -(gross_profit - profit), profit],
             text=[f"฿{revenue:,.0f}", f"-฿{cogs:,.0f}", f"-฿{(gross_profit - profit):,.0f}", f"฿{profit:,.0f}"],
-            textposition="outside",
+            textposition="auto",
+            texttemplate="฿%{y:,.0f}",
             connector={"line": {"color": "rgb(63, 63, 63)"}},
             decreasing={"marker": {"color": "#e74c3c"}},
             increasing={"marker": {"color": "#2ecc71"}},
@@ -4971,9 +4972,10 @@ with tab3:
         fig.update_layout(
             title="<b>Profit Waterfall</b>",
             plot_bgcolor="white",
-            height=300,
+            height=280,
             showlegend=False,
-            margin=dict(l=40, r=40, t=40, b=40),
+            margin=dict(l=50, r=50, t=50, b=40),
+            font=dict(size=11),
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -5112,6 +5114,10 @@ with tab3:
             <div class='metric-formula'>
                 DSO = 365 / AR Turnover
             </div>
+            <b>📖 Cash Conversion Cycle (CCC):</b> ระยะเวลาที่เงินสดถูกล็อคอยู่ในธุรกิจ<br>
+            <div class='metric-formula'>
+                CCC = DIO + DSO - DPO
+            </div>
             <b>🎯 เป้าหมาย:</b> DSO &lt; 45 วัน ถือว่าดี
         </div>
         """, unsafe_allow_html=True)
@@ -5126,7 +5132,9 @@ with tab3:
     ap_turnover = cogs / avg_ap if avg_ap > 0 else 0
     dpo = 365 / ap_turnover if ap_turnover > 0 else 0
 
-    col1, col2, col3, col4 = st.columns(4)
+    ccc = dio + dso - dpo
+
+    col1, col2, col3, col4, col5 = st.columns(5)  # เพิ่มเป็น 5 คอลัมน์
 
     with col1:
         st.markdown(f"""
@@ -5193,6 +5201,24 @@ with tab3:
         </div>
         """, unsafe_allow_html=True)
 
+    with col5:
+        ccc_color = "#2ecc71" if ccc < 60 else "#e74c3c"
+        ccc_status = "✅ Good" if ccc < 60 else "⚠️ High"
+        st.markdown(f"""
+        <div style='background: white; padding: 20px; border-radius: 10px; 
+                    border-left: 5px solid {ccc_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    height: 160px; display: flex; flex-direction: column; justify-content: center;'>
+            <div style='font-size: 11px; color: #7f8c8d; margin-bottom: 8px;'>
+                <b>CCC</b>
+            </div>
+            <div style='font-size: 32px; font-weight: bold; color: {ccc_color};'>
+                {ccc:.0f}
+            </div>
+            <div style='font-size: 10px; color: #95a5a6; margin-top: 5px;'>
+                {ccc_status}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ==================== TAB 4: WAREHOUSE ANALYTICS ====================
 with tab4:
@@ -5234,16 +5260,17 @@ with tab4:
 
     with col1:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    color: white;'>
-            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 20px; border-radius: 10px; color: white; text-align: center;
+                    height: 170px; display: flex; flex-direction: column; justify-content: center;'>
+            <div style='font-size: 11px; opacity: 0.9; margin-bottom: 8px;'>
                 <b>INVENTORY TURNOVER</b>
             </div>
-            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+            <div style='font-size: 36px; font-weight: bold; margin: 8px 0;'>
                 {inventory_turnover:.2f}x
             </div>
-            <div style='font-size: 11px; opacity: 0.8;'>Times per year</div>
-            <div style='font-size: 10px; margin-top: 10px; padding: 8px; 
+            <div style='font-size: 10px; opacity: 0.8;'>Times per year</div>
+            <div style='font-size: 9px; margin-top: 8px; padding: 6px; 
                         background: rgba(255,255,255,0.2); border-radius: 5px;'>
                 Target: {target_turnover:.1f}x<br>{turnover_status}
             </div>
@@ -5253,43 +5280,46 @@ with tab4:
     with col2:
         dio_color = "#2ecc71" if dio < 90 else "#e74c3c"
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                    color: white;'>
-            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+        <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                    padding: 20px; border-radius: 10px; color: white; text-align: center;
+                    height: 170px; display: flex; flex-direction: column; justify-content: center;'>
+            <div style='font-size: 11px; opacity: 0.9; margin-bottom: 8px;'>
                 <b>DIO</b>
             </div>
-            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+            <div style='font-size: 36px; font-weight: bold; margin: 8px 0;'>
                 {dio:.0f}
             </div>
-            <div style='font-size: 11px; opacity: 0.8;'>Days</div>
+            <div style='font-size: 10px; opacity: 0.8;'>Days</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col3:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                    color: white;'>
-            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+        <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                    padding: 20px; border-radius: 10px; color: white; text-align: center;
+                    height: 170px; display: flex; flex-direction: column; justify-content: center;'>
+            <div style='font-size: 11px; opacity: 0.9; margin-bottom: 8px;'>
                 <b>SELL-THROUGH RATE</b>
             </div>
-            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+            <div style='font-size: 36px; font-weight: bold; margin: 8px 0;'>
                 {sell_through:.1f}%
             </div>
-            <div style='font-size: 11px; opacity: 0.8;'>Of received</div>
+            <div style='font-size: 10px; opacity: 0.8;'>Of received</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col4:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
-                    color: white;'>
-            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+        <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+                    padding: 20px; border-radius: 10px; color: white; text-align: center;
+                    height: 170px; display: flex; flex-direction: column; justify-content: center;'>
+            <div style='font-size: 11px; opacity: 0.9; margin-bottom: 8px;'>
                 <b>INVENTORY VALUE</b>
             </div>
-            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+            <div style='font-size: 36px; font-weight: bold; margin: 8px 0;'>
                 ฿{avg_inventory/1000:.0f}K
             </div>
-            <div style='font-size: 11px; opacity: 0.8;'>Total stock</div>
+            <div style='font-size: 10px; opacity: 0.8;'>Total stock</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -5500,7 +5530,8 @@ with tab4:
             ),
             text=[f"{dio:.0f}", f"{dso:.0f}", f"{dpo:.0f}", f"{ccc:.0f}"],
             texttemplate="%{text} days",
-            textposition="outside",
+            textposition="auto",
+            textfont=dict(size=11),
             hovertemplate="<b>%{x}</b><br>Days: %{y:.0f}<extra></extra>",
         ))
 
@@ -5515,8 +5546,10 @@ with tab4:
                 zerolinecolor="gray"
             ),
             plot_bgcolor="white",
-            height=400,
+            height=380,
             showlegend=False,
+            margin=dict(l=50, r=30, t=50, b=40),
+            font=dict(size=11),
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -5681,25 +5714,26 @@ with tab5:
 
             st.markdown(f"""
             <div class='metric-card' style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        color: white; height: 400px;'>
-                <div style='font-size: 14px; opacity: 0.9; margin-bottom: 15px;'>
+                        padding: 25px; border-radius: 10px; color: white; text-align: center; height: 400px;
+                        display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 13px; opacity: 0.9; margin-bottom: 12px;'>
                     <b>FORECAST SUMMARY</b>
                 </div>
-                <div style='margin: 20px 0;'>
-                    <div style='font-size: 12px; opacity: 0.8;'>Next 12 Months Total</div>
-                    <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                <div style='margin: 15px 0;'>
+                    <div style='font-size: 11px; opacity: 0.8;'>Next 12 Months Total</div>
+                    <div style='font-size: 32px; font-weight: bold; margin: 8px 0;'>
                         ฿{total_forecast/1000000:.1f}M
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
-                    <div style='font-size: 12px; opacity: 0.8;'>Average Monthly</div>
-                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 11px; opacity: 0.8;'>Average Monthly</div>
+                    <div style='font-size: 26px; font-weight: bold; margin: 8px 0;'>
                         ฿{avg_monthly/1000:.0f}K
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
-                    <div style='font-size: 12px; opacity: 0.8;'>Expected Growth</div>
-                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 11px; opacity: 0.8;'>Expected Growth</div>
+                    <div style='font-size: 26px; font-weight: bold; margin: 8px 0;'>
                         {growth_forecast:+.1f}%
                     </div>
                 </div>
@@ -6048,26 +6082,32 @@ with tab6:
 
     with col2:
         # Revenue by segment
+        segment_sorted = segment_summary.sort_values("Revenue", ascending=True)
+        
         fig = go.Figure()
 
-        fig.add_trace(go.Pie(
-            labels=segment_summary["Segment"],
-            values=segment_summary["Revenue"],
-            marker=dict(colors=[segment_colors.get(s, "#95a5a6") for s in segment_summary["Segment"]]),
-            textinfo="label+percent",
-            textposition="inside",
-            hovertemplate="<b>%{label}</b><br>Revenue: ฿%{value:,.0f}<br>%{percent}<extra></extra>",
+        fig.add_trace(go.Bar(
+            y=segment_sorted["Segment"],
+            x=segment_sorted["Revenue"],
+            orientation="h",
+            marker=dict(color=[segment_colors.get(s, "#95a5a6") for s in segment_sorted["Segment"]]),
+            text=segment_sorted["Revenue"],
+            texttemplate="฿%{text:,.0f}",
+            textposition="outside",
+            hovertemplate="<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>",
         ))
 
         fig.update_layout(
             title="<b>Revenue by Customer Segment</b>",
+            xaxis=dict(title="Revenue (฿)", showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
+            yaxis=dict(title=""),
             plot_bgcolor="white",
             height=400,
             showlegend=False,
+            margin=dict(l=10, r=100, t=40, b=40),
         )
 
         st.plotly_chart(fig, use_container_width=True)
-
     st.markdown("#### 📊 Segment Details")
 
     styled_segment = segment_summary.style.format({
