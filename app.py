@@ -9167,31 +9167,28 @@ with tab4:
     with col3:
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                    padding: 25px; border-radius
-
-    : 10px; color: white; text-align: center;'>
-<div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
-<b>SELL-THROUGH RATE</b>
-</div>
-<div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
-{sell_through:.1f}%
-</div>
-<div style='font-size: 11px; opacity: 0.8;'>Of received</div>
-</div>
-""", unsafe_allow_html=True)
-with col4:
-    st.markdown(f"""
-    <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+                    padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                <b>SELL-THROUGH RATE</b>
+            </div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>{sell_through:.1f}%
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Of received</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col4:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
                 padding: 25px; border-radius: 10px; color: white; text-align: center;'>
-        <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
-            <b>INVENTORY VALUE</b>
-        </div>
-        <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+            <div style='font-size: 13px; opacity: 0.9; margin-bottom: 10px;'>
+                <b>INVENTORY VALUE</b>
+            </div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
             ฿{avg_inventory/1000:.0f}K
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Total stock</div>
         </div>
-        <div style='font-size: 11px; opacity: 0.8;'>Total stock</div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 st.markdown("---")
 
