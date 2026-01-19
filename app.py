@@ -9945,7 +9945,8 @@ styled_cat_forecast = forecast_cat_df.style.format({
 }).background_gradient(subset=['Growth Rate'], cmap='RdYlGn', vmin=-10, vmax=10)
 
 st.dataframe(styled_cat_forecast, use_container_width=True)
-Footer
+
+# Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -9956,4 +9957,4 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-```
+
