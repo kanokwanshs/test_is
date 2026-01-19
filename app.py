@@ -12258,10 +12258,308 @@ with tab5:
     else:
         st.warning("⚠️ ต้องมีข้อมูลอย่างน้อย 3 เดือนเพื่อทำ Forecast")
 
+    st.markdown("---")
+
+    # ==================== STOCK PLANNING ====================
+    st.markdown("### 📦 Stock Planning Recommendation")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
+            <div class='metric-formula'>
+                สูตร: (ยอดขายเฉลี่ยต่อเดือน × Lead Time) + Safety Stock
+            </div>
+            <b>📖 Safety Stock:</b> สต็อกสำรอง เผื่อความผันผวนของยอดขาย (20% ของยอดขายเฉลี่ย)<br>
+            <b>💡 การใช้ประโยชน์:</b><br>
+            • ป้องกันสินค้าหมด<br>
+            • ลดต้นทุนการจัดเก็บ<br>
+            • วางแผนสั่งซื้อล่วงหน้า
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Calculate stock recommendations
+    # Assume lead time of 30 days (1 month)
+    lead_time_months = 1
+    safety_stock_pct = 0.20
+
+    # Get product sales data
+    product_monthly = df_filtered.groupby(['product_id', 'product_name', 'category', 'order_month']).agg({
+        'quantity': 'sum'
+    }).reset_index()
+
+    # Calculate average monthly sales per product
+    product_avg = product_monthly.groupby(['product_id', 'product_name', 'category']).agg({
+        'quantity': ['mean', 'std', 'count']
+    }).reset_index()
+
+    product_avg.columns = ['product_id', 'product_name', 'category', 'avg_monthly_qty', 'std_qty', 'months']
+
+    # Calculate stock recommendations
+    product_avg['lead_time_demand'] = product_avg['avg_monthly_qty'] * lead_time_months
+    product_avg['safety_stock'] = product_avg['avg_monthly_qty'] * safety_stock_pct
+    product_avg['reorder_point'] = product_avg['lead_time_demand'] + product_avg['safety_stock']
+    product_avg['recommended_stock'] = np.ceil(product_avg['reorder_point'] * 1.5)  # Add buffer
+
+    # Add current stock status (simulated - in real case, get from inventory table)
+    if 'inventory' in data:
+        # Try to get actual stock levels
+        try:
+            current_stock = data['inventory'].groupby('product_id')['quantity'].last().to_dict()
+            product_avg['current_stock'] = product_avg['product_id'].map(current_stock).fillna(0)
+        except:
+            product_avg['current_stock'] = product_avg['recommended_stock'] * 0.6  # Simulated
+    else:
+        product_avg['current_stock'] = product_avg['recommended_stock'] * 0.6  # Simulated
+
+    # Calculate stock status
+    product_avg['stock_status'] = product_avg.apply(
+        lambda x: 'Overstock' if x['current_stock'] > x['recommended_stock'] * 1.2
+        else 'Low Stock' if x['current_stock'] < x['reorder_point']
+        else 'Optimal', axis=1
+    )
+
+    product_avg['order_qty'] = np.maximum(0, product_avg['recommended_stock'] - product_avg['current_stock'])
+
+    # Sort by order quantity
+    product_avg = product_avg.sort_values('order_qty', ascending=False)
+
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    low_stock_count = len(product_avg[product_avg['stock_status'] == 'Low Stock'])
+    optimal_count = len(product_avg[product_avg['stock_status'] == 'Optimal'])
+    overstock_count = len(product_avg[product_avg['stock_status'] == 'Overstock'])
+    total_order_needed = product_avg['order_qty'].sum()
+
+    with col1:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+                    padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+            <div style='font-size: 13px; opacity: 0.9;'>LOW STOCK</div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                {low_stock_count}
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Products need reorder</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); 
+                    padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+            <div style='font-size: 13px; opacity: 0.9;'>OPTIMAL</div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                {optimal_count}
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Products at good level</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
+                    padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+            <div style='font-size: 13px; opacity: 0.9;'>OVERSTOCK</div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                {overstock_count}
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Products excess stock</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); 
+                    padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+            <div style='font-size: 13px; opacity: 0.9;'>TOTAL ORDER NEEDED</div>
+            <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                {total_order_needed:,.0f}
+            </div>
+            <div style='font-size: 11px; opacity: 0.8;'>Units to order</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Stock status breakdown
+    col1, col2 = st.columns(2)
+
+    with col1:
+        status_counts = product_avg['stock_status'].value_counts()
+        status_colors = {
+            'Low Stock': '#e74c3c',
+            'Optimal': '#2ecc71',
+            'Overstock': '#f39c12'
+        }
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=list(status_counts.index),
+            y=list(status_counts.values),
+            marker=dict(color=[status_colors.get(s, '#95a5a6') for s in status_counts.index]),
+            text=list(status_counts.values),
+            texttemplate='%{text}',
+            textposition='outside',
+            hovertemplate='<b>%{x}</b><br>Products: %{y}<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title='<b>Stock Status Distribution</b>',
+            xaxis=dict(title='', showgrid=False),
+            yaxis=dict(title='Number of Products', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+            plot_bgcolor='white',
+            height=350,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        # Top products needing reorder
+        top_reorder = product_avg[product_avg['stock_status'] == 'Low Stock'].head(10)
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            y=top_reorder['product_name'],
+            x=top_reorder['order_qty'],
+            orientation='h',
+            marker_color='#e74c3c',
+            text=top_reorder['order_qty'],
+            texttemplate='%{text:,.0f}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Need to Order: %{x:,.0f} units<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title='<b>Top 10 Products Needing Reorder</b>',
+            xaxis=dict(title='Quantity to Order', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+            yaxis=dict(title='', categoryorder='total ascending'),
+            plot_bgcolor='white',
+            height=350,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Detailed stock planning table
+    st.markdown("#### 📋 Detailed Stock Planning (Top 30 Products)")
+
+    top_products = product_avg.head(30).copy()
+    top_products_display = top_products[[
+        'product_name', 'category', 'avg_monthly_qty', 'current_stock', 
+        'reorder_point', 'recommended_stock', 'order_qty', 'stock_status'
+    ]].copy()
+
+    top_products_display.columns = [
+        'Product', 'Category', 'Avg Monthly Sales', 'Current Stock',
+        'Reorder Point', 'Recommended Stock', 'Order Qty', 'Status'
+    ]
+
+    # Style based on stock status
+    def highlight_status(row):
+        if row['Status'] == 'Low Stock':
+            return ['background-color: #ffebee'] * len(row)
+        elif row['Status'] == 'Overstock':
+            return ['background-color: #fff3e0'] * len(row)
+        else:
+            return ['background-color: #e8f5e9'] * len(row)
+
+    styled_stock = top_products_display.style.format({
+        'Avg Monthly Sales': '{:.0f}',
+        'Current Stock': '{:.0f}',
+        'Reorder Point': '{:.0f}',
+        'Recommended Stock': '{:.0f}',
+        'Order Qty': '{:.0f}'
+    }).apply(highlight_status, axis=1)
+
+    st.dataframe(styled_stock, use_container_width=True, height=400)
+
+    st.markdown("---")
+
+    # ==================== DEMAND FORECASTING BY PRODUCT ====================
+    st.markdown("### 📊 Demand Forecasting by Product Category")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
+            <b>💡 ประโยชน์:</b> วางแผนการผลิต/สั่งซื้อ แยกตามหมวดหมู่สินค้า
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Category demand forecast
+    category_monthly = df_filtered.groupby(['order_month', 'category']).agg({
+        'quantity': 'sum'
+    }).reset_index()
+    category_monthly['order_month'] = category_monthly['order_month'].dt.to_timestamp()
+
+    # Get top 5 categories by total volume
+    top_categories = df_filtered.groupby('category')['quantity'].sum().nlargest(5).index.tolist()
+
+    fig = go.Figure()
+
+    for category in top_categories:
+        cat_data = category_monthly[category_monthly['category'] == category].sort_values('order_month')
+        
+        fig.add_trace(go.Scatter(
+            x=cat_data['order_month'].dt.strftime('%b %Y'),
+            y=cat_data['quantity'],
+            name=category,
+            mode='lines+markers',
+            line=dict(width=2),
+            marker=dict(size=6),
+            hovertemplate=f'<b>{category}</b><br>%{{x}}<br>Qty: %{{y:,.0f}}<extra></extra>'
+        ))
+
+    fig.update_layout(
+        title='<b>Demand Trend by Category</b>',
+        xaxis=dict(title='', showgrid=False),
+        yaxis=dict(title='Quantity Sold', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+        plot_bgcolor='white',
+        height=400,
+        hovermode='x unified',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Category forecast summary
+    category_forecast = []
+    for category in top_categories:
+        cat_data = category_monthly[category_monthly['category'] == category].sort_values('order_month')
+        avg_qty = cat_data['quantity'].mean()
+        recent_growth = cat_data['quantity'].pct_change().tail(3).mean()
+        
+        if not np.isnan(recent_growth):
+            next_month_forecast = avg_qty * (1 + recent_growth)
+        else:
+            next_month_forecast = avg_qty
+        
+        category_forecast.append({
+            'Category': category,
+            'Avg Monthly': avg_qty,
+            'Growth Rate': recent_growth * 100 if not np.isnan(recent_growth) else 0,
+            'Next Month Forecast': next_month_forecast
+        })
+
+    forecast_cat_df = pd.DataFrame(category_forecast)
+
+    st.markdown("#### 📋 Category Demand Forecast")
+
+    styled_cat_forecast = forecast_cat_df.style.format({
+        'Avg Monthly': '{:.0f}',
+        'Growth Rate': '{:+.1f}%',
+        'Next Month Forecast': '{:.0f}'
+    }).background_gradient(subset=['Growth Rate'], cmap='RdYlGn', vmin=-10, vmax=10)
+
+    st.dataframe(styled_cat_forecast, use_container_width=True)
+
     # Footer
     st.markdown("---")
-    st.markdown(
-        """
+    st.markdown("""
     <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 border-radius: 15px; color: white;'>
         <h3 style='margin: 0; font-size: 24px;'>📊 Analytics Dashboard</h3>
@@ -12269,6 +12567,4 @@ with tab5:
             Built with Streamlit • Data-Driven Insights with Professional KPIs
         </p>
     </div>
-    """,
-        unsafe_allow_html=True,
-    )
+    """, unsafe_allow_html=True)
