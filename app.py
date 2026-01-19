@@ -5104,6 +5104,23 @@ with tab3:
     st.markdown("---")
 
     # Working Capital Ratios
+    avg_inventory = df_filtered["cost"].mean() * df_filtered["product_id"].nunique()
+    inventory_turnover = cogs / avg_inventory if avg_inventory > 0 else 0
+    dio = 365 / inventory_turnover if inventory_turnover > 0 else 0
+
+    # จากนั้นจึงคำนวณ DSO, DPO
+    avg_monthly_rev = monthly_fin["net_revenue"].mean()
+    avg_ar = avg_monthly_rev * 0.3
+    ar_turnover = (revenue * 0.3) / avg_ar if avg_ar > 0 else 0
+    dso = 365 / ar_turnover if ar_turnover > 0 else 0
+
+    avg_ap = cogs * 0.25
+    ap_turnover = cogs / avg_ap if avg_ap > 0 else 0
+    dpo = 365 / ap_turnover if ap_turnover > 0 else 0
+
+    # คำนวณ CCC
+    ccc = dio + dso - dpo
+    
     st.markdown("### 💼 Working Capital Ratios")
 
     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
@@ -5114,15 +5131,22 @@ with tab3:
             <div class='metric-formula'>
                 DSO = 365 / AR Turnover
             </div>
+            <b>📖 DIO (Days Inventory Outstanding):</b> จำนวนวันที่สินค้าอยู่ในคลัง<br>
+            <div class='metric-formula'>
+                DIO = 365 / Inventory Turnover
             <b>📖 Cash Conversion Cycle (CCC):</b> ระยะเวลาที่เงินสดถูกล็อคอยู่ในธุรกิจ<br>
             <div class='metric-formula'>
                 CCC = DIO + DSO - DPO
             </div>
-            <b>🎯 เป้าหมาย:</b> DSO &lt; 45 วัน ถือว่าดี
+            <b>🎯 เป้าหมาย:</b> DSO &lt; 45 วัน, CCC &lt; 60 วัน
         </div>
         """, unsafe_allow_html=True)
-
+    
     # Calculate ratios
+    avg_inventory = df_filtered["cost"].mean() * df_filtered["product_id"].nunique()
+    inventory_turnover_calc = cogs / avg_inventory if avg_inventory > 0 else 0
+    dio = 365 / inventory_turnover_calc if inventory_turnover_calc > 0 else 0
+
     avg_monthly_rev = monthly_fin["net_revenue"].mean()
     avg_ar = avg_monthly_rev * 0.3  # Assume 30% credit sales
     ar_turnover = (revenue * 0.3) / avg_ar if avg_ar > 0 else 0
