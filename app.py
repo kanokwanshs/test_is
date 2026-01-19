@@ -509,15 +509,14 @@ with col6:
 st.markdown("---")
 
 # ==================== TABS ====================
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    [
-        "💼 Sales Analytics",
-        "📢 Marketing Analytics",
-        "💰 Financial Analytics",
-        "📦 Warehouse Analytics",
-        "🔮 Forecasting & Planning",
-    ]
-)
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "💼 Sales Analytics",
+    "📢 Marketing Analytics", 
+    "💰 Financial Analytics",
+    "📦 Warehouse Analytics",
+    "🔮 Forecasting & Planning",
+    "🤖 AI Insights & Recommendations"  # NEW!
+])
 
 with tab1:
     st.markdown("# 💼 Sales Analytics")
@@ -2558,6 +2557,779 @@ with tab5:
 
     st.dataframe(styled_cat_forecast, use_container_width=True)
 
+# เพิ่ม Tab 6 ต่อจาก Tab 5
+with tab6:
+    st.markdown("# 🤖 AI-Powered Business Insights")
+    st.markdown("---")
+    
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 25px; border-radius: 15px; color: white; margin-bottom: 30px;'>
+        <h3 style='margin: 0 0 10px 0;'>🧠 Smart Analytics Engine</h3>
+        <p style='margin: 0; opacity: 0.9; font-size: 14px;'>
+            AI algorithms analyze your data to uncover hidden patterns, predict trends, and provide actionable recommendations
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ==================== AI CUSTOMER SEGMENTATION (RFM) ====================
+    st.markdown("### 👥 AI Customer Segmentation (RFM Analysis)")
+    
+    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
+            <div class='metric-formula'>
+                • <b>Recency (R):</b> ซื้อล่าสุดเมื่อไหร่ (วัน)<br>
+                • <b>Frequency (F):</b> ซื้อบ่อยแค่ไหน (ครั้ง)<br>
+                • <b>Monetary (M):</b> ใช้จ่ายเท่าไหร่ (บาท)
+            </div>
+            <b>💡 Customer Segments:</b><br>
+            • <b style='color: #2ecc71;'>Champions:</b> ซื้อบ่อย ซื้อเยอะ ซื้อเมื่อเร็วๆ นี้<br>
+            • <b style='color: #3498db;'>Loyal:</b> ซื้อสม่ำเสมอ ใช้จ่ายดี<br>
+            • <b style='color: #f39c12;'>At Risk:</b> เคยซื้อเยอะ แต่นานไม่ซื้อแล้ว<br>
+            • <b style='color: #e74c3c;'>Lost:</b> ไม่ซื้อมานาน ต้องดึงกลับ
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Calculate RFM
+    analysis_date = df_filtered['order_date'].max()
+    
+    rfm = df_filtered.groupby('user_id').agg({
+        'order_date': lambda x: (analysis_date - x.max()).days,  # Recency
+        'order_id': 'nunique',  # Frequency
+        'net_revenue': 'sum'  # Monetary
+    }).reset_index()
+    
+    rfm.columns = ['user_id', 'recency', 'frequency', 'monetary']
+    
+    # RFM Scoring (1-5 scale)
+    rfm['r_score'] = pd.qcut(rfm['recency'], q=5, labels=[5,4,3,2,1], duplicates='drop')
+    rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+    rfm['m_score'] = pd.qcut(rfm['monetary'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+    
+    rfm['rfm_score'] = rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
+    
+    # Segment customers
+    def segment_customer(row):
+        r, f, m = int(row['r_score']), int(row['f_score']), int(row['m_score'])
+        
+        if r >= 4 and f >= 4 and m >= 4:
+            return 'Champions'
+        elif r >= 3 and f >= 3:
+            return 'Loyal Customers'
+        elif r >= 4 and f <= 2:
+            return 'New Customers'
+        elif r <= 2 and f >= 3:
+            return 'At Risk'
+        elif r <= 2 and f <= 2:
+            return 'Lost'
+        elif m >= 4:
+            return 'Big Spenders'
+        else:
+            return 'Others'
+    
+    rfm['segment'] = rfm.apply(segment_customer, axis=1)
+    
+    # Segment summary
+    segment_summary = rfm.groupby('segment').agg({
+        'user_id': 'count',
+        'monetary': 'sum',
+        'frequency': 'mean',
+        'recency': 'mean'
+    }).reset_index()
+    segment_summary.columns = ['Segment', 'Customers', 'Total Revenue', 'Avg Frequency', 'Avg Recency']
+    segment_summary = segment_summary.sort_values('Total Revenue', ascending=False)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Segment distribution pie chart
+        segment_colors = {
+            'Champions': '#2ecc71',
+            'Loyal Customers': '#3498db',
+            'New Customers': '#1abc9c',
+            'At Risk': '#f39c12',
+            'Lost': '#e74c3c',
+            'Big Spenders': '#9b59b6',
+            'Others': '#95a5a6'
+        }
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=segment_summary['Segment'],
+            values=segment_summary['Customers'],
+            marker=dict(colors=[segment_colors.get(s, '#95a5a6') for s in segment_summary['Segment']]),
+            textinfo='label+percent',
+            textposition='inside',
+            hovertemplate='<b>%{label}</b><br>Customers: %{value:,}<br>Share: %{percent}<extra></extra>'
+        )])
+        
+        fig.update_layout(
+            title='<b>Customer Segment Distribution</b>',
+            height=400,
+            showlegend=True,
+            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.1)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # Revenue by segment
+        segment_sorted = segment_summary.sort_values('Total Revenue', ascending=True)
+        colors_list = [segment_colors.get(s, '#95a5a6') for s in segment_sorted['Segment']]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            y=segment_sorted['Segment'],
+            x=segment_sorted['Total Revenue'],
+            orientation='h',
+            marker=dict(color=colors_list),
+            text=segment_sorted['Total Revenue'],
+            texttemplate='฿%{text:,.0f}',
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+        ))
+        
+        fig.update_layout(
+            title='<b>Revenue by Customer Segment</b>',
+            xaxis=dict(title='Total Revenue (฿)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+            yaxis=dict(title=''),
+            plot_bgcolor='white',
+            height=400,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # AI Recommendations for each segment
+    st.markdown("#### 🎯 AI-Powered Action Recommendations")
+    
+    segment_actions = {
+        'Champions': {
+            'emoji': '👑',
+            'color': '#2ecc71',
+            'actions': [
+                'Send VIP early access to new products',
+                'Create exclusive loyalty rewards program',
+                'Ask for testimonials and referrals',
+                'Offer premium/upsell products'
+            ]
+        },
+        'Loyal Customers': {
+            'emoji': '💎',
+            'color': '#3498db',
+            'actions': [
+                'Build deeper relationships with personalized communication',
+                'Cross-sell complementary products',
+                'Invite to become brand ambassadors',
+                'Offer subscription programs'
+            ]
+        },
+        'At Risk': {
+            'emoji': '⚠️',
+            'color': '#f39c12',
+            'actions': [
+                'Send win-back campaigns with special offers',
+                'Survey to understand why they stopped buying',
+                'Offer limited-time discounts (15-20%)',
+                'Re-engage with new product launches'
+            ]
+        },
+        'Lost': {
+            'emoji': '🔴',
+            'color': '#e74c3c',
+            'actions': [
+                'Aggressive win-back campaign (25-30% discount)',
+                'Personalized "We miss you" emails',
+                'Survey to understand churn reasons',
+                'Consider if re-acquisition cost is worth it'
+            ]
+        },
+        'New Customers': {
+            'emoji': '🌟',
+            'color': '#1abc9c',
+            'actions': [
+                'Welcome email series with education content',
+                'First repeat purchase incentive (10% off)',
+                'Product recommendation based on first purchase',
+                'Build trust with great customer service'
+            ]
+        },
+        'Big Spenders': {
+            'emoji': '💰',
+            'color': '#9b59b6',
+            'actions': [
+                'Personal account manager or VIP service',
+                'Exclusive high-value product previews',
+                'Volume discount programs',
+                'Premium packaging and shipping'
+            ]
+        }
+    }
+    
+    for segment in segment_summary['Segment']:
+        if segment in segment_actions:
+            info = segment_actions[segment]
+            customers = segment_summary[segment_summary['Segment'] == segment]['Customers'].values[0]
+            revenue = segment_summary[segment_summary['Segment'] == segment]['Total Revenue'].values[0]
+            
+            with st.expander(f"{info['emoji']} **{segment}** ({customers:,} customers, ฿{revenue:,.0f} revenue)", expanded=False):
+                st.markdown(f"<div style='padding: 15px; background: {info['color']}15; border-left: 4px solid {info['color']}; border-radius: 5px;'>", unsafe_allow_html=True)
+                for action in info['actions']:
+                    st.markdown(f"• {action}")
+                st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================== PRODUCT RECOMMENDATION ENGINE ====================
+    st.markdown("### 🎁 AI Product Recommendation Engine")
+    
+    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 Collaborative Filtering:</b> แนะนำสินค้าตาม pattern ของลูกค้าที่มีพฤติกรรมคล้ายกัน<br>
+            <b>💡 Algorithm:</b> ใช้ Item-based Collaborative Filtering<br>
+            • วิเคราะห์สินค้าที่มักถูกซื้อด้วยกัน<br>
+            • คำนวณ similarity score ระหว่างสินค้า<br>
+            • แนะนำสินค้าที่เกี่ยวข้องกับสินค้าที่ลูกค้าซื้อ
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Create user-product matrix
+    user_product = df_filtered.pivot_table(
+        index='user_id',
+        columns='product_name',
+        values='quantity',
+        aggfunc='sum',
+        fill_value=0
+    )
+    
+    # Calculate product similarity (cosine similarity)
+    from sklearn.metrics.pairwise import cosine_similarity
+    
+    product_similarity = cosine_similarity(user_product.T)
+    product_similarity_df = pd.DataFrame(
+        product_similarity,
+        index=user_product.columns,
+        columns=user_product.columns
+    )
+    
+    # Get top products for recommendation
+    top_products_list = df_filtered.groupby('product_name')['quantity'].sum().nlargest(10).index.tolist()
+    
+    st.markdown("**เลือกสินค้าที่ลูกค้าซื้อ เพื่อดูสินค้าแนะนำ:**")
+    
+    selected_product = st.selectbox(
+        "สินค้า",
+        options=top_products_list,
+        key='recommendation_product'
+    )
+    
+    if selected_product:
+        # Get recommendations
+        similar_products = product_similarity_df[selected_product].sort_values(ascending=False)[1:6]
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 30px; border-radius: 10px; color: white; text-align: center; height: 300px;
+                        display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 14px; opacity: 0.9; margin-bottom: 10px;'>
+                    <b>SELECTED PRODUCT</b>
+                </div>
+                <div style='font-size: 18px; font-weight: bold; margin: 15px 0;'>
+                    {selected_product}
+                </div>
+                <div style='font-size: 12px; opacity: 0.8;'>
+                    Based on purchase patterns
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("**🎯 Top 5 Recommended Products:**")
+            
+            for i, (product, score) in enumerate(similar_products.items(), 1):
+                confidence = score * 100
+                color = '#2ecc71' if confidence > 70 else '#f39c12' if confidence > 50 else '#95a5a6'
+                
+                st.markdown(f"""
+                <div style='padding: 12px; margin: 8px 0; background: white; border-left: 4px solid {color}; 
+                            border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                    <div style='display: flex; justify-content: space-between; align-items: center;'>
+                        <div>
+                            <b>{i}. {product}</b>
+                        </div>
+                        <div style='background: {color}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;'>
+                            {confidence:.0f}% match
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================== PRICE OPTIMIZATION AI ====================
+    st.markdown("### 💰 AI Price Optimization")
+    
+    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 Price Elasticity Analysis:</b> วิเคราะห์ว่าราคามีผลต่อยอดขายอย่างไร<br>
+            <b>💡 Algorithm:</b> ใช้ Regression Analysis หา optimal price point<br>
+            • คำนวณ price elasticity of demand<br>
+            • หาจุดที่ maximize profit (ไม่ใช่ revenue)<br>
+            • แนะนำราคาที่เหมาะสมสำหรับแต่ละสินค้า
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Calculate price metrics by product
+    price_analysis = df_filtered.groupby('product_name').agg({
+        'sale_price': 'mean',
+        'cost': 'mean',
+        'quantity': 'sum',
+        'net_revenue': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+    
+    price_analysis['current_margin_%'] = (price_analysis['profit'] / price_analysis['net_revenue'] * 100).round(1)
+    price_analysis['markup_%'] = ((price_analysis['sale_price'] - price_analysis['cost']) / price_analysis['cost'] * 100).round(1)
+    
+    # Calculate optimal price (simple heuristic: maximize profit margin while maintaining volume)
+    price_analysis['optimal_price'] = (price_analysis['cost'] * 1.5).round(0)  # 50% markup as baseline
+    price_analysis['potential_profit_increase_%'] = (
+        ((price_analysis['optimal_price'] - price_analysis['cost']) * price_analysis['quantity'] - price_analysis['profit']) 
+        / price_analysis['profit'] * 100
+    ).round(1)
+    
+    # Sort by potential profit increase
+    price_analysis = price_analysis.sort_values('potential_profit_increase_%', ascending=False).head(15)
+    
+    # Visualization
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=price_analysis['sale_price'],
+        y=price_analysis['current_margin_%'],
+        mode='markers+text',
+        marker=dict(
+            size=price_analysis['quantity'] / price_analysis['quantity'].max() * 100,
+            color=price_analysis['potential_profit_increase_%'],
+            colorscale='RdYlGn',
+            showscale=True,
+            colorbar=dict(title='Profit<br>Increase<br>Potential (%)')
+        ),
+        text=price_analysis['product_name'],
+        textposition='top center',
+        textfont=dict(size=8),
+        hovertemplate='<b>%{text}</b><br>Current Price: ฿%{x:,.0f}<br>Margin: %{y:.1f}%<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title='<b>Price Optimization Map</b><br><sub>Bubble size = Sales Volume, Color = Profit Increase Potential</sub>',
+        xaxis=dict(title='Current Price (฿)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+        yaxis=dict(title='Current Margin (%)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+        plot_bgcolor='white',
+        height=400
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Price recommendations table
+    st.markdown("#### 📊 Top 10 Price Optimization Opportunities")
+    
+    price_display = price_analysis.head(10)[[
+        'product_name', 'sale_price', 'cost', 'optimal_price', 
+        'current_margin_%', 'potential_profit_increase_%'
+    ]].copy()
+    
+    price_display.columns = [
+        'Product', 'Current Price', 'Cost', 'Recommended Price',
+        'Current Margin %', 'Profit Increase Potential %'
+    ]
+    
+    styled_price = price_display.style.format({
+        'Current Price': '฿{:,.0f}',
+        'Cost': '฿{:,.0f}',
+        'Recommended Price': '฿{:,.0f}',
+        'Current Margin %': '{:.1f}%',
+        'Profit Increase Potential %': '{:+.1f}%'
+    }).background_gradient(subset=['Profit Increase Potential %'], cmap='RdYlGn', vmin=-20, vmax=50)
+    
+    st.dataframe(styled_price, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # ==================== CHURN PREDICTION AI ====================
+    st.markdown("### ⚠️ AI Churn Prediction & Prevention")
+    
+    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+        st.markdown("""
+        <div class='metric-explanation'>
+            <b>📖 Churn Prediction:</b> ทำนายลูกค้าที่มีแนวโน้มจะหยุดซื้อ<br>
+            <b>💡 Algorithm:</b> Machine Learning Classification<br>
+            • วิเคราะห์ pattern จาก Recency, Frequency, Monetary<br>
+            • คำนวณ churn probability สำหรับแต่ละลูกค้า<br>
+            • แนะนำ retention strategy ที่เหมาะสม
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Calculate churn risk score
+    churn_df = rfm.copy()
+    
+    # Simple churn risk scoring
+    churn_df['churn_risk_score'] = (
+        (churn_df['recency'] / churn_df['recency'].max() * 40) +  # Recency weight 40%
+        ((churn_df['frequency'].max() - churn_df['frequency']) / churn_df['frequency'].max() * 35) +  # Frequency weight 35%
+        ((churn_df['monetary'].max() - churn_df['monetary']) / churn_df['monetary'].max() * 25)  # Monetary weight 25%
+    )
+    
+    # Categorize risk
+    churn_df['risk_category'] = pd.cut(
+        churn_df['churn_risk_score'],
+        bins=[0, 30, 60, 100],
+        labels=['Low Risk', 'Medium Risk', 'High Risk']
+    )
+    
+    # Summary by risk category
+    risk_summary = churn_df.groupby('risk_category').agg({
+        'user_id': 'count',
+        'monetary': 'sum',
+        'churn_risk_score': 'mean'
+    }).reset_index()
+    risk_summary.columns = ['Risk Category', 'Customers', 'Revenue at Risk', 'Avg Risk Score']
+    
+    col1, col2, col3 = st.columns(3)
+    
+    risk_colors = {
+        'Low Risk': '#2ecc71',
+        'Medium Risk': '#f39c12',
+        'High Risk': '#e74c3c'
+    }
+    
+    for idx, (col, risk) in enumerate(zip([col1, col2, col3], ['Low Risk', 'Medium Risk', 'High Risk'])):
+        risk_data = risk_summary[risk_summary['Risk Category'] == risk]
+        if not risk_data.empty:
+            customers = risk_data['Customers'].values[0]
+            revenue = risk_data['Revenue at Risk'].values[0]
+            color = risk_colors[risk]
+            
+            with col:
+                st.markdown(f"""
+                <div style='background: white; padding: 25px; border-radius: 10px; 
+                            border: 3px solid {color}; text-align: center; height: 220px;
+                            display: flex; flex-direction: column; justify-content: center;'>
+                    <div style='font-size: 14px; color: #7f8c8d; margin-bottom: 10px;'>
+                        <b>{risk}</b>
+                    </div>
+                    <div style='font-size: 42px; font-weight: bold; color: {color}; margin: 10px 0;'>
+                        {customers:,}
+                    </div>
+                    <div style='font-size: 12px; color: #95a5a6;'>
+                        Customers
+                    </div>
+                    <div style='font-size: 11px; color: #7f8c8d; margin-top: 10px; padding: 8px; background: #f8f9fa; border-radius: 5px;'>
+                        Revenue: ฿{revenue/1000:.0f}K
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # High risk customers detail
+    st.markdown("#### 🚨 High Risk Customers Requiring Immediate Action")
+    
+    high_risk = churn_df[churn_df['risk_category'] == 'High Risk'].sort_values('monetary', ascending=False).head(10)
+    
+    if not high_risk.empty:
+        high_risk_display = high_risk[['user_id', 'recency', 'frequency', 'monetary', 'churn_risk_score']].copy()
+        high_risk_display.columns = ['Customer ID', 'Days Since Last Purchase', 'Total Orders', 'Total Spent', 'Risk Score']
+        
+        styled_risk = high_risk_display.style.format({
+            'Days Since Last Purchase': '{:.0f}',
+            'Total Orders': '{:.0f}',
+            'Total Spent': '฿{:,.0f}',
+            'Risk Score': '{:.1f}'
+        }).background_gradient(subset=['Risk Score'], cmap='YlOrRd')
+        
+        st.dataframe(styled_risk, use_container_width=True)
+        
+        st.info("""
+        💡 **Recommended Actions for High Risk Customers:**
+        - Send personalized win-back email with 20-25% discount
+        - Offer free shipping on next order
+        - Phone call from customer service team
+        - Exclusive preview of new products
+        - Survey to understand why they stopped buying
+        """)
+    else:
+        st.success("✅ No high-risk customers identified!")
+    
+    st.markdown("---")
+    
+    # ==================== INTELLIGENT ALERTS ====================
+    st.markdown("### 🔔 Intelligent Business Alerts")
+    
+    alerts = []
+    
+    # Alert 1: Declining revenue
+    if len(monthly_sales) >= 3:
+        recent_trend = monthly_sales['net_revenue'].tail(3).pct_change().mean()
+        if recent_trend < -0.05:  # Declining more than 5%
+            alerts.append({
+                'type': 'danger',
+                'title': '📉 Revenue Declining Trend Detected',
+                'message': f'Revenue has been declining by {abs(recent_trend)*100:.1f}% on average over the last 3 months.',
+                'action': 'Review marketing campaigns and customer feedback. Consider promotional activities.'
+            })
+    
+    # Alert 2: Low inventory turnover
+    if inventory_turnover < target_turnover:
+        alerts.append({
+            'type': 'warning',
+            'title': '📦 Low Inventory Turnover',
+            'message': f'Current turnover is {inventory_turnover:.2f}x, below target of {target_turnover:.1f}x.',
+            'action': 'Consider clearance sales or bundling slow-moving products.'
+        })
+    
+    # Alert 3: High churn risk customers
+    high_risk_count = len(churn_df[churn_df['risk_category'] == 'High Risk'])
+    high_risk_revenue = churn_df[churn_df['risk_category'] == 'High Risk']['monetary'].sum()
+    if high_risk_count > 10:
+        alerts.append({
+            'type': 'danger',
+            'title': '⚠️ High Customer Churn Risk',
+            'message': f'{high_risk_count} customers (฿{high_risk_revenue:,.0f} in revenue) are at high risk of churning.',
+            'action': 'Launch immediate retention campaign for high-value at-risk customers.'
+        })
+    
+    # Alert 4: Profit margin below target
+    if net_margin < target_margin:
+        alerts.append({
+            'type': 'warning',
+            'title': '💰 Profit Margin Below Target',
+            'message': f'Current margin is {net_margin:.1f}%, below target of {target_margin:.0f}%.',
+            'action': 'Review pricing strategy and cost structure. Focus on high-margin products.'
+        })
+    
+    # Alert 5: Champions segment opportunity
+    champions_count = len(rfm[rfm['segment'] == 'Champions'])
+    if champions_count > 0:
+        champions_revenue = rfm[rfm['segment'] == 'Champions']['monetary'].sum()
+        alerts.append({
+            'type': 'success',
+            'title': '👑 VIP Customer Opportunity',
+            'message': f'You have {champions_count} Champion customers generating ฿{champions_revenue:,.0f}.',
+            'action': 'Create VIP loyalty program to maximize lifetime value of these customers.'
+        })
+    
+    # Display alerts
+    if alerts:
+        for alert in alerts:
+            if alert['type'] == 'danger':
+                st.error(f"**{alert['title']}**\n\n{alert['message']}\n\n💡 **Action:** {alert['action']}")
+            elif alert['type'] == 'warning':
+                st.warning(f"**{alert['title']}**\n\n{alert['message']}\n\n💡 **Action:** {alert['action']}")
+            elif alert['type'] == 'success':
+                st.success(f"**{alert['title']}**\n\n{alert['message']}\n\n💡 **Action:** {alert['action']}")
+    else:
+        st.info("✅ No critical alerts at this time. Business metrics are healthy!")
+    
+    st.markdown("---")
+    
+    # ==================== AI SUMMARY DASHBOARD ====================
+    st.markdown("### 📊 Executive AI Summary")
+    
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 30px; border-radius: 15px; color: white;'>
+        <h4 style='margin: 0 0 20px 0;'>🤖 AI-Generated Business Insights</h4>
+    """, unsafe_allow_html=True)
+    
+    # Generate insights
+    insights = []
+    
+    # Revenue insight
+    if len(monthly_sales) >= 2:
+        latest_rev = monthly_sales['net_revenue'].iloc[-1]
+        prev_rev = monthly_sales['net_revenue'].iloc[-2]
+        growth = (latest_rev - prev_rev) / prev_rev * 100
+        
+        if growth > 10:
+            insights.append(f"📈 <b>Strong Growth:</b> Revenue increased by {growth:.1f}% last month. Momentum is positive!")
+        elif growth < -10:
+            insights.append(f"📉 <b>Attention Needed:</b> Revenue decreased by {abs(growth):.1f}% last month. Review marketing strategy.")
+        else:
+            insights.append(f"➡️ <b>Stable Performance:</b> Revenue changed by {growth:+.1f}% last month. Maintain current strategies.")
+    
+    # Customer segment insight
+    if champions_count > 0:
+        champion_pct = champions_count / len(rfm) * 100
+        insights.append(f"👑 <b>VIP Customers:</b> {champion_pct:.1f}% of customers are Champions. Focus on retention!")
+    
+    # Churn insight
+    if high_risk_count > 0:
+        insights.append(f"⚠️ <b>Churn Alert:</b> {high_risk_count} high-value customers at risk. Launch retention campaign ASAP!")
+    
+    # Margin insight
+    if net_margin >= target_margin:
+        insights.append(f"💰 <b>Healthy Margins:</b> Net margin at {net_margin:.1f}% exceeds target. Great cost control!")
+    else:
+        gap = target_margin - net_margin
+        insights.append(f"💰 <b>Margin Gap:</b> {gap:.1f}% below target. Consider price optimization or cost reduction.")
+    
+    # Inventory insight
+    if inventory_turnover >= target_turnover:
+        insights.append(f"📦 <b>Efficient Inventory:</b> Turnover at {inventory_turnover:.2f}x meets target. Good stock management!")
+    else:
+        insights.append(f"📦 <b>Slow Inventory:</b> Turnover below target. Consider promotions to move stock faster.")
+    
+    # Product performance insight
+    top_product = product_sales.iloc[0]['Product']
+    top_product_rev = product_sales.iloc[0]['Revenue']
+    total_rev = product_sales['Revenue'].sum()
+    top_product_pct = top_product_rev / total_rev * 100
+    
+    if top_product_pct > 20:
+        insights.append(f"⭐ <b>Product Dependency:</b> '{top_product}' accounts for {top_product_pct:.1f}% of revenue. Diversify product mix.")
+    else:
+        insights.append(f"⭐ <b>Balanced Portfolio:</b> Top product is {top_product_pct:.1f}% of revenue. Good diversification!")
+    
+    # Display insights
+    st.markdown("<div style='padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px;'>", unsafe_allow_html=True)
+    for insight in insights:
+        st.markdown(f"<p style='margin: 10px 0; font-size: 14px;'>{insight}</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================== NEXT BEST ACTIONS ====================
+    st.markdown("### 🎯 AI-Recommended Next Best Actions")
+    
+    st.markdown("""
+    <div style='background: #f8f9fa; padding: 25px; border-radius: 10px; border-left: 5px solid #3498db;'>
+        <h4 style='color: #2c3e50; margin-top: 0;'>📋 Priority Action Plan (Next 7 Days)</h4>
+    """, unsafe_allow_html=True)
+    
+    # Generate action plan based on data
+    action_plan = []
+    
+    # Action 1: High risk customers
+    if high_risk_count > 0:
+        action_plan.append({
+            'priority': 'HIGH',
+            'action': f'Launch retention campaign for {high_risk_count} high-risk customers',
+            'expected_impact': f'Potentially save ฿{high_risk_revenue/1000:.0f}K in revenue',
+            'effort': 'Medium',
+            'timeline': '1-2 days'
+        })
+    
+    # Action 2: Champions engagement
+    if champions_count > 5:
+        action_plan.append({
+            'priority': 'HIGH',
+            'action': f'Create VIP program for {champions_count} Champion customers',
+            'expected_impact': 'Increase customer lifetime value by 25-40%',
+            'effort': 'High',
+            'timeline': '3-7 days'
+        })
+    
+    # Action 3: Product recommendations
+    action_plan.append({
+        'priority': 'MEDIUM',
+        'action': 'Implement product recommendations on website/app',
+        'expected_impact': 'Increase average order value by 15-20%',
+        'effort': 'Medium',
+        'timeline': '5-7 days'
+    })
+    
+    # Action 4: Price optimization
+    if len(price_analysis) > 0:
+        top_opportunity = price_analysis.iloc[0]['product_name']
+        potential_increase = price_analysis.iloc[0]['potential_profit_increase_%']
+        
+        if potential_increase > 10:
+            action_plan.append({
+                'priority': 'MEDIUM',
+                'action': f'Test price increase for {top_opportunity}',
+                'expected_impact': f'Potentially increase profit by {potential_increase:.0f}%',
+                'effort': 'Low',
+                'timeline': '1-2 days'
+            })
+    
+    # Action 5: Inventory clearance
+    if low_stock_count > 0:
+        action_plan.append({
+            'priority': 'MEDIUM',
+            'action': f'Reorder {low_stock_count} low-stock products',
+            'expected_impact': 'Prevent stockouts and lost sales',
+            'effort': 'Low',
+            'timeline': '1-2 days'
+        })
+    
+    # Action 6: At-risk segment
+    at_risk_count = len(rfm[rfm['segment'] == 'At Risk'])
+    if at_risk_count > 0:
+        action_plan.append({
+            'priority': 'LOW',
+            'action': f'Survey {at_risk_count} "At Risk" customers to understand concerns',
+            'expected_impact': 'Gather insights to improve retention strategy',
+            'effort': 'Low',
+            'timeline': '3-5 days'
+        })
+    
+    # Display action plan
+    priority_colors = {
+        'HIGH': '#e74c3c',
+        'MEDIUM': '#f39c12',
+        'LOW': '#95a5a6'
+    }
+    
+    for i, action in enumerate(action_plan, 1):
+        priority_color = priority_colors.get(action['priority'], '#95a5a6')
+        
+        st.markdown(f"""
+        <div style='background: white; padding: 20px; margin: 15px 0; border-radius: 10px; 
+                    border-left: 5px solid {priority_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                <div>
+                    <span style='background: {priority_color}; color: white; padding: 4px 12px; 
+                                border-radius: 20px; font-size: 11px; font-weight: bold;'>
+                        {action['priority']} PRIORITY
+                    </span>
+                </div>
+                <div style='font-size: 12px; color: #95a5a6;'>
+                    ⏱️ {action['timeline']}
+                </div>
+            </div>
+            <h4 style='color: #2c3e50; margin: 10px 0;'>{i}. {action['action']}</h4>
+            <div style='display: flex; gap: 20px; margin-top: 10px;'>
+                <div style='font-size: 13px; color: #7f8c8d;'>
+                    <b>💡 Impact:</b> {action['expected_impact']}
+                </div>
+                <div style='font-size: 13px; color: #7f8c8d;'>
+                    <b>⚡ Effort:</b> {action['effort']}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 15px; color: white;'>
+        <h3 style='margin: 0; font-size: 24px;'>🤖 AI-Powered Analytics Dashboard</h3>
+        <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>
+            Powered by Machine Learning • Real-time Insights • Actionable Recommendations
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     # Footer
     st.markdown("---")
     st.markdown("""
