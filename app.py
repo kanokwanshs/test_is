@@ -12005,6 +12005,7 @@ with tab4:
         """,
             unsafe_allow_html=True,
         )
+    
     with col4:
         st.markdown(
             f"""
@@ -12022,946 +12023,252 @@ with tab4:
             unsafe_allow_html=True,
         )
 
-st.markdown("---")
-
-# # ==================== PRODUCT MOVEMENT CLASSIFICATION ====================
-# st.markdown("### 🚀 Product Movement Classification")
-
-# with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#     st.markdown(
-#         """
-#     <div class='metric-explanation'>
-#         <b>📖 คำอธิบาย:</b> จัดกลุ่มสินค้าตามความเร็วในการขาย<br>
-#         • <b style='color: #2ecc71;'>Fast Moving:</b> ขายดี ควรเพิ่ม stock<br>
-#         • <b style='color: #f39c12;'>Medium Moving:</b> ขายปานกลาง รักษาระดับปกติ<br>
-#         • <b style='color: #e74c3c;'>Slow Moving:</b> ขายช้า ลด stock หรือทำ clearance
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# product_velocity = (
-#     df_filtered.groupby(["product_id", "product_name", "category"])
-#     .agg(
-#         {"order_id": "nunique", "net_revenue": "sum", "cost": "sum", "quantity": "sum"}
-#     )
-#     .reset_index()
-# )
-# product_velocity.columns = [
-#     "ID",
-#     "Product",
-#     "Category",
-#     "Orders",
-#     "Revenue",
-#     "Cost",
-#     "Units",
-# ]
-
-# fast_threshold = product_velocity["Orders"].quantile(0.75)
-# slow_threshold = product_velocity["Orders"].quantile(0.25)
-
-
-# def classify_movement(orders):
-#     if orders >= fast_threshold:
-#         return "Fast Moving"
-#     elif orders <= slow_threshold:
-#         return "Slow Moving"
-#     return "Medium Moving"
-
-
-# product_velocity["Movement"] = product_velocity["Orders"].apply(classify_movement)
-
-# movement_summary = (
-#     product_velocity.groupby("Movement")
-#     .agg({"Product": "count", "Revenue": "sum", "Cost": "sum"})
-#     .reset_index()
-# )
-# movement_summary.columns = ["Movement", "Products", "Revenue", "Inventory_Value"]
-
-# col1, col2 = st.columns(2)
-
-# with col1:
-#     # Stacked bar chart
-#     movement_order = ["Fast Moving", "Medium Moving", "Slow Moving"]
-#     movement_colors = {
-#         "Fast Moving": "#2ecc71",
-#         "Medium Moving": "#f39c12",
-#         "Slow Moving": "#e74c3c",
-#     }
-
-#     fig = go.Figure()
-
-#     fig.add_trace(
-#         go.Bar(
-#             y=["Product Count"],
-#             x=[
-#                 movement_summary[movement_summary["Movement"] == "Fast Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             name="Fast Moving",
-#             orientation="h",
-#             marker_color="#2ecc71",
-#             text=[
-#                 movement_summary[movement_summary["Movement"] == "Fast Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             texttemplate="%{text}",
-#             textposition="inside",
-#             hovertemplate="<b>Fast Moving</b><br>Products: %{x}<extra></extra>",
-#         )
-#     )
-
-#     fig.add_trace(
-#         go.Bar(
-#             y=["Product Count"],
-#             x=[
-#                 movement_summary[movement_summary["Movement"] == "Medium Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             name="Medium Moving",
-#             orientation="h",
-#             marker_color="#f39c12",
-#             text=[
-#                 movement_summary[movement_summary["Movement"] == "Medium Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             texttemplate="%{text}",
-#             textposition="inside",
-#             hovertemplate="<b>Medium Moving</b><br>Products: %{x}<extra></extra>",
-#         )
-#     )
-
-#     fig.add_trace(
-#         go.Bar(
-#             y=["Product Count"],
-#             x=[
-#                 movement_summary[movement_summary["Movement"] == "Slow Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             name="Slow Moving",
-#             orientation="h",
-#             marker_color="#e74c3c",
-#             text=[
-#                 movement_summary[movement_summary["Movement"] == "Slow Moving"][
-#                     "Products"
-#                 ].sum()
-#             ],
-#             texttemplate="%{text}",
-#             textposition="inside",
-#             hovertemplate="<b>Slow Moving</b><br>Products: %{x}<extra></extra>",
-#         )
-#     )
-
-#     fig.update_layout(
-#         title="<b>Product Distribution by Movement Speed</b>",
-#         xaxis=dict(title="Number of Products"),
-#         yaxis=dict(title=""),
-#         barmode="stack",
-#         plot_bgcolor="white",
-#         height=400,
-#         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-#     )
-
-#     st.plotly_chart(fig, use_container_width=True)
-
-# with col2:
-#     # Inventory value by movement
-#     movement_sorted = movement_summary.sort_values("Inventory_Value", ascending=True)
-#     colors = [movement_colors[m] for m in movement_sorted["Movement"]]
-
-#     fig = go.Figure()
-
-#     fig.add_trace(
-#         go.Bar(
-#             y=movement_sorted["Movement"],
-#             x=movement_sorted["Inventory_Value"],
-#             orientation="h",
-#             marker=dict(color=colors),
-#             text=movement_sorted["Inventory_Value"],
-#             texttemplate="฿%{text:,.0f}",
-#             textposition="outside",
-#             hovertemplate="<b>%{y}</b><br>Value: ฿%{x:,.0f}<extra></extra>",
-#         )
-#     )
-
-#     fig.update_layout(
-#         title="<b>Inventory Value by Movement</b>",
-#         xaxis=dict(
-#             title="Inventory Value (฿)", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
-#         ),
-#         yaxis=dict(title=""),
-#         plot_bgcolor="white",
-#         height=400,
-#         showlegend=False,
-#     )
-
-#     st.plotly_chart(fig, use_container_width=True)
-
-# # Show top products in each category
-# st.markdown("#### 📋 Movement Classification Details")
-
-# col1, col2, col3 = st.columns(3)
-
-# with col1:
-#     st.success("**🚀 Fast Moving (Top 10)**")
-#     fast_products = product_velocity[
-#         product_velocity["Movement"] == "Fast Moving"
-#     ].nlargest(10, "Orders")
-#     st.dataframe(
-#         fast_products[["Product", "Orders", "Units"]].style.format(
-#             {"Orders": "{:,}", "Units": "{:,}"}
-#         ),
-#         height=300,
-#         use_container_width=True,
-#     )
-
-# with col2:
-#     st.warning("**⚖️ Medium Moving (Top 10)**")
-#     medium_products = product_velocity[
-#         product_velocity["Movement"] == "Medium Moving"
-#     ].nlargest(10, "Orders")
-#     st.dataframe(
-#         medium_products[["Product", "Orders", "Units"]].style.format(
-#             {"Orders": "{:,}", "Units": "{:,}"}
-#         ),
-#         height=300,
-#         use_container_width=True,
-#     )
-
-# with col3:
-#     st.error("**🐌 Slow Moving (Top 10)**")
-#     slow_products = product_velocity[
-#         product_velocity["Movement"] == "Slow Moving"
-#     ].nlargest(10, "Cost")
-#     st.dataframe(
-#         slow_products[["Product", "Orders", "Cost"]].style.format(
-#             {"Orders": "{:,}", "Cost": "฿{:,.0f}"}
-#         ),
-#         height=300,
-#         use_container_width=True,
-#     )
-
-# st.markdown("---")
-
-# # ==================== CASH CONVERSION CYCLE ====================
-# st.markdown("### ⏱️ Cash Conversion Cycle (CCC)")
-
-# with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#     st.markdown(
-#         """
-#     <div class='metric-explanation'>
-#         <b>📖 คำอธิบาย:</b> ระยะเวลาที่เงินสดถูกล็อคอยู่ในธุรกิจ<br>
-#         <div class='metric-formula'>
-#             สูตร: DIO + DSO - DPO
-#         </div>
-#         <b>📖 ความหมาย:</b><br>
-#         • DIO = วันที่สินค้าอยู่ในคลัง<br>
-#         • DSO = วันที่รอเก็บเงินจากลูกค้า<br>
-#         • DPO = วันที่เราจ่ายเงินซัพพลายเออร์<br>
-#         <b>🎯 เป้าหมาย:</b> ยิ่งต่ำยิ่งดี (&lt; 60 วัน ดีมาก, &lt; 30 วัน ดีเยี่ยม)
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# ccc = dio + dso - dpo
-
-# col1, col2 = st.columns([1, 2])
-
-# with col1:
-#     ccc_color = "#2ecc71" if ccc < 60 else "#e74c3c"
-#     ccc_status = (
-#         "✅ Excellent" if ccc < 30 else "✅ Good" if ccc < 60 else "⚠️ Needs Improvement"
-#     )
-
-#     st.markdown(
-#         f"""
-#     <div style='background: white; padding: 40px; border-radius: 10px; 
-#                 border: 4px solid {ccc_color}; text-align: center; height: 400px;
-#                 display: flex; flex-direction: column; justify-content: center;'>
-#         <div style='font-size: 16px; color: #7f8c8d; margin-bottom: 15px;'>
-#             <b>CASH CONVERSION CYCLE</b>
-#         </div>
-#         <div style='font-size: 72px; font-weight: bold; color: {ccc_color}; margin: 20px 0;'>
-#             {ccc:.0f}
-#         </div>
-#         <div style='font-size: 24px; color: #7f8c8d;'>
-#             days
-#         </div>
-#         <div style='font-size: 14px; color: #95a5a6; margin-top: 20px;'>
-#             {ccc_status}
-#         </div>
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# with col2:
-#     # CCC breakdown chart
-#     fig = go.Figure()
-
-#     fig.add_trace(
-#         go.Bar(
-#             x=["DIO", "DSO", "DPO", "CCC"],
-#             y=[dio, dso, -dpo, ccc],
-#             marker=dict(
-#                 color=["#3498db", "#9b59b6", "#e74c3c", "#2ecc71"],
-#                 line=dict(color="white", width=2),
-#             ),
-#             text=[f"{dio:.0f}", f"{dso:.0f}", f"{dpo:.0f}", f"{ccc:.0f}"],
-#             texttemplate="%{text} days",
-#             textposition="outside",
-#             hovertemplate="<b>%{x}</b><br>Days: %{y:.0f}<extra></extra>",
-#         )
-#     )
-
-#     fig.update_layout(
-#         title="<b>Cash Conversion Cycle Breakdown</b>",
-#         xaxis=dict(title="", showgrid=False),
-#         yaxis=dict(
-#             title="Days",
-#             showgrid=True,
-#             gridcolor="rgba(0,0,0,0.05)",
-#             zeroline=True,
-#             zerolinecolor="gray",
-#         ),
-#         plot_bgcolor="white",
-#         height=400,
-#         showlegend=False,
-#     )
-
-#     st.plotly_chart(fig, use_container_width=True)
-
-# with tab5:
-#     st.markdown("# 🔮 Forecasting & Planning")
-#     st.markdown("---")
-
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#         st.markdown(
-#             """
-#         <div class='metric-explanation'>
-#             <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
-#             <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
-#         </div>
-#         """,
-#             unsafe_allow_html=True,
-#         )
-
-# # ==================== REVENUE FORECAST ====================
-# st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
-
-# with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#     st.markdown(
-#         """
-#     <div class='metric-explanation'>
-#         <b>📖 Revenue Forecast:</b> ทำนายยอดขายในอนาคต 12 เดือนข้างหน้า<br>
-#         <div class='metric-formula'>
-#             วิธีการ: Linear Regression + Moving Average (3 เดือน)
-#         </div>
-#         <b>💡 การใช้ประโยชน์:</b><br>
-#         • วางแผนงบประมาณ<br>
-#         • กำหนดเป้าหมายทีมขาย<br>
-#         • วางแผนจัดซื้อสินค้า<br>
-#         • วางแผนการตลาด
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# # Prepare historical data
-# monthly_revenue = (
-#     df_filtered.groupby("order_month").agg({"net_revenue": "sum"}).reset_index()
-# )
-# monthly_revenue["order_month"] = monthly_revenue["order_month"].dt.to_timestamp()
-# monthly_revenue = monthly_revenue.sort_values("order_month")
-
-# if len(monthly_revenue) >= 3:
-#     # Calculate moving average
-#     monthly_revenue["MA_3"] = monthly_revenue["net_revenue"].rolling(window=3).mean()
-
-#     # Simple linear regression for trend
-#     from sklearn.linear_model import LinearRegression
-#     import numpy as np
-
-#     X = np.arange(len(monthly_revenue)).reshape(-1, 1)
-#     y = monthly_revenue["net_revenue"].values
-
-#     model = LinearRegression()
-#     model.fit(X, y)
-
-#     # Forecast next 12 months
-#     future_months = 12
-#     future_X = np.arange(
-#         len(monthly_revenue), len(monthly_revenue) + future_months
-#     ).reshape(-1, 1)
-#     forecast_values = model.predict(future_X)
-
-#     # Apply growth adjustment (use recent growth rate)
-#     recent_growth = monthly_revenue["net_revenue"].pct_change().tail(3).mean()
-#     if not np.isnan(recent_growth) and recent_growth != 0:
-#         growth_factor = 1 + recent_growth
-#         forecast_adjusted = []
-#         last_value = monthly_revenue["net_revenue"].iloc[-1]
-#         for i in range(future_months):
-#             last_value = last_value * growth_factor
-#             forecast_adjusted.append(last_value)
-#         forecast_values = (forecast_values + np.array(forecast_adjusted)) / 2
-
-#     # Create forecast dataframe
-#     last_date = monthly_revenue["order_month"].iloc[-1]
-#     forecast_dates = pd.date_range(
-#         start=last_date + pd.DateOffset(months=1), periods=future_months, freq="MS"
-#     )
-
-#     forecast_df = pd.DataFrame({"Month": forecast_dates, "Forecast": forecast_values})
-#     forecast_df["Month_Label"] = forecast_df["Month"].dt.strftime("%b %Y")
-
-#     # Calculate confidence interval (±15%)
-#     forecast_df["Lower"] = forecast_values * 0.85
-#     forecast_df["Upper"] = forecast_values * 1.15
-
-#     col1, col2 = st.columns([2, 1])
-
-#     with col1:
-#         # Create forecast chart
-#         fig = go.Figure()
-
-#         # Historical data
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=monthly_revenue["order_month"].dt.strftime("%b %Y"),
-#                 y=monthly_revenue["net_revenue"],
-#                 name="Actual",
-#                 mode="lines+markers",
-#                 line=dict(color="#3498db", width=3),
-#                 marker=dict(size=8),
-#                 hovertemplate="<b>%{x}</b><br>Actual: ฿%{y:,.0f}<extra></extra>",
-#             )
-#         )
-
-#         # Moving Average
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=monthly_revenue["order_month"].dt.strftime("%b %Y"),
-#                 y=monthly_revenue["MA_3"],
-#                 name="3-Month MA",
-#                 mode="lines",
-#                 line=dict(color="#95a5a6", width=2, dash="dash"),
-#                 hovertemplate="<b>%{x}</b><br>MA: ฿%{y:,.0f}<extra></extra>",
-#             )
-#         )
-
-#         # Forecast
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=forecast_df["Month_Label"],
-#                 y=forecast_df["Forecast"],
-#                 name="Forecast",
-#                 mode="lines+markers",
-#                 line=dict(color="#e74c3c", width=3),
-#                 marker=dict(size=8, symbol="diamond"),
-#                 hovertemplate="<b>%{x}</b><br>Forecast: ฿%{y:,.0f}<extra></extra>",
-#             )
-#         )
-
-#         # Confidence interval
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=forecast_df["Month_Label"],
-#                 y=forecast_df["Upper"],
-#                 mode="lines",
-#                 line=dict(width=0),
-#                 showlegend=False,
-#                 hoverinfo="skip",
-#             )
-#         )
-
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=forecast_df["Month_Label"],
-#                 y=forecast_df["Lower"],
-#                 mode="lines",
-#                 line=dict(width=0),
-#                 fill="tonexty",
-#                 fillcolor="rgba(231, 76, 60, 0.2)",
-#                 name="Confidence Interval (±15%)",
-#                 hovertemplate="<b>%{x}</b><br>Range: ฿%{y:,.0f}<extra></extra>",
-#             )
-#         )
-
-#         fig.update_layout(
-#             title="<b>Revenue Forecast - Next 12 Months</b>",
-#             xaxis=dict(title="", showgrid=False),
-#             yaxis=dict(
-#                 title="Revenue (฿)", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
-#             ),
-#             plot_bgcolor="white",
-#             height=400,
-#             hovermode="x unified",
-#             legend=dict(
-#                 orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
-#             ),
-#         )
-
-#         st.plotly_chart(fig, use_container_width=True)
-
-#     with col2:
-#         # Forecast summary
-#         total_forecast = forecast_df["Forecast"].sum()
-#         avg_monthly = forecast_df["Forecast"].mean()
-#         growth_forecast = (
-#             (forecast_df["Forecast"].iloc[-1] - monthly_revenue["net_revenue"].iloc[-1])
-#             / monthly_revenue["net_revenue"].iloc[-1]
-#             * 100
-#         )
-
-#         st.markdown(
-#             f"""
-#         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-#                     padding: 30px; border-radius: 10px; color: white; text-align: center; height: 400px;
-#                     display: flex; flex-direction: column; justify-content: center;'>
-#             <div style='font-size: 14px; opacity: 0.9; margin-bottom: 15px;'>
-#                 <b>FORECAST SUMMARY</b>
-#             </div>
-#             <div style='margin: 20px 0;'>
-#                 <div style='font-size: 12px; opacity: 0.8;'>Next 12 Months Total</div>
-#                 <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
-#                     ฿{total_forecast/1000000:.1f}M
-#                 </div>
-#             </div>
-#             <div style='margin: 20px 0;'>
-#                 <div style='font-size: 12px; opacity: 0.8;'>Average Monthly</div>
-#                 <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
-#                     ฿{avg_monthly/1000:.0f}K
-#                 </div>
-#             </div>
-#             <div style='margin: 20px 0;'>
-#                 <div style='font-size: 12px; opacity: 0.8;'>Expected Growth</div>
-#                 <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
-#                     {growth_forecast:+.1f}%
-#                 </div>
-#             </div>
-#         </div>
-#         """,
-#             unsafe_allow_html=True,
-#         )
-
-#     # Forecast table
-#     st.markdown("#### 📋 Monthly Forecast Details")
-
-#     forecast_display = forecast_df.copy()
-#     forecast_display["Month"] = forecast_display["Month_Label"]
-#     forecast_display = forecast_display[["Month", "Forecast", "Lower", "Upper"]]
-#     forecast_display.columns = ["Month", "Forecast", "Min Expected", "Max Expected"]
-
-#     styled_forecast = forecast_display.style.format(
-#         {"Forecast": "฿{:,.0f}", "Min Expected": "฿{:,.0f}", "Max Expected": "฿{:,.0f}"}
-#     ).background_gradient(subset=["Forecast"], cmap="Blues")
-
-#     st.dataframe(styled_forecast, use_container_width=True, height=300)
-# else:
-#     st.warning("⚠️ ต้องมีข้อมูลอย่างน้อย 3 เดือนเพื่อทำ Forecast")
-
-# st.markdown("---")
-
-# # ==================== STOCK PLANNING ====================
-# st.markdown("### 📦 Stock Planning Recommendation")
-
-# with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#     st.markdown(
-#         """
-#     <div class='metric-explanation'>
-#         <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
-#         <div class='metric-formula'>
-#             สูตร: (ยอดขายเฉลี่ยต่อเดือน × Lead Time) + Safety Stock
-#         </div>
-#         <b>📖 Safety Stock:</b> สต็อกสำรอง เผื่อความผันผวนของยอดขาย (20% ของยอดขายเฉลี่ย)<br>
-#         <b>💡 การใช้ประโยชน์:</b><br>
-#         • ป้องกันสินค้าหมด<br>
-#         • ลดต้นทุนการจัดเก็บ<br>
-#         • วางแผนสั่งซื้อล่วงหน้า
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# # Calculate stock recommendations
-# # Assume lead time of 30 days (1 month)
-# lead_time_months = 1
-# safety_stock_pct = 0.20
-
-# # Get product sales data
-# product_monthly = (
-#     df_filtered.groupby(["product_id", "product_name", "category", "order_month"])
-#     .agg({"quantity": "sum"})
-#     .reset_index()
-# )
-
-# # Calculate average monthly sales per product
-# product_avg = (
-#     product_monthly.groupby(["product_id", "product_name", "category"])
-#     .agg({"quantity": ["mean", "std", "count"]})
-#     .reset_index()
-# )
-
-# product_avg.columns = [
-#     "product_id",
-#     "product_name",
-#     "category",
-#     "avg_monthly_qty",
-#     "std_qty",
-#     "months",
-# ]
-
-# # Calculate stock recommendations
-# product_avg["lead_time_demand"] = product_avg["avg_monthly_qty"] * lead_time_months
-# product_avg["safety_stock"] = product_avg["avg_monthly_qty"] * safety_stock_pct
-# product_avg["reorder_point"] = (
-#     product_avg["lead_time_demand"] + product_avg["safety_stock"]
-# )
-# product_avg["recommended_stock"] = np.ceil(
-#     product_avg["reorder_point"] * 1.5
-# )  # Add buffer
-
-# # Add current stock status (simulated - in real case, get from inventory table)
-# if "inventory" in data:
-#     # Try to get actual stock levels
-#     try:
-#         current_stock = (
-#             data["inventory"].groupby("product_id")["quantity"].last().to_dict()
-#         )
-#         product_avg["current_stock"] = (
-#             product_avg["product_id"].map(current_stock).fillna(0)
-#         )
-#     except:
-#         product_avg["current_stock"] = (
-#             product_avg["recommended_stock"] * 0.6
-#         )  # Simulated
-# else:
-#     product_avg["current_stock"] = product_avg["recommended_stock"] * 0.6  # Simulated
-
-# # Calculate stock status
-# product_avg["stock_status"] = product_avg.apply(
-#     lambda x: "Overstock"
-#     if x["current_stock"] > x["recommended_stock"] * 1.2
-#     else "Low Stock"
-#     if x["current_stock"] < x["reorder_point"]
-#     else "Optimal",
-#     axis=1,
-# )
-
-# product_avg["order_qty"] = np.maximum(
-#     0, product_avg["recommended_stock"] - product_avg["current_stock"]
-# )
-
-# # Sort by order quantity
-# product_avg = product_avg.sort_values("order_qty", ascending=False)
-
-# # Summary metrics
-# col1, col2, col3, col4 = st.columns(4)
-
-# low_stock_count = len(product_avg[product_avg["stock_status"] == "Low Stock"])
-# optimal_count = len(product_avg[product_avg["stock_status"] == "Optimal"])
-# overstock_count = len(product_avg[product_avg["stock_status"] == "Overstock"])
-# total_order_needed = product_avg["order_qty"].sum()
-
-# with col1:
-#     st.markdown(
-#         f"""
-#     <div style='background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
-#                 padding: 25px; border-radius: 10px; color: white; text-align: center;'>
-#         <div style='font-size: 13px; opacity: 0.9;'>LOW STOCK</div>
-#         <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
-#             {low_stock_count}
-#         </div>
-#         <div style='font-size: 11px; opacity: 0.8;'>Products need reorder</div>
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# with col2:
-#     st.markdown(
-#         f"""
-#     <div style='background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); 
-#                 padding: 25px; border-radius: 10px; color: white; text-align: center;'>
-#         <div style='font-size: 13px; opacity: 0.9;'>OPTIMAL</div>
-#         <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
-#             {optimal_count}
-#         </div>
-#         <div style='font-size: 11px; opacity: 0.8;'>Products at good level</div>
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# with col3:
-#     st.markdown(
-#         f"""
-#     <div style='background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
-#                 padding: 25px; border-radius: 10px; color: white; text-align: center;'>
-#         <div style='font-size: 13px; opacity: 0.9;'>OVERSTOCK</div>
-#         <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
-#             {overstock_count}
-#         </div>
-#         <div style='font-size: 11px; opacity: 0.8;'>Products excess stock</div>
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# with col4:
-#     st.markdown(
-#         f"""
-#     <div style='background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); 
-#                 padding: 25px; border-radius: 10px; color: white; text-align: center;'>
-#         <div style='font-size: 13px; opacity: 0.9;'>TOTAL ORDER NEEDED</div>
-#         <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
-#             {total_order_needed:,.0f}
-#         </div>
-#         <div style='font-size: 11px; opacity: 0.8;'>Units to order</div>
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# st.markdown("<br>", unsafe_allow_html=True)
-
-# # Stock status breakdown
-# col1, col2 = st.columns(2)
-
-# with col1:
-#     status_counts = product_avg["stock_status"].value_counts()
-#     status_colors = {
-#         "Low Stock": "#e74c3c",
-#         "Optimal": "#2ecc71",
-#         "Overstock": "#f39c12",
-#     }
-
-#     fig = go.Figure()
-
-#     fig.add_trace(
-#         go.Bar(
-#             x=list(status_counts.index),
-#             y=list(status_counts.values),
-#             marker=dict(
-#                 color=[status_colors.get(s, "#95a5a6") for s in status_counts.index]
-#             ),
-#             text=list(status_counts.values),
-#             texttemplate="%{text}",
-#             textposition="outside",
-#             hovertemplate="<b>%{x}</b><br>Products: %{y}<extra></extra>",
-#         )
-#     )
-
-#     fig.update_layout(
-#         title="<b>Stock Status Distribution</b>",
-#         xaxis=dict(title="", showgrid=False),
-#         yaxis=dict(
-#             title="Number of Products", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
-#         ),
-#         plot_bgcolor="white",
-#         height=350,
-#         showlegend=False,
-#     )
-
-#     st.plotly_chart(fig, use_container_width=True)
-
-# with col2:
-#     # Top products needing reorder
-#     top_reorder = product_avg[product_avg["stock_status"] == "Low Stock"].head(10)
-
-#     fig = go.Figure()
-
-#     fig.add_trace(
-#         go.Bar(
-#             y=top_reorder["product_name"],
-#             x=top_reorder["order_qty"],
-#             orientation="h",
-#             marker_color="#e74c3c",
-#             text=top_reorder["order_qty"],
-#             texttemplate="%{text:,.0f}",
-#             textposition="outside",
-#             hovertemplate="<b>%{y}</b><br>Need to Order: %{x:,.0f} units<extra></extra>",
-#         )
-#     )
-
-#     fig.update_layout(
-#         title="<b>Top 10 Products Needing Reorder</b>",
-#         xaxis=dict(
-#             title="Quantity to Order", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
-#         ),
-#         yaxis=dict(title="", categoryorder="total ascending"),
-#         plot_bgcolor="white",
-#         height=350,
-#         showlegend=False,
-#     )
-
-#     st.plotly_chart(fig, use_container_width=True)
-
-# # Detailed stock planning table
-# st.markdown("#### 📋 Detailed Stock Planning (Top 30 Products)")
-
-# top_products = product_avg.head(30).copy()
-# top_products_display = top_products[
-#     [
-#         "product_name",
-#         "category",
-#         "avg_monthly_qty",
-#         "current_stock",
-#         "reorder_point",
-#         "recommended_stock",
-#         "order_qty",
-#         "stock_status",
-#     ]
-# ].copy()
-
-# top_products_display.columns = [
-#     "Product",
-#     "Category",
-#     "Avg Monthly Sales",
-#     "Current Stock",
-#     "Reorder Point",
-#     "Recommended Stock",
-#     "Order Qty",
-#     "Status",
-# ]
-
-# # Style based on stock status
-# def highlight_status(row):
-#     if row["Status"] == "Low Stock":
-#         return ["background-color: #ffebee"] * len(row)
-#     elif row["Status"] == "Overstock":
-#         return ["background-color: #fff3e0"] * len(row)
-#     else:
-#         return ["background-color: #e8f5e9"] * len(row)
-
-
-# styled_stock = top_products_display.style.format(
-#     {
-#         "Avg Monthly Sales": "{:.0f}",
-#         "Current Stock": "{:.0f}",
-#         "Reorder Point": "{:.0f}",
-#         "Recommended Stock": "{:.0f}",
-#         "Order Qty": "{:.0f}",
-#     }
-# ).apply(highlight_status, axis=1)
-
-# st.dataframe(styled_stock, use_container_width=True, height=400)
-
-# st.markdown("---")
-
-# # ==================== DEMAND FORECASTING BY PRODUCT ====================
-# st.markdown("### 📊 Demand Forecasting by Product Category")
-
-# with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
-#     st.markdown(
-#         """
-#     <div class='metric-explanation'>
-#         <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
-#         <b>💡 ประโยชน์:</b> วางแผนการผลิต/สั่งซื้อ แยกตามหมวดหมู่สินค้า
-#     </div>
-#     """,
-#         unsafe_allow_html=True,
-#     )
-
-# # Category demand forecast
-# category_monthly = (
-#     df_filtered.groupby(["order_month", "category"])
-#     .agg({"quantity": "sum"})
-#     .reset_index()
-# )
-# category_monthly["order_month"] = category_monthly["order_month"].dt.to_timestamp()
-
-# # Get top 5 categories by total volume
-# top_categories = (
-#     df_filtered.groupby("category")["quantity"].sum().nlargest(5).index.tolist()
-# )
-
-# fig = go.Figure()
-
-# for category in top_categories:
-#     cat_data = category_monthly[category_monthly["category"] == category].sort_values(
-#         "order_month"
-#     )
-
-#     fig.add_trace(
-#         go.Scatter(
-#             x=cat_data["order_month"].dt.strftime("%b %Y"),
-#             y=cat_data["quantity"],
-#             name=category,
-#             mode="lines+markers",
-#             line=dict(width=2),
-#             marker=dict(size=6),
-#             hovertemplate=f"<b>{category}</b><br>%{{x}}<br>Qty: %{{y:,.0f}}<extra></extra>",
-#         )
-#     )
-
-# fig.update_layout(
-#     title="<b>Demand Trend by Category</b>",
-#     xaxis=dict(title="", showgrid=False),
-#     yaxis=dict(title="Quantity Sold", showgrid=True, gridcolor="rgba(0,0,0,0.05)"),
-#     plot_bgcolor="white",
-#     height=400,
-#     hovermode="x unified",
-#     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-# )
-
-# st.plotly_chart(fig, use_container_width=True)
-
-# # Category forecast summary
-# category_forecast = []
-# for category in top_categories:
-#     cat_data = category_monthly[category_monthly["category"] == category].sort_values(
-#         "order_month"
-#     )
-#     avg_qty = cat_data["quantity"].mean()
-#     recent_growth = cat_data["quantity"].pct_change().tail(3).mean()
-
-#     if not np.isnan(recent_growth):
-#         next_month_forecast = avg_qty * (1 + recent_growth)
-#     else:
-#         next_month_forecast = avg_qty
-
-#     category_forecast.append(
-#         {
-#             "Category": category,
-#             "Avg Monthly": avg_qty,
-#             "Growth Rate": recent_growth * 100 if not np.isnan(recent_growth) else 0,
-#             "Next Month Forecast": next_month_forecast,
-#         }
-#     )
-
-# forecast_cat_df = pd.DataFrame(category_forecast)
-
-# st.markdown("#### 📋 Category Demand Forecast")
-
-# styled_cat_forecast = forecast_cat_df.style.format(
-#     {
-#         "Avg Monthly": "{:.0f}",
-#         "Growth Rate": "{:+.1f}%",
-#         "Next Month Forecast": "{:.0f}",
-#     }
-# ).background_gradient(subset=["Growth Rate"], cmap="RdYlGn", vmin=-10, vmax=10)
-
-# st.dataframe(styled_cat_forecast, use_container_width=True)
-
-# # Footer
-# st.markdown("---")
-# st.markdown(
-#     """
-# <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-#             border-radius: 15px; color: white;'>
-#     <h3 style='margin: 0; font-size: 24px;'>📊 Analytics Dashboard</h3>
-#     <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>
-#         Built with Streamlit • Data-Driven Insights with Professional KPIs
-#     </p>
-# </div>
-# """,
-#     unsafe_allow_html=True,
-# )
+    st.markdown("---")
+    
+    # END OF TAB 4
+
+# ==================== TAB 5 START ====================
+with tab5:
+    st.markdown("# 🔮 Forecasting & Planning")
+    st.markdown("---")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown(
+            """
+        <div class='metric-explanation'>
+            <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
+            <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    # ==================== REVENUE FORECAST ====================
+    st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
+
+    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+        st.markdown(
+            """
+        <div class='metric-explanation'>
+            <b>📖 Revenue Forecast:</b> ทำนายยอดขายในอนาคต 12 เดือนข้างหน้า<br>
+            <div class='metric-formula'>
+                วิธีการ: Linear Regression + Moving Average (3 เดือน)
+            </div>
+            <b>💡 การใช้ประโยชน์:</b><br>
+            • วางแผนงบประมาณ<br>
+            • กำหนดเป้าหมายทีมขาย<br>
+            • วางแผนจัดซื้อสินค้า<br>
+            • วางแผนการตลาด
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+    # Prepare historical data
+    monthly_revenue = (
+        df_filtered.groupby("order_month").agg({"net_revenue": "sum"}).reset_index()
+    )
+    monthly_revenue["order_month"] = monthly_revenue["order_month"].dt.to_timestamp()
+    monthly_revenue = monthly_revenue.sort_values("order_month")
+
+    if len(monthly_revenue) >= 3:
+        # Calculate moving average
+        monthly_revenue["MA_3"] = monthly_revenue["net_revenue"].rolling(window=3).mean()
+
+        # Simple linear regression for trend
+        from sklearn.linear_model import LinearRegression
+        import numpy as np
+
+        X = np.arange(len(monthly_revenue)).reshape(-1, 1)
+        y = monthly_revenue["net_revenue"].values
+
+        model = LinearRegression()
+        model.fit(X, y)
+
+        # Forecast next 12 months
+        future_months = 12
+        future_X = np.arange(
+            len(monthly_revenue), len(monthly_revenue) + future_months
+        ).reshape(-1, 1)
+        forecast_values = model.predict(future_X)
+
+        # Apply growth adjustment (use recent growth rate)
+        recent_growth = monthly_revenue["net_revenue"].pct_change().tail(3).mean()
+        if not np.isnan(recent_growth) and recent_growth != 0:
+            growth_factor = 1 + recent_growth
+            forecast_adjusted = []
+            last_value = monthly_revenue["net_revenue"].iloc[-1]
+            for i in range(future_months):
+                last_value = last_value * growth_factor
+                forecast_adjusted.append(last_value)
+            forecast_values = (forecast_values + np.array(forecast_adjusted)) / 2
+
+        # Create forecast dataframe
+        last_date = monthly_revenue["order_month"].iloc[-1]
+        forecast_dates = pd.date_range(
+            start=last_date + pd.DateOffset(months=1), periods=future_months, freq="MS"
+        )
+
+        forecast_df = pd.DataFrame({"Month": forecast_dates, "Forecast": forecast_values})
+        forecast_df["Month_Label"] = forecast_df["Month"].dt.strftime("%b %Y")
+
+        # Calculate confidence interval (±15%)
+        forecast_df["Lower"] = forecast_values * 0.85
+        forecast_df["Upper"] = forecast_values * 1.15
+
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            # Create forecast chart
+            fig = go.Figure()
+
+            # Historical data
+            fig.add_trace(
+                go.Scatter(
+                    x=monthly_revenue["order_month"].dt.strftime("%b %Y"),
+                    y=monthly_revenue["net_revenue"],
+                    name="Actual",
+                    mode="lines+markers",
+                    line=dict(color="#3498db", width=3),
+                    marker=dict(size=8),
+                    hovertemplate="<b>%{x}</b><br>Actual: ฿%{y:,.0f}<extra></extra>",
+                )
+            )
+
+            # Moving Average
+            fig.add_trace(
+                go.Scatter(
+                    x=monthly_revenue["order_month"].dt.strftime("%b %Y"),
+                    y=monthly_revenue["MA_3"],
+                    name="3-Month MA",
+                    mode="lines",
+                    line=dict(color="#95a5a6", width=2, dash="dash"),
+                    hovertemplate="<b>%{x}</b><br>MA: ฿%{y:,.0f}<extra></extra>",
+                )
+            )
+
+            # Forecast
+            fig.add_trace(
+                go.Scatter(
+                    x=forecast_df["Month_Label"],
+                    y=forecast_df["Forecast"],
+                    name="Forecast",
+                    mode="lines+markers",
+                    line=dict(color="#e74c3c", width=3),
+                    marker=dict(size=8, symbol="diamond"),
+                    hovertemplate="<b>%{x}</b><br>Forecast: ฿%{y:,.0f}<extra></extra>",
+                )
+            )
+
+            # Confidence interval
+            fig.add_trace(
+                go.Scatter(
+                    x=forecast_df["Month_Label"],
+                    y=forecast_df["Upper"],
+                    mode="lines",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=forecast_df["Month_Label"],
+                    y=forecast_df["Lower"],
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="tonexty",
+                    fillcolor="rgba(231, 76, 60, 0.2)",
+                    name="Confidence Interval (±15%)",
+                    hovertemplate="<b>%{x}</b><br>Range: ฿%{y:,.0f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                title="<b>Revenue Forecast - Next 12 Months</b>",
+                xaxis=dict(title="", showgrid=False),
+                yaxis=dict(
+                    title="Revenue (฿)", showgrid=True, gridcolor="rgba(0,0,0,0.05)"
+                ),
+                plot_bgcolor="white",
+                height=400,
+                hovermode="x unified",
+                legend=dict(
+                    orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+                ),
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            # Forecast summary
+            total_forecast = forecast_df["Forecast"].sum()
+            avg_monthly = forecast_df["Forecast"].mean()
+            growth_forecast = (
+                (forecast_df["Forecast"].iloc[-1] - monthly_revenue["net_revenue"].iloc[-1])
+                / monthly_revenue["net_revenue"].iloc[-1]
+                * 100
+            )
+
+            st.markdown(
+                f"""
+            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 30px; border-radius: 10px; color: white; text-align: center; height: 400px;
+                        display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 14px; opacity: 0.9; margin-bottom: 15px;'>
+                    <b>FORECAST SUMMARY</b>
+                </div>
+                <div style='margin: 20px 0;'>
+                    <div style='font-size: 12px; opacity: 0.8;'>Next 12 Months Total</div>
+                    <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                        ฿{total_forecast/1000000:.1f}M
+                    </div>
+                </div>
+                <div style='margin: 20px 0;'>
+                    <div style='font-size: 12px; opacity: 0.8;'>Average Monthly</div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        ฿{avg_monthly/1000:.0f}K
+                    </div>
+                </div>
+                <div style='margin: 20px 0;'>
+                    <div style='font-size: 12px; opacity: 0.8;'>Expected Growth</div>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                        {growth_forecast:+.1f}%
+                    </div>
+                </div>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+        # Forecast table
+        st.markdown("#### 📋 Monthly Forecast Details")
+
+        forecast_display = forecast_df.copy()
+        forecast_display["Month"] = forecast_display["Month_Label"]
+        forecast_display = forecast_display[["Month", "Forecast", "Lower", "Upper"]]
+        forecast_display.columns = ["Month", "Forecast", "Min Expected", "Max Expected"]
+
+        styled_forecast = forecast_display.style.format(
+            {"Forecast": "฿{:,.0f}", "Min Expected": "฿{:,.0f}", "Max Expected": "฿{:,.0f}"}
+        ).background_gradient(subset=["Forecast"], cmap="Blues")
+
+        st.dataframe(styled_forecast, use_container_width=True, height=300)
+    else:
+        st.warning("⚠️ ต้องมีข้อมูลอย่างน้อย 3 เดือนเพื่อทำ Forecast")
+
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        """
+    <div style='text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 15px; color: white;'>
+        <h3 style='margin: 0; font-size: 24px;'>📊 Analytics Dashboard</h3>
+        <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>
+            Built with Streamlit • Data-Driven Insights with Professional KPIs
+        </p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
