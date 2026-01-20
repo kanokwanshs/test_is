@@ -1061,15 +1061,15 @@ with tab1:
     # ==================== PRODUCT PERFORMANCE ====================
     st.markdown("### 🏆 Top Product Performance")
 
-    with st.expander("📖 Description & Formula", expanded=False):
-        st.markdown(
-            """
-        <div class='metric-explanation'>
-            <b>📖 คำอธิบาย:</b> แสดงสินค้าที่ขายดีที่สุด 20 อันดับแรก วัดจากยอดขาย และอัตรากำไร
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
+    # with st.expander("📖 Description & Formula", expanded=False):
+    #     st.markdown(
+    #         """
+    #     <div class='metric-explanation'>
+    #         <b>📖 คำอธิบาย:</b> แสดงสินค้าที่ขายดีที่สุด 20 อันดับแรก วัดจากยอดขาย และอัตรากำไร
+    #     </div>
+    #     """,
+    #         unsafe_allow_html=True,
+    #     )
 
     product_sales = (
         df_filtered.groupby(["product_id", "product_name", "category"])
@@ -1240,7 +1240,7 @@ with tab1:
     # ==================== AI ANOMALY DETECTION ====================
     st.markdown("### 🔍 AI Anomaly Detection")
 
-    with st.expander("📖 ดูคำอธิบาย", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -1288,7 +1288,7 @@ with tab1:
     st.markdown("---")
     st.markdown("### 🎁 Smart Product Recommendations (Cross-sell)")
 
-    with st.expander("📖 ดูคำอธิบาย", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -3323,7 +3323,7 @@ with tab6:
     # ==================== AI CUSTOMER SEGMENTATION (RFM) ====================
     st.markdown("### 👥 AI Customer Segmentation (RFM Analysis)")
     
-    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
@@ -3546,7 +3546,7 @@ with tab6:
     # ==================== PRODUCT RECOMMENDATION ENGINE ====================
     st.markdown("### 🎁 AI Product Recommendation Engine")
     
-    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Collaborative Filtering:</b> แนะนำสินค้าตาม pattern ของลูกค้าที่มีพฤติกรรมคล้ายกัน<br>
@@ -3647,7 +3647,7 @@ with tab6:
     # ==================== PRICE OPTIMIZATION AI ====================
     st.markdown("### 💰 AI Price Optimization")
     
-    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Price Elasticity Analysis:</b> วิเคราะห์ว่าราคามีผลต่อยอดขายอย่างไร<br>
@@ -3751,7 +3751,7 @@ with tab6:
     # ==================== CHURN PREDICTION AI ====================
     st.markdown("### ⚠️ AI Churn Prediction & Prevention")
     
-    with st.expander("📖 ดูคำอธิบาย & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Churn Prediction:</b> ทำนายลูกค้าที่มีแนวโน้มจะหยุดซื้อ<br>
