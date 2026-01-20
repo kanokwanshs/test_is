@@ -525,7 +525,7 @@
 #     # ==================== SALES GROWTH ====================
 #     st.markdown("### 📈 Monthly Sales Growth")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -646,7 +646,7 @@
 #     # ==================== SALES TARGET ATTAINMENT ====================
 #     st.markdown("### 🎯 Sales Target Attainment")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -727,7 +727,7 @@
 #     # ==================== SALES BY CHANNEL ====================
 #     st.markdown("### 🏪 Sales by Channel")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -848,7 +848,7 @@
 #     # ==================== PRODUCT PERFORMANCE ====================
 #     st.markdown("### 🏆 Top Product Performance")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -1165,7 +1165,7 @@
 #     # ==================== CONVERSION FUNNEL ====================
 #     st.markdown("### 🎯 Conversion Funnel Analysis")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             f"""
 #         <div class='metric-explanation'>
@@ -1390,7 +1390,7 @@
 #     # ==================== CUSTOMER ACQUISITION COST ====================
 #     st.markdown("### 💳 Customer Acquisition Cost (CAC)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -1493,7 +1493,7 @@
 #     # ==================== RETENTION & CHURN ====================
 #     st.markdown("### 🔄 Customer Retention & Churn Rate")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             f"""
 #         <div class='metric-explanation'>
@@ -1601,7 +1601,7 @@
 #     # ==================== PROFIT MARGINS ====================
 #     st.markdown("### 📊 Profit Margin Analysis")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             f"""
 #         <div class='metric-explanation'>
@@ -1806,7 +1806,7 @@
 #     # ==================== WORKING CAPITAL RATIOS ====================
 #     st.markdown("### 💼 Working Capital Ratios")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -1917,7 +1917,7 @@
 #     # ==================== INVENTORY TURNOVER ====================
 #     st.markdown("### 🔄 Inventory Turnover & Performance")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             f"""
 #         <div class='metric-explanation'>
@@ -2028,7 +2028,7 @@
 #     # ==================== PRODUCT MOVEMENT CLASSIFICATION ====================
 #     st.markdown("### 🚀 Product Movement Classification")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -2215,7 +2215,7 @@
 #     # ==================== ABC ANALYSIS ====================
 #     st.markdown("### 📊 ABC Analysis (Pareto Principle)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -2359,7 +2359,7 @@
 #     # ==================== STOCK HEALTH DASHBOARD ====================
 #     st.markdown("### 🏥 Stock Health Dashboard")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -2481,7 +2481,7 @@
 #     st.markdown("# 🔮 Forecasting & Planning")
 #     st.markdown("---")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -2495,7 +2495,7 @@
 #     # ==================== REVENUE FORECAST ====================
 #     st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(
 #             """
 #         <div class='metric-explanation'>
@@ -2712,7 +2712,7 @@
 #     # ==================== STOCK PLANNING ====================
 #     st.markdown("### 📦 Stock Planning Recommendation")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
@@ -2931,7 +2931,7 @@
 #     # ==================== DEMAND FORECASTING BY PRODUCT ====================
 #     st.markdown("### 📊 Demand Forecasting by Product Category")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
@@ -4504,7 +4504,7 @@
 #     # Monthly Sales Growth
 #     st.markdown("### 📈 Monthly Sales Growth")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> วัดว่ายอดขายเติบโตกี่ % เมื่อเทียบกับเดือนก่อนหน้า<br>
@@ -4599,7 +4599,7 @@
 #     # Sales Target Attainment
 #     st.markdown("### 🎯 Sales Target Attainment")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> วัดว่าทำยอดขายได้กี่ % ของเป้าหมายที่ตั้งไว้<br>
@@ -4759,7 +4759,7 @@
 #     # Customer Acquisition Cost
 #     st.markdown("### 💳 Customer Acquisition Cost (CAC)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> ค่าใช้จ่ายที่ใช้ในการหาลูกค้าใหม่ 1 คน<br>
@@ -4838,7 +4838,7 @@
 #     # Customer Retention & Churn
 #     st.markdown("### 🔄 Customer Retention & Churn Rate")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(f"""
 #         <div class='metric-explanation'>
 #             <b>📖 Retention Rate:</b> เปอร์เซ็นต์ของลูกค้าที่ยังคงซื้อสินค้ากับเรา<br>
@@ -4928,7 +4928,7 @@
 #     # Profit Margin Analysis
 #     st.markdown("### 📊 Profit Margin Analysis")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(f"""
 #         <div class='metric-explanation'>
 #             <b>📖 Gross Profit Margin:</b> เปอร์เซ็นต์กำไรขั้นต้น (หลังหักต้นทุนสินค้า)<br>
@@ -5123,7 +5123,7 @@
     
 #     st.markdown("### 💼 Working Capital Ratios")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 AR Turnover:</b> จำนวนครั้งที่เราเก็บเงินจากลูกค้าได้ต่อปี (ยิ่งสูงยิ่งดี)<br>
@@ -5252,7 +5252,7 @@
 #     # Inventory Turnover & Performance
 #     st.markdown("### 🔄 Inventory Turnover & Performance")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown(f"""
 #         <div class='metric-explanation'>
 #             <b>📖 Inventory Turnover:</b> จำนวนครั้งที่สินค้าหมุนเวียนต่อปี (ยิ่งสูงยิ่งดี)<br>
@@ -5352,7 +5352,7 @@
 #     # Product Movement Classification
 #     st.markdown("### 🚀 Product Movement Classification")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> จัดกลุ่มสินค้าตามความเร็วในการขาย<br>
@@ -5499,7 +5499,7 @@
 #     # Cash Conversion Cycle
 #     st.markdown("### ⏱️ Cash Conversion Cycle (CCC)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> ระยะเวลาที่เงินสดถูกล็อคอยู่ในธุรกิจ<br>
@@ -5584,7 +5584,7 @@
 #     st.markdown("# 🔮 Forecasting & Planning")
 #     st.markdown("---")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
@@ -5595,7 +5595,7 @@
 #     # Revenue Forecast
 #     st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 Revenue Forecast:</b> ทำนายยอดขายในอนาคต 12 เดือนข้างหน้า<br>
@@ -5787,7 +5787,7 @@
 #     # Stock Planning Recommendation
 #     st.markdown("### 📦 Stock Planning Recommendation")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
@@ -6009,7 +6009,7 @@
 #     # RFM Segmentation
 #     st.markdown("### 👥 RFM Customer Segmentation")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
@@ -6146,7 +6146,7 @@
 #     # Churn Prediction
 #     st.markdown("### ⚠️ Churn Risk Prediction")
 
-#     with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+#     with st.expander("📖 Description & Formula", expanded=False):
 #         st.markdown("""
 #         <div class='metric-explanation'>
 #             <b>📖 Churn Prediction:</b> ทำนายลูกค้าที่มีความเสี่ยงจะหยุดซื้อสินค้า<br>
@@ -8237,7 +8237,7 @@ with tab1:
     # ==================== SALES GROWTH ====================
     st.markdown("### 📈 Monthly Sales Growth")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -8358,7 +8358,7 @@ with tab1:
     # ==================== SALES TARGET ATTAINMENT ====================
     st.markdown("### 🎯 Sales Target Attainment")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -8439,7 +8439,7 @@ with tab1:
     # ==================== SALES BY CHANNEL ====================
     st.markdown("### 🏪 Sales by Channel")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -8560,7 +8560,7 @@ with tab1:
     # ==================== PRODUCT PERFORMANCE ====================
     st.markdown("### 🏆 Top Product Performance")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -8877,7 +8877,7 @@ with tab2:
     # ==================== CONVERSION FUNNEL ====================
     st.markdown("### 🎯 Conversion Funnel Analysis")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -9102,7 +9102,7 @@ with tab2:
     # ==================== CUSTOMER ACQUISITION COST ====================
     st.markdown("### 💳 Customer Acquisition Cost (CAC)")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -9205,7 +9205,7 @@ with tab2:
     # ==================== RETENTION & CHURN ====================
     st.markdown("### 🔄 Customer Retention & Churn Rate")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -9313,7 +9313,7 @@ with tab3:
     # ==================== PROFIT MARGINS ====================
     st.markdown("### 📊 Profit Margin Analysis")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -9690,7 +9690,7 @@ with tab4:
     # ==================== INVENTORY TURNOVER ====================
     st.markdown("### 🔄 Inventory Turnover & Performance")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -9812,7 +9812,7 @@ with tab4:
     # ==================== PRODUCT MOVEMENT CLASSIFICATION ====================
     st.markdown("### 🚀 Product Movement Classification")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -9999,7 +9999,7 @@ with tab4:
     # ==================== ABC ANALYSIS ====================
     st.markdown("### 📊 ABC Analysis (Pareto Principle)")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -10143,7 +10143,7 @@ with tab4:
     # ==================== STOCK HEALTH DASHBOARD ====================
     st.markdown("### 🏥 Stock Health Dashboard")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -10279,7 +10279,7 @@ with tab5:
     st.markdown("# 🔮 Forecasting & Planning")
     st.markdown("---")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -10293,7 +10293,7 @@ with tab5:
     # ==================== REVENUE FORECAST ====================
     st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -10510,7 +10510,7 @@ with tab5:
     # ==================== STOCK PLANNING ====================
     st.markdown("### 📦 Stock Planning Recommendation")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
@@ -10729,7 +10729,7 @@ with tab5:
     # ==================== DEMAND FORECASTING BY PRODUCT ====================
     st.markdown("### 📊 Demand Forecasting by Product Category")
 
-    with st.expander("📖 ดูคำอธิบาย & สูตรการคำนวณ", expanded=False):
+    with st.expander("📖 Description & Formula", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
