@@ -8179,6 +8179,17 @@ with col3:
         )
         df_filtered = df_filtered[df_filtered["category"].isin(categories)]
 
+# Data Validation
+if df_filtered.empty:
+    st.error("❌ ไม่มีข้อมูลในช่วงเวลาที่เลือก กรุณาเลือกช่วงเวลาใหม่")
+    st.stop()
+
+if df_filtered['order_id'].nunique() < 10:
+    st.warning("⚠️ ข้อมูลมีน้อยเกินไป (< 10 orders) ผลลัพธ์อาจไม่แม่นยำ")
+
+if df_filtered['user_id'].nunique() < 5:
+    st.warning("⚠️ ลูกค้ามีน้อยเกินไป (< 5 customers) การวิเคราะห์ลูกค้าอาจไม่แม่นยำ")
+
 st.markdown("---")
 st.markdown("### 📊 Summary Statistics")
 
@@ -9697,7 +9708,18 @@ with tab4:
             unsafe_allow_html=True,
         )
 
-    avg_inventory = df_filtered["cost"].mean() * df_filtered["product_id"].nunique()
+    # Calculate average inventory value properly
+    if 'inventory' in data:
+        try:
+            actual_inventory = data['inventory'].groupby('product_id')['quantity'].last().sum()
+            avg_product_cost = cogs / df_filtered['quantity'].sum() if df_filtered['quantity'].sum() > 0 else 0
+            avg_inventory_value = actual_inventory * avg_product_cost
+        except:
+            avg_inventory_value = cogs * 0.25  # Estimate: 25% of COGS
+    else:
+        avg_inventory_value = cogs * 0.25  # Estimate: 25% of COGS
+    avg_inventory = avg_inventory_value  # เปลี่ยนชื่อตัวแปรให้ตรงกับที่ใช้ต่อ
+
     inventory_turnover = cogs / avg_inventory if avg_inventory > 0 else 0
     dio = 365 / inventory_turnover if inventory_turnover > 0 else 0
 
@@ -10136,16 +10158,30 @@ with tab4:
 
     # Calculate stock health
     stock_health = product_velocity.copy()
-    stock_health["Days_in_Stock"] = (stock_health["Cost"] / stock_health["Revenue"] * 365) if revenue > 0 else 999
+    stock_health["Inventory_Turnover"] = stock_health.apply(
+        lambda x: (x["Revenue"] / x["Cost"]) if x["Cost"] > 0 else 0, 
+        axis=1
+    )
 
+    # Calculate Days in Stock
+    stock_health["Days_in_Stock"] = stock_health.apply(
+        lambda x: (365 / x["Inventory_Turnover"]) if x["Inventory_Turnover"] > 0 else 999, 
+        axis=1
+    )
     def classify_health(row):
-        if row["Movement"] == "Fast Moving" and row["Days_in_Stock"] < 60:
+        turnover = row["Inventory_Turnover"]
+        days = row["Days_in_Stock"]
+    
+        # Healthy: หมุนเวียนเร็ว (> 6x/year หรือ < 60 days)
+        if turnover >= 6 and days < 60:
             return "Healthy"
-        elif row["Movement"] == "Slow Moving" or row["Days_in_Stock"] > 120:
+        # Critical: หมุนเวียนช้า (< 2x/year หรือ > 180 days)
+        elif turnover < 2 or days > 180:
             return "Critical"
+        # Watch: อยู่ตรงกลาง
         else:
             return "Watch"
-
+        
     stock_health["Health_Status"] = stock_health.apply(classify_health, axis=1)
 
     # Health summary
@@ -10813,11 +10849,24 @@ with tab6:
     }).reset_index()
     
     rfm.columns = ['user_id', 'recency', 'frequency', 'monetary']
+
+
+    # RFM Scoring (1-5 scale) with error handling
+    try:
+        # ใช้ rank เพื่อรองรับข้อมูลที่ซ้ำกัน
+        rfm['r_rank'] = rfm['recency'].rank(method='first')
+        rfm['f_rank'] = rfm['frequency'].rank(method='first')
+        rfm['m_rank'] = rfm['monetary'].rank(method='first')
     
-    # RFM Scoring (1-5 scale)
-    rfm['r_score'] = pd.qcut(rfm['recency'], q=5, labels=[5,4,3,2,1], duplicates='drop')
-    rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
-    rfm['m_score'] = pd.qcut(rfm['monetary'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+        # แบ่งเป็น 5 กลุ่ม
+        rfm['r_score'] = pd.cut(rfm['r_rank'], bins=5, labels=[5,4,3,2,1], duplicates='drop')
+        rfm['f_score'] = pd.cut(rfm['f_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
+        rfm['m_score'] = pd.cut(rfm['m_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
+    except:
+        # Fallback: ใช้ qcut แบบเดิม
+        rfm['r_score'] = pd.qcut(rfm['recency'], q=5, labels=[5,4,3,2,1], duplicates='drop')
+        rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+        rfm['m_score'] = pd.qcut(rfm['monetary'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
     
     rfm['rfm_score'] = rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
     
@@ -11038,9 +11087,20 @@ with tab6:
     )
     
     if selected_product:
-        # Get recommendations
-        similar_products = product_similarity_df[selected_product].sort_values(ascending=False)[1:6]
+        # Check if product exists in similarity matrix
+        if selected_product in product_similarity_df.columns:
+            # Get recommendations
+            similar_products = product_similarity_df[selected_product].sort_values(ascending=False)[1:6]
         
+            if len(similar_products) > 0:
+                # (โค้ดส่วนแสดงผลเดิมไม่ต้องแก้)
+                col1, col2 = st.columns([1, 2])
+                # ... ส่วนที่เหลือเหมือนเดิม
+            else:
+                st.info("ℹ️ ไม่พบสินค้าที่คล้ายกัน")
+        else:
+            st.warning(f"⚠️ ไม่พบข้อมูลสินค้า '{selected_product}' ในระบบ")
+
         col1, col2 = st.columns([1, 2])
         
         with col1:
@@ -11108,9 +11168,22 @@ with tab6:
     
     price_analysis['current_margin_%'] = (price_analysis['profit'] / price_analysis['net_revenue'] * 100).round(1)
     price_analysis['markup_%'] = ((price_analysis['sale_price'] - price_analysis['cost']) / price_analysis['cost'] * 100).round(1)
+
+    # Calculate optimal price based on current margin
+    def calculate_optimal_price(row):
+        current_margin = row['current_margin_%'] / 100
+        cost = row['cost']
     
-    # Calculate optimal price (simple heuristic: maximize profit margin while maintaining volume)
-    price_analysis['optimal_price'] = (price_analysis['cost'] * 1.5).round(0)  # 50% markup as baseline
+        if current_margin < 0.15:  # Margin ต่ำมาก (< 15%)
+            return cost * 1.45  # Target 45% margin
+        elif current_margin > 0.60:  # Margin สูงมาก (> 60%)
+            return cost * 1.50  # Target 50% margin
+        elif 0.30 <= current_margin <= 0.50:  # Optimal range
+            return row['sale_price']  # รักษาราคาปัจจุบัน
+        else:
+            return cost * 1.40  # Target 40% margin
+    price_analysis['optimal_price'] = price_analysis.apply(calculate_optimal_price, axis=1).round(0)
+
     price_analysis['potential_profit_increase_%'] = (
         ((price_analysis['optimal_price'] - price_analysis['cost']) * price_analysis['quantity'] - price_analysis['profit']) 
         / price_analysis['profit'] * 100
@@ -11197,13 +11270,22 @@ with tab6:
         ((churn_df['frequency'].max() - churn_df['frequency']) / churn_df['frequency'].max() * 35) +  # Frequency weight 35%
         ((churn_df['monetary'].max() - churn_df['monetary']) / churn_df['monetary'].max() * 25)  # Monetary weight 25%
     )
-    
-    # Categorize risk
-    churn_df['risk_category'] = pd.cut(
-        churn_df['churn_risk_score'],
-        bins=[0, 30, 60, 100],
-        labels=['Low Risk', 'Medium Risk', 'High Risk']
-    )
+
+    # Categorize risk with error handling
+    try:
+        churn_df['risk_category'] = pd.cut(
+            churn_df['churn_risk_score'],
+            bins=[0, 30, 60, 100],
+            labels=['Low Risk', 'Medium Risk', 'High Risk']
+        )
+    except ValueError:
+        # ถ้าข้อมูลน้อยเกินไป ใช้ qcut แทน
+        churn_df['risk_category'] = pd.qcut(
+            churn_df['churn_risk_score'],
+            q=3,
+            labels=['Low Risk', 'Medium Risk', 'High Risk'],
+            duplicates='drop'
+        )
     
     # Summary by risk category
     risk_summary = churn_df.groupby('risk_category').agg({
