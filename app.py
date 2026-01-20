@@ -738,7 +738,7 @@ with tab1:
     # ==================== SALES GROWTH ====================
     st.markdown("### 📈 Monthly Sales Growth")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -859,7 +859,7 @@ with tab1:
     # ==================== SALES TARGET ATTAINMENT ====================
     st.markdown("### 🎯 Sales Target Attainment")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -940,7 +940,7 @@ with tab1:
     # ==================== SALES BY CHANNEL ====================
     st.markdown("### 🏪 Sales by Channel")
 
-    # with st.expander("📖 Description & Formula", expanded=False):
+    # with st.expander("📖 Description", expanded=False):
     #     st.markdown(
     #         """
     #     <div class='metric-explanation'>
@@ -1061,7 +1061,7 @@ with tab1:
     # ==================== PRODUCT PERFORMANCE ====================
     st.markdown("### 🏆 Top Product Performance")
 
-    # with st.expander("📖 Description & Formula", expanded=False):
+    # with st.expander("📖 Description", expanded=False):
     #     st.markdown(
     #         """
     #     <div class='metric-explanation'>
@@ -1378,7 +1378,7 @@ with tab2:
     # ==================== CONVERSION FUNNEL ====================
     st.markdown("### 🎯 Conversion Funnel Analysis")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -1603,7 +1603,7 @@ with tab2:
     # ==================== CUSTOMER ACQUISITION COST ====================
     st.markdown("### 💳 Customer Acquisition Cost (CAC)")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -1706,7 +1706,7 @@ with tab2:
     # ==================== RETENTION & CHURN ====================
     st.markdown("### 🔄 Customer Retention & Churn Rate")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -1814,7 +1814,7 @@ with tab3:
     # ==================== PROFIT MARGINS ====================
     st.markdown("### 📊 Profit Margin Analysis")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -2191,7 +2191,7 @@ with tab4:
     # ==================== INVENTORY TURNOVER ====================
     st.markdown("### 🔄 Inventory Turnover & Performance")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             f"""
         <div class='metric-explanation'>
@@ -2313,7 +2313,7 @@ with tab4:
     # ==================== PRODUCT MOVEMENT CLASSIFICATION ====================
     st.markdown("### 🚀 Product Movement Classification")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -2500,7 +2500,7 @@ with tab4:
     # ==================== ABC ANALYSIS ====================
     st.markdown("### 📊 ABC Analysis (Pareto Principle)")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -2644,7 +2644,7 @@ with tab4:
     # ==================== STOCK HEALTH DASHBOARD ====================
     st.markdown("### 🏥 Stock Health Dashboard")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -2780,21 +2780,21 @@ with tab5:
     st.markdown("# 🔮 Forecasting & Planning")
     st.markdown("---")
 
-    with st.expander("📖 Description & Formula", expanded=False):
-        st.markdown(
-            """
-        <div class='metric-explanation'>
-            <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
-            <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
+    # with st.expander("📖 Description", expanded=False):
+    #     st.markdown(
+    #         """
+    #     <div class='metric-explanation'>
+    #         <b>📖 คำอธิบาย:</b> ใช้ข้อมูลในอดีตเพื่อคาดการณ์อนาคต ช่วยในการวางแผนธุรกิจ<br>
+    #         <b>🎯 วิธีการ:</b> ใช้ Moving Average และ Linear Regression เพื่อทำนายแนวโน้ม
+    #     </div>
+    #     """,
+    #         unsafe_allow_html=True,
+    #     )
 
     # ==================== REVENUE FORECAST ====================
     st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown(
             """
         <div class='metric-explanation'>
@@ -3011,7 +3011,7 @@ with tab5:
     # ==================== STOCK PLANNING ====================
     st.markdown("### 📦 Stock Planning Recommendation")
 
-    with st.expander("📖 Description & Formula", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Stock Planning:</b> แนะนำปริมาณสต็อกที่ควรมีสำหรับแต่ละสินค้า<br>
@@ -3230,13 +3230,13 @@ with tab5:
     # ==================== DEMAND FORECASTING BY PRODUCT ====================
     st.markdown("### 📊 Demand Forecasting by Product Category")
 
-    with st.expander("📖 Description & Formula", expanded=False):
-        st.markdown("""
-        <div class='metric-explanation'>
-            <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
-            <b>💡 ประโยชน์:</b> วางแผนการผลิต/สั่งซื้อ แยกตามหมวดหมู่สินค้า
-        </div>
-        """, unsafe_allow_html=True)
+    # with st.expander("📖 Description", expanded=False):
+    #     st.markdown("""
+    #     <div class='metric-explanation'>
+    #         <b>📖 Demand Forecasting:</b> ทำนายความต้องการสินค้าแต่ละหมวดหมู่ในอนาคต<br>
+    #         <b>💡 ประโยชน์:</b> วางแผนการผลิต/สั่งซื้อ แยกตามหมวดหมู่สินค้า
+    #     </div>
+    #     """, unsafe_allow_html=True)
 
     # Category demand forecast
     category_monthly = df_filtered.groupby(['order_month', 'category']).agg({
@@ -3323,7 +3323,7 @@ with tab6:
     # ==================== AI CUSTOMER SEGMENTATION (RFM) ====================
     st.markdown("### 👥 AI Customer Segmentation (RFM Analysis)")
     
-    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
@@ -3546,7 +3546,7 @@ with tab6:
     # ==================== PRODUCT RECOMMENDATION ENGINE ====================
     st.markdown("### 🎁 AI Product Recommendation Engine")
     
-    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Collaborative Filtering:</b> แนะนำสินค้าตาม pattern ของลูกค้าที่มีพฤติกรรมคล้ายกัน<br>
@@ -3647,7 +3647,7 @@ with tab6:
     # ==================== PRICE OPTIMIZATION AI ====================
     st.markdown("### 💰 AI Price Optimization")
     
-    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Price Elasticity Analysis:</b> วิเคราะห์ว่าราคามีผลต่อยอดขายอย่างไร<br>
@@ -3751,7 +3751,7 @@ with tab6:
     # ==================== CHURN PREDICTION AI ====================
     st.markdown("### ⚠️ AI Churn Prediction & Prevention")
     
-    with st.expander("📖 Description & วิธีการทำงาน", expanded=False):
+    with st.expander("📖 Description", expanded=False):
         st.markdown("""
         <div class='metric-explanation'>
             <b>📖 Churn Prediction:</b> ทำนายลูกค้าที่มีแนวโน้มจะหยุดซื้อ<br>
