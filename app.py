@@ -940,15 +940,15 @@ with tab1:
     # ==================== SALES BY CHANNEL ====================
     st.markdown("### 🏪 Sales by Channel")
 
-    with st.expander("📖 Description & Formula", expanded=False):
-        st.markdown(
-            """
-        <div class='metric-explanation'>
-            <b>📖 คำอธิบาย:</b> แสดงยอดขายแยกตามช่องทางการขาย เพื่อดูว่าช่องทางไหนมี Performance ดีที่สุด
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
+    # with st.expander("📖 Description & Formula", expanded=False):
+    #     st.markdown(
+    #         """
+    #     <div class='metric-explanation'>
+    #         <b>📖 คำอธิบาย:</b> แสดงยอดขายแยกตามช่องทางการขาย เพื่อดูว่าช่องทางไหนมี Performance ดีที่สุด
+    #     </div>
+    #     """,
+    #         unsafe_allow_html=True,
+    #     )
 
     channel_sales = (
         df_filtered.groupby("channel")
