@@ -7497,7 +7497,7 @@
 
 
 
- Analytics Dashboard - Fixed Version
+# Analytics Dashboard - Fixed Version
 import streamlit as st
 import pandas as pd
 import plotly.express as px
