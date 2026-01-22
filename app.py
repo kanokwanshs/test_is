@@ -2963,14 +2963,14 @@ with tab5:
                 </div>
                 <div style='margin: 20px 0;'>
                     <div style='font-size: 12px; opacity: 0.8;'>Next 12 Months Total</div>
-                    <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
                         ฿{total_forecast/1000000:.1f}M
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
                     <div style='font-size: 12px; opacity: 0.8;'>Average Monthly</div>
                     <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
-                        ฿{avg_monthly/1000:.0f}K
+                        ฿{avg_monthly/1000000:.0f}M
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
