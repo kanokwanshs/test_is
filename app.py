@@ -200,14 +200,9 @@ REQUIRED_COLUMNS = {
     "users": ["user_id", "customer_type", "created_at"],
     "products": ["product_id", "category", "sale_price", "cost"],
     "orders": ["order_id", "user_id", "order_date", "channel", "status"],
-    "order_items": [
-        "order_id",
-        "product_id",
-        "quantity",
-        "net_revenue",
-        "cost",
-        "profit",
-    ],
+    "order_items": ["order_id", "product_id","quantity","net_revenue","cost","profit",],
+    "inventory_movements (optional)": ["product_id", "movement_date","movement_type","quantity",],
+    "balance_sheet (optional)": ["date", "accounts_receivable","accounts_payable","inventory_value","amount",],
 }
 
 
@@ -324,7 +319,7 @@ def load_data():
 
         if "targets" not in st.session_state:
             st.session_state.targets = {
-                "monthly_revenue": 5000000,
+                "monthly_revenue": 1000000,
                 "profit_margin": 20,
                 "conversion_rate": 5,
                 "retention_rate": 80,
@@ -560,8 +555,7 @@ if not data:
             )
         with col2:
             st.code("products.csv:\n- product_id\n- category\n- sale_price\n- cost")
-            st.code(
-                "order_items.csv:\n- order_id\n- product_id\n- quantity\n- net_revenue\n- cost\n- profit"
+            st.code("order_items.csv:\n- order_id\n- product_id\n- quantity\n- net_revenue\n- cost\n- profit"    
             )
 
     st.stop()
@@ -707,9 +701,9 @@ avg_order_value = revenue / total_orders if total_orders > 0 else 0
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
-    st.metric("💰 Revenue", f"฿{revenue/1000:,.0f}K")
+    st.metric("💰 Revenue", f"฿{revenue/1000000:,.0f}M")
 with col2:
-    st.metric("💵 Profit", f"฿{profit/1000:,.0f}K")
+    st.metric("💵 Profit", f"฿{profit/1000000:,.0f}M")
 with col3:
     st.metric("📝 Orders", f"{total_orders:,}")
 with col4:
