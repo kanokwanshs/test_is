@@ -2958,24 +2958,24 @@ with tab5:
             <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                         padding: 30px; border-radius: 10px; color: white; text-align: center; height: 400px;
                         display: flex; flex-direction: column; justify-content: center;'>
-                <div style='font-size: 14px; opacity: 0.9; margin-bottom: 15px;'>
+                <div style='font-size: 12px; opacity: 0.9; margin-bottom: 15px;'>
                     <b>FORECAST SUMMARY</b>
                 </div>
                 <div style='margin: 20px 0;'>
                     <div style='font-size: 12px; opacity: 0.8;'>Next 12 Months Total</div>
-                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 26px; font-weight: bold; margin: 10px 0;'>
                         ฿{total_forecast/1000000:.1f}M
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
                     <div style='font-size: 12px; opacity: 0.8;'>Average Monthly</div>
-                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 26px; font-weight: bold; margin: 10px 0;'>
                         ฿{avg_monthly/1000000:.0f}M
                     </div>
                 </div>
                 <div style='margin: 20px 0;'>
                     <div style='font-size: 12px; opacity: 0.8;'>Expected Growth</div>
-                    <div style='font-size: 28px; font-weight: bold; margin: 10px 0;'>
+                    <div style='font-size: 26px; font-weight: bold; margin: 10px 0;'>
                         {growth_forecast:+.1f}%
                     </div>
                 </div>
