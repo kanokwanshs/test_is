@@ -2231,6 +2231,576 @@ with tab2:
 # แทรกโค้ดนี้ใน Marketing Analytics tab (tab2) หลังจาก CAC/CLV section (ประมาณบรรทัด 1698)
 # ก่อน Retention & Churn section
 
+    # # ==================== CAMPAIGN PERFORMANCE METRICS ====================
+    # st.markdown("### 📊 Campaign Performance & ROAS")
+    
+    # with st.expander("📖 Description", expanded=False):
+    #     st.markdown("""
+    #     <div class='metric-explanation'>
+    #         <b>📖 Marketing Campaign Metrics:</b><br>
+    #         • <b>ROAS (Return on Ad Spend):</b> (Revenue / Ad Cost) × 100 → เป้าหมาย >300%<br>
+    #         • <b>CTR (Click-Through Rate):</b> (Clicks / Impressions) × 100 → เป้าหมาย >3%<br>
+    #         • <b>CVR (Conversion Rate):</b> (Conversions / Clicks) × 100 → เป้าหมาย >5%<br>
+    #         • <b>CPC (Cost Per Click):</b> Ad Cost / Clicks<br>
+    #         • <b>CPA (Cost Per Acquisition):</b> Ad Cost / Conversions<br>
+    #         <b>💡 การใช้ประโยชน์:</b> วัดประสิทธิภาพแคมเปญ เพื่อตัดสินใจจัดสรรงบ
+    #     </div>
+    #     """, unsafe_allow_html=True)
+    
+    # # Check if campaign data exists
+    # has_campaign_metrics = all(col in df_filtered.columns for col in 
+    #                            ['campaign_name', 'campaign_cost', 'impressions', 'clicks'])
+    
+    # # Show data availability status
+    # if not has_campaign_metrics:
+    #     col_warn1, col_warn2 = st.columns([2, 1])
+    #     with col_warn1:
+    #         st.info("""
+    #         ℹ️ **Campaign Performance Data Not Available**
+            
+    #         To see detailed campaign metrics, please add these columns:
+    #         - `campaign_name`, `campaign_cost`, `impressions`, `clicks`, `conversions`
+            
+    #         **Currently:** Using estimated metrics from channel data
+    #         """)
+    #     with col_warn2:
+    #         st.markdown("""
+    #         <div style='background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12;'>
+    #             <div style='font-size: 12px; color: #856404;'><b>⚠️ Data Quality</b></div>
+    #             <div style='font-size: 11px; color: #856404; margin-top: 5px;'>
+    #                 Metrics are estimated<br>
+    #                 Upload campaign data for accuracy
+    #             </div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+    # else:
+    #     st.success("✅ Campaign data available - showing actual metrics")
+    
+    # # Prepare campaign data (with fallback to channel data)
+    # if 'campaign_name' in df_filtered.columns and df_filtered['campaign_name'].notna().any():
+    #     # Use actual campaign data
+    #     campaign_group = df_filtered.groupby('campaign_name').agg({
+    #         'net_revenue': 'sum',
+    #         'order_id': 'nunique',
+    #         'user_id': 'nunique',
+    #         'campaign_cost': 'first' if 'campaign_cost' in df_filtered.columns else lambda x: 0,
+    #         'impressions': 'sum' if 'impressions' in df_filtered.columns else lambda x: 0,
+    #         'clicks': 'sum' if 'clicks' in df_filtered.columns else lambda x: 0,
+    #         'conversions': 'sum' if 'conversions' in df_filtered.columns else lambda x: 0
+    #     }).reset_index()
+        
+    #     data_source = "actual"
+    # else:
+    #     # Fallback: Use channel as campaign
+    #     if 'channel' not in df_filtered.columns:
+    #         st.warning("⚠️ No channel or campaign data available. Skipping campaign analysis.")
+    #         campaign_group = pd.DataFrame()  # Empty dataframe
+    #         data_source = "none"
+    #     else:
+    #         campaign_group = df_filtered.groupby('channel').agg({
+    #             'net_revenue': 'sum',
+    #             'order_id': 'nunique',
+    #             'user_id': 'nunique'
+    #         }).reset_index()
+    #         campaign_group.rename(columns={'channel': 'campaign_name'}, inplace=True)
+            
+    #         # Estimate missing metrics (industry averages)
+    #         campaign_group['campaign_cost'] = campaign_group['net_revenue'] * 0.15  # 15% of revenue
+    #         campaign_group['impressions'] = campaign_group['order_id'] * 50  # 1 order ≈ 50 impressions
+    #         campaign_group['clicks'] = campaign_group['order_id'] * 5  # 1 order ≈ 5 clicks
+    #         campaign_group['conversions'] = campaign_group['order_id']  # 1 order = 1 conversion
+            
+    #         data_source = "estimated"
+    
+    # if not campaign_group.empty:
+    #     # Fill missing values
+    #     for col in ['campaign_cost', 'impressions', 'clicks', 'conversions']:
+    #         if col not in campaign_group.columns:
+    #             if col == 'campaign_cost':
+    #                 campaign_group[col] = campaign_group['net_revenue'] * 0.15
+    #             elif col == 'impressions':
+    #                 campaign_group[col] = campaign_group['order_id'] * 50
+    #             elif col == 'clicks':
+    #                 campaign_group[col] = campaign_group['order_id'] * 5
+    #             elif col == 'conversions':
+    #                 campaign_group[col] = campaign_group['order_id']
+    #         else:
+    #             campaign_group[col] = campaign_group[col].fillna(0)
+        
+    #     # Calculate campaign metrics
+    #     campaign_group['ROAS_%'] = (campaign_group['net_revenue'] / campaign_group['campaign_cost'] * 100).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['CTR_%'] = (campaign_group['clicks'] / campaign_group['impressions'] * 100).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['CVR_%'] = (campaign_group['conversions'] / campaign_group['clicks'] * 100).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['CPC'] = (campaign_group['campaign_cost'] / campaign_group['clicks']).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['CPA'] = (campaign_group['campaign_cost'] / campaign_group['conversions']).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['revenue_per_click'] = (campaign_group['net_revenue'] / campaign_group['clicks']).replace([np.inf, -np.inf], 0).fillna(0)
+    #     campaign_group['profit'] = campaign_group['net_revenue'] - campaign_group['campaign_cost']
+    #     campaign_group['profit_margin_%'] = (campaign_group['profit'] / campaign_group['net_revenue'] * 100).replace([np.inf, -np.inf], 0).fillna(0)
+        
+    #     # Sort by ROAS
+    #     campaign_group = campaign_group.sort_values('ROAS_%', ascending=False)
+        
+    #     # Summary metrics
+    #     total_ad_spend = campaign_group['campaign_cost'].sum()
+    #     total_campaign_revenue = campaign_group['net_revenue'].sum()
+    #     total_campaign_profit = campaign_group['profit'].sum()
+    #     avg_roas = (total_campaign_revenue / total_ad_spend * 100) if total_ad_spend > 0 else 0
+    #     total_campaign_conversions = campaign_group['conversions'].sum()
+    #     avg_campaign_cpa = (total_ad_spend / total_campaign_conversions) if total_campaign_conversions > 0 else 0
+        
+    #     # Display summary cards
+    #     col1, col2, col3, col4 = st.columns(4)
+        
+    #     with col1:
+    #         st.markdown(f"""
+    #         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    #                     padding: 20px; border-radius: 10px; color: white; text-align: center;'>
+    #             <div style='font-size: 12px; opacity: 0.9;'><b>TOTAL AD SPEND</b></div>
+    #             <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+    #                 ฿{total_ad_spend/1000:.0f}K
+    #             </div>
+    #             <div style='font-size: 10px; opacity: 0.8;'>Marketing Investment</div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+        
+    #     with col2:
+    #         roas_color = "#2ecc71" if avg_roas >= 300 else "#f39c12" if avg_roas >= 200 else "#e74c3c"
+    #         roas_status = "✅ Excellent" if avg_roas >= 300 else "⚠️ Good" if avg_roas >= 200 else "❌ Poor"
+    #         st.markdown(f"""
+    #         <div style='background: linear-gradient(135deg, {roas_color} 0%, {roas_color}dd 100%); 
+    #                     padding: 20px; border-radius: 10px; color: white; text-align: center;'>
+    #             <div style='font-size: 12px; opacity: 0.9;'><b>AVERAGE ROAS</b></div>
+    #             <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+    #                 {avg_roas:.0f}%
+    #             </div>
+    #             <div style='font-size: 10px; opacity: 0.8;'>{roas_status}</div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+        
+    #     with col3:
+    #         st.markdown(f"""
+    #         <div style='background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); 
+    #                     padding: 20px; border-radius: 10px; color: white; text-align: center;'>
+    #             <div style='font-size: 12px; opacity: 0.9;'><b>CAMPAIGN PROFIT</b></div>
+    #             <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+    #                 ฿{total_campaign_profit/1000:.0f}K
+    #             </div>
+    #             <div style='font-size: 10px; opacity: 0.8;'>Revenue - Ad Cost</div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+        
+    #     with col4:
+    #         st.markdown(f"""
+    #         <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+    #                     padding: 20px; border-radius: 10px; color: white; text-align: center;'>
+    #             <div style='font-size: 12px; opacity: 0.9;'><b>AVG CPA</b></div>
+    #             <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+    #                 ฿{avg_campaign_cpa:.0f}
+    #             </div>
+    #             <div style='font-size: 10px; opacity: 0.8;'>Cost Per Acquisition</div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+        
+    #     st.markdown("<br>", unsafe_allow_html=True)
+        
+    #     # Campaign comparison charts
+    #     col1, col2 = st.columns(2)
+        
+    #     with col1:
+    #         # ROAS by Campaign
+    #         fig = go.Figure()
+            
+    #         # Add benchmark lines
+    #         fig.add_hline(y=300, line_dash="dash", line_color="green", 
+    #                      annotation_text="Excellent (300%)", annotation_position="right")
+    #         fig.add_hline(y=200, line_dash="dash", line_color="orange",
+    #                      annotation_text="Good (200%)", annotation_position="right")
+            
+    #         # Color based on performance
+    #         colors = ['#2ecc71' if x >= 300 else '#f39c12' if x >= 200 else '#e74c3c' 
+    #                  for x in campaign_group['ROAS_%']]
+            
+    #         fig.add_trace(go.Bar(
+    #             x=campaign_group['campaign_name'],
+    #             y=campaign_group['ROAS_%'],
+    #             marker_color=colors,
+    #             text=campaign_group['ROAS_%'],
+    #             texttemplate='%{text:.0f}%',
+    #             textposition='outside',
+    #             hovertemplate='<b>%{x}</b><br>ROAS: %{y:.0f}%<extra></extra>'
+    #         ))
+            
+    #         fig.update_layout(
+    #             title='<b>ROAS by Campaign/Channel</b>',
+    #             xaxis=dict(title='', showticklabels=True),
+    #             yaxis=dict(title='ROAS (%)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+    #             plot_bgcolor='white',
+    #             height=350,
+    #             showlegend=False,
+    #             margin=dict(t=60, b=80)
+    #         )
+            
+    #         st.plotly_chart(fig, use_container_width=True)
+        
+    #     with col2:
+    #         # Revenue vs Cost
+    #         fig = go.Figure()
+            
+    #         fig.add_trace(go.Bar(
+    #             name='Revenue',
+    #             x=campaign_group['campaign_name'],
+    #             y=campaign_group['net_revenue'],
+    #             marker_color='#3498db',
+    #             text=campaign_group['net_revenue'],
+    #             texttemplate='฿%{text:.2s}',
+    #             hovertemplate='<b>%{x}</b><br>Revenue: ฿%{y:,.0f}<extra></extra>'
+    #         ))
+            
+    #         fig.add_trace(go.Bar(
+    #             name='Cost',
+    #             x=campaign_group['campaign_name'],
+    #             y=campaign_group['campaign_cost'],
+    #             marker_color='#e74c3c',
+    #             text=campaign_group['campaign_cost'],
+    #             texttemplate='฿%{text:.2s}',
+    #             hovertemplate='<b>%{x}</b><br>Cost: ฿%{y:,.0f}<extra></extra>'
+    #         ))
+            
+    #         fig.update_layout(
+    #             title='<b>Revenue vs Cost by Campaign</b>',
+    #             xaxis=dict(title=''),
+    #             yaxis=dict(title='Amount (฿)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+    #             plot_bgcolor='white',
+    #             height=350,
+    #             barmode='group',
+    #             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    #             margin=dict(t=60, b=80)
+    #         )
+            
+    #         st.plotly_chart(fig, use_container_width=True)
+        
+    #     # Campaign Performance Table
+    #     st.markdown("#### 📋 Campaign Performance Details")
+        
+    #     campaign_display = campaign_group[[
+    #         'campaign_name', 'impressions', 'clicks', 'CTR_%', 'conversions',
+    #         'CVR_%', 'net_revenue', 'campaign_cost', 'CPA', 'ROAS_%', 
+    #         'profit', 'profit_margin_%'
+    #     ]].copy()
+        
+    #     campaign_display.columns = [
+    #         'Campaign', 'Impressions', 'Clicks', 'CTR %', 'Conversions',
+    #         'CVR %', 'Revenue', 'Cost', 'CPA', 'ROAS %', 'Profit', 'Margin %'
+    #     ]
+        
+    #     # Color coding
+    #     def highlight_campaign_performance(row):
+    #         colors = []
+    #         for col in row.index:
+    #             if col == 'ROAS %':
+    #                 if row[col] >= 300:
+    #                     colors.append('background-color: #d5f4e6')  # Green
+    #                 elif row[col] >= 200:
+    #                     colors.append('background-color: #fff3cd')  # Yellow
+    #                 else:
+    #                     colors.append('background-color: #f8d7da')  # Red
+    #             elif col == 'Margin %':
+    #                 if row[col] >= 50:
+    #                     colors.append('background-color: #d5f4e6')
+    #                 elif row[col] >= 30:
+    #                     colors.append('background-color: #fff3cd')
+    #                 else:
+    #                     colors.append('background-color: #f8d7da')
+    #             else:
+    #                 colors.append('')
+    #         return colors
+        
+    #     styled_campaigns = campaign_display.style.format({
+    #         'Impressions': '{:,.0f}',
+    #         'Clicks': '{:,.0f}',
+    #         'CTR %': '{:.2f}%',
+    #         'Conversions': '{:,.0f}',
+    #         'CVR %': '{:.2f}%',
+    #         'Revenue': '฿{:,.0f}',
+    #         'Cost': '฿{:,.0f}',
+    #         'CPA': '฿{:,.0f}',
+    #         'ROAS %': '{:.0f}%',
+    #         'Profit': '฿{:,.0f}',
+    #         'Margin %': '{:.1f}%'
+    #     }).apply(highlight_campaign_performance, axis=1)
+        
+    #     st.dataframe(styled_campaigns, use_container_width=True, height=300)
+        
+    #     # Key Insights
+    #     st.markdown("#### 💡 Key Campaign Insights")
+        
+    #     best_roas = campaign_group.nlargest(1, 'ROAS_%').iloc[0]
+    #     worst_roas = campaign_group.nsmallest(1, 'ROAS_%').iloc[0]
+    #     best_profit = campaign_group.nlargest(1, 'profit').iloc[0]
+    #     lowest_cpa = campaign_group.nsmallest(1, 'CPA').iloc[0]
+        
+    #     col1, col2 = st.columns(2)
+        
+    #     with col1:
+    #         st.success(f"""
+    #         **🏆 Best Performing Campaign:**
+            
+    #         **{best_roas['campaign_name']}**
+    #         - ROAS: {best_roas['ROAS_%']:.0f}%
+    #         - Profit: ฿{best_roas['profit']:,.0f}
+    #         - Margin: {best_roas['profit_margin_%']:.1f}%
+            
+    #         💡 **Action:** Scale up budget by 25-50%! Every ฿1 spent returns ฿{best_roas['ROAS_%']/100:.2f}
+    #         """)
+            
+    #         st.info(f"""
+    #         **💰 Most Profitable:**
+            
+    #         **{best_profit['campaign_name']}**
+    #         - Total Profit: ฿{best_profit['profit']:,.0f}
+    #         - Revenue: ฿{best_profit['net_revenue']:,.0f}
+    #         - ROAS: {best_profit['ROAS_%']:.0f}%
+            
+    #         💡 **Action:** Maintain current strategy
+    #         """)
+        
+    #     with col2:
+    #         st.error(f"""
+    #         **⚠️ Underperforming Campaign:**
+            
+    #         **{worst_roas['campaign_name']}**
+    #         - ROAS: {worst_roas['ROAS_%']:.0f}%
+    #         - Profit: ฿{worst_roas['profit']:,.0f}
+    #         - Margin: {worst_roas['profit_margin_%']:.1f}%
+            
+    #         💡 **Action:** {'🛑 Pause immediately' if worst_roas['ROAS_%'] < 100 else '🔧 Optimize targeting/creative'}
+    #         """)
+            
+    #         st.success(f"""
+    #         **🎯 Most Efficient:**
+            
+    #         **{lowest_cpa['campaign_name']}**
+    #         - CPA: ฿{lowest_cpa['CPA']:,.0f}
+    #         - CVR: {lowest_cpa['CVR_%']:.2f}%
+    #         - Conversions: {lowest_cpa['conversions']:,.0f}
+            
+    #         💡 **Action:** Study & replicate strategy
+    #         """)
+        
+    #     # Recommendations
+    #     st.markdown("#### 🎯 Data-Driven Recommendations")
+        
+    #     st.markdown("""
+    #     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    #                 padding: 25px; border-radius: 15px; color: white;'>
+    #         <h5 style='margin: 0 0 15px 0;'>📊 Marketing Actions</h5>
+    #     """, unsafe_allow_html=True)
+        
+    #     recommendations = []
+        
+    #     # Budget reallocation
+    #     if len(campaign_group) > 1:
+    #         high_roas = campaign_group[campaign_group['ROAS_%'] >= 300]
+    #         low_roas = campaign_group[campaign_group['ROAS_%'] < 150]
+            
+    #         if not high_roas.empty:
+    #             recommendations.append(
+    #                 f"💰 <b>Scale Winners:</b> Increase budget for {len(high_roas)} campaigns "
+    #                 f"with avg ROAS {high_roas['ROAS_%'].mean():.0f}% by 25-50%"
+    #             )
+            
+    #         if not low_roas.empty:
+    #             potential_savings = low_roas['campaign_cost'].sum()
+    #             recommendations.append(
+    #                 f"⚠️ <b>Cut Losers:</b> Pause {len(low_roas)} underperforming campaigns. "
+    #                 f"Save ฿{potential_savings:,.0f}/period"
+    #             )
+        
+    #     # CTR optimization
+    #     avg_ctr = campaign_group['CTR_%'].mean()
+    #     low_ctr = campaign_group[campaign_group['CTR_%'] < avg_ctr * 0.5]
+    #     if not low_ctr.empty and avg_ctr > 0:
+    #         recommendations.append(
+    #             f"📸 <b>Creative Refresh:</b> {len(low_ctr)} campaigns have low CTR "
+    #             f"(<{avg_ctr*0.5:.2f}%). Test new ad creatives"
+    #         )
+        
+    #     # CVR improvement
+    #     avg_cvr = campaign_group['CVR_%'].mean()
+    #     if avg_cvr < 2.0 and avg_cvr > 0:
+    #         recommendations.append(
+    #             f"🛒 <b>Improve Conversion:</b> CVR is {avg_cvr:.2f}%. "
+    #             f"Optimize landing pages, simplify checkout"
+    #         )
+        
+    #     # Overall ROAS
+    #     if avg_roas < 200 and avg_roas > 0:
+    #         recommendations.append(
+    #             f"📉 <b>Overall Performance:</b> Avg ROAS ({avg_roas:.0f}%) below target. "
+    #             f"Review targeting, pricing, and value proposition"
+    #         )
+    #     elif avg_roas >= 300:
+    #         recommendations.append(
+    #             f"✅ <b>Excellent!</b> Avg ROAS ({avg_roas:.0f}%) exceeds target. "
+    #             f"Consider scaling total ad spend by 20-30%"
+    #         )
+        
+    #     if recommendations:
+    #         st.markdown("<div style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 15px;'>", 
+    #                    unsafe_allow_html=True)
+    #         for rec in recommendations:
+    #             st.markdown(f"<p style='margin: 8px 0; font-size: 13px;'>{rec}</p>", unsafe_allow_html=True)
+    #         st.markdown("</div>", unsafe_allow_html=True)
+    #     else:
+    #         st.markdown("<p style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 15px; font-size: 13px;'>✅ All campaigns performing within acceptable range</p>", unsafe_allow_html=True)
+        
+    #     st.markdown("</div>", unsafe_allow_html=True)
+    
+    # st.markdown("---")
+    
+    # # ==================== MARKETING EFFICIENCY SCORE ====================
+    # st.markdown("### 🏆 Marketing Efficiency Score")
+    
+    # with st.expander("📖 Description", expanded=False):
+    #     st.markdown("""
+    #     <div class='metric-explanation'>
+    #         <b>📖 Marketing Efficiency Score:</b> คะแนนรวมประสิทธิภาพการตลาด (0-100)<br>
+    #         <b>📊 ประกอบด้วย:</b><br>
+    #         • ROAS Performance (25%) - เป้าหมาย 300%<br>
+    #         • Click-Through Rate (25%) - เป้าหมาย 3%<br>
+    #         • Conversion Rate (25%) - เป้าหมาย 5%<br>
+    #         • Profit Margin (25%) - เป้าหมาย 50%<br>
+    #         <b>🎯 Grading:</b> A (80+), B (60-80), C (40-60), D (<40)
+    #     </div>
+    #     """, unsafe_allow_html=True)
+    
+    # if not campaign_group.empty:
+    #     # Calculate efficiency score
+    #     total_impressions = campaign_group['impressions'].sum()
+    #     total_clicks = campaign_group['clicks'].sum()
+    #     total_conversions = campaign_group['conversions'].sum()
+        
+    #     overall_ctr = (total_clicks / total_impressions * 100) if total_impressions > 0 else 0
+    #     overall_cvr = (total_conversions / total_clicks * 100) if total_clicks > 0 else 0
+        
+    #     score_components = {
+    #         'ROAS': min(avg_roas / 300 * 100, 100) if avg_roas > 0 else 0,
+    #         'CTR': min(overall_ctr / 3 * 100, 100) if overall_ctr > 0 else 0,
+    #         'CVR': min(overall_cvr / 5 * 100, 100) if overall_cvr > 0 else 0,
+    #         'Profit_Margin': min((total_campaign_profit / total_campaign_revenue * 100) / 50 * 100, 100) if total_campaign_revenue > 0 else 0
+    #     }
+        
+    #     overall_score = np.mean(list(score_components.values()))
+        
+    #     col1, col2, col3 = st.columns([1, 2, 1])
+        
+    #     with col2:
+    #         # Score gauge
+    #         if overall_score >= 80:
+    #             score_color = "#2ecc71"
+    #             score_grade = "A - Excellent"
+    #         elif overall_score >= 60:
+    #             score_color = "#f39c12"
+    #             score_grade = "B - Good"
+    #         elif overall_score >= 40:
+    #             score_color = "#e67e22"
+    #             score_grade = "C - Fair"
+    #         else:
+    #             score_color = "#e74c3c"
+    #             score_grade = "D - Needs Improvement"
+            
+    #         fig = go.Figure(go.Indicator(
+    #             mode="gauge+number+delta",
+    #             value=overall_score,
+    #             domain={'x': [0, 1], 'y': [0, 1]},
+    #             title={'text': f"<b>{score_grade}</b>", 'font': {'size': 20}},
+    #             delta={'reference': 60, 'increasing': {'color': "#2ecc71"}},
+    #             gauge={
+    #                 'axis': {'range': [None, 100], 'tickwidth': 1},
+    #                 'bar': {'color': score_color},
+    #                 'bgcolor': "white",
+    #                 'borderwidth': 2,
+    #                 'bordercolor': "gray",
+    #                 'steps': [
+    #                     {'range': [0, 40], 'color': '#ffebee'},
+    #                     {'range': [40, 60], 'color': '#fff3e0'},
+    #                     {'range': [60, 80], 'color': '#fffde7'},
+    #                     {'range': [80, 100], 'color': '#e8f5e9'}
+    #                 ],
+    #                 'threshold': {
+    #                     'line': {'color': "red", 'width': 3},
+    #                     'thickness': 0.75,
+    #                     'value': 80
+    #                 }
+    #             }
+    #         ))
+            
+    #         fig.update_layout(
+    #             height=280,
+    #             margin=dict(l=20, r=20, t=50, b=20)
+    #         )
+            
+    #         st.plotly_chart(fig, use_container_width=True)
+            
+    #         # Score breakdown
+    #         st.markdown(f"""
+    #         <div style='background: white; padding: 18px; border-radius: 10px; border: 2px solid {score_color};'>
+    #             <h6 style='text-align: center; margin-bottom: 12px;'>Score Breakdown</h6>
+    #             <div style='margin: 8px 0;'>
+    #                 <div style='display: flex; justify-content: space-between; font-size: 13px;'>
+    #                     <span>ROAS:</span>
+    #                     <span><b>{score_components['ROAS']:.0f}/100</b></span>
+    #                 </div>
+    #                 <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
+    #                     <div style='background: {score_color}; width: {score_components['ROAS']}%; height: 100%; border-radius: 3px;'></div>
+    #                 </div>
+    #             </div>
+    #             <div style='margin: 8px 0;'>
+    #                 <div style='display: flex; justify-content: space-between; font-size: 13px;'>
+    #                     <span>CTR:</span>
+    #                     <span><b>{score_components['CTR']:.0f}/100</b></span>
+    #                 </div>
+    #                 <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
+    #                     <div style='background: {score_color}; width: {score_components['CTR']}%; height: 100%; border-radius: 3px;'></div>
+    #                 </div>
+    #             </div>
+    #             <div style='margin: 8px 0;'>
+    #                 <div style='display: flex; justify-content: space-between; font-size: 13px;'>
+    #                     <span>CVR:</span>
+    #                     <span><b>{score_components['CVR']:.0f}/100</b></span>
+    #                 </div>
+    #                 <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
+    #                     <div style='background: {score_color}; width: {score_components['CVR']}%; height: 100%; border-radius: 3px;'></div>
+    #                 </div>
+    #             </div>
+    #             <div style='margin: 8px 0;'>
+    #                 <div style='display: flex; justify-content: space-between; font-size: 13px;'>
+    #                     <span>Profit Margin:</span>
+    #                     <span><b>{score_components['Profit_Margin']:.0f}/100</b></span>
+    #                 </div>
+    #                 <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
+    #                     <div style='background: {score_color}; width: {score_components['Profit_Margin']}%; height: 100%; border-radius: 3px;'></div>
+    #                 </div>
+    #             </div>
+    #         </div>
+    #         """, unsafe_allow_html=True)
+    # else:
+    #     st.info("⚠️ No campaign data available for efficiency score calculation")
+
+    # st.markdown("---")
+
+
+
+
+
+
+
+
+
+# ==================== MARKETING METRICS WITH AI ESTIMATION TOGGLE ====================
+# แทรกโค้ดนี้ใน Marketing Analytics tab (tab2) หลังจาก CAC/CLV section (ประมาณบรรทัด 1698)
+# ใช้ร่วมกับ AI Estimation checkbox ที่อยู่ใน sidebar แล้ว
+
     # ==================== CAMPAIGN PERFORMANCE METRICS ====================
     st.markdown("### 📊 Campaign Performance & ROAS")
     
@@ -2248,55 +2818,101 @@ with tab2:
         """, unsafe_allow_html=True)
     
     # Check if campaign data exists
-    has_campaign_metrics = all(col in df_filtered.columns for col in 
-                               ['campaign_name', 'campaign_cost', 'impressions', 'clicks'])
+    has_campaign_name = 'campaign_name' in df_filtered.columns and df_filtered['campaign_name'].notna().any()
+    has_campaign_cost = 'campaign_cost' in df_filtered.columns
+    has_impressions = 'impressions' in df_filtered.columns
+    has_clicks = 'clicks' in df_filtered.columns
+    has_conversions = 'conversions' in df_filtered.columns
     
-    # Show data availability status
-    if not has_campaign_metrics:
-        col_warn1, col_warn2 = st.columns([2, 1])
-        with col_warn1:
-            st.info("""
-            ℹ️ **Campaign Performance Data Not Available**
-            
-            To see detailed campaign metrics, please add these columns:
-            - `campaign_name`, `campaign_cost`, `impressions`, `clicks`, `conversions`
-            
-            **Currently:** Using estimated metrics from channel data
-            """)
-        with col_warn2:
-            st.markdown("""
-            <div style='background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #f39c12;'>
-                <div style='font-size: 12px; color: #856404;'><b>⚠️ Data Quality</b></div>
-                <div style='font-size: 11px; color: #856404; margin-top: 5px;'>
-                    Metrics are estimated<br>
-                    Upload campaign data for accuracy
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.success("✅ Campaign data available - showing actual metrics")
+    has_complete_campaign_data = all([has_campaign_name, has_campaign_cost, has_impressions, has_clicks])
     
-    # Prepare campaign data (with fallback to channel data)
-    if 'campaign_name' in df_filtered.columns and df_filtered['campaign_name'].notna().any():
-        # Use actual campaign data
-        campaign_group = df_filtered.groupby('campaign_name').agg({
-            'net_revenue': 'sum',
-            'order_id': 'nunique',
-            'user_id': 'nunique',
-            'campaign_cost': 'first' if 'campaign_cost' in df_filtered.columns else lambda x: 0,
-            'impressions': 'sum' if 'impressions' in df_filtered.columns else lambda x: 0,
-            'clicks': 'sum' if 'clicks' in df_filtered.columns else lambda x: 0,
-            'conversions': 'sum' if 'conversions' in df_filtered.columns else lambda x: 0
-        }).reset_index()
+    # Get AI estimation setting from session state
+    use_ai_estimation = st.session_state.get('use_ai_estimation', True)
+    
+    # Show data status
+    if not has_complete_campaign_data:
+        col_status1, col_status2 = st.columns([3, 1])
         
-        data_source = "actual"
+        with col_status1:
+            missing_cols = []
+            if not has_campaign_name:
+                missing_cols.append('campaign_name')
+            if not has_campaign_cost:
+                missing_cols.append('campaign_cost')
+            if not has_impressions:
+                missing_cols.append('impressions')
+            if not has_clicks:
+                missing_cols.append('clicks')
+            if not has_conversions:
+                missing_cols.append('conversions')
+            
+            st.warning(f"""
+            ⚠️ **Campaign Data Incomplete**
+            
+            Missing columns: `{', '.join(missing_cols)}`
+            
+            **Options:**
+            1. Upload complete campaign data with all required columns
+            2. Enable "AI Estimation" in sidebar (currently: {'✅ Enabled' if use_ai_estimation else '❌ Disabled'})
+            """)
+        
+        with col_status2:
+            if use_ai_estimation and 'channel' in df_filtered.columns:
+                st.markdown("""
+                <div style='background: #d1ecf1; padding: 15px; border-radius: 8px; border-left: 4px solid #0c5460;'>
+                    <div style='font-size: 12px; color: #0c5460;'><b>🤖 AI Estimation</b></div>
+                    <div style='font-size: 11px; color: #0c5460; margin-top: 5px;'>
+                        Enabled<br>
+                        Using channel data
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style='background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #721c24;'>
+                    <div style='font-size: 12px; color: #721c24;'><b>❌ No Data</b></div>
+                    <div style='font-size: 11px; color: #721c24; margin-top: 5px;'>
+                        Enable AI Estimation<br>
+                        in sidebar
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
     else:
-        # Fallback: Use channel as campaign
-        if 'channel' not in df_filtered.columns:
-            st.warning("⚠️ No channel or campaign data available. Skipping campaign analysis.")
-            campaign_group = pd.DataFrame()  # Empty dataframe
-            data_source = "none"
-        else:
+        st.success("✅ Campaign data complete - showing actual metrics")
+    
+    # Decide whether to proceed with analysis
+    can_show_analysis = False
+    data_source = "none"
+    
+    if has_complete_campaign_data:
+        # Has complete data - always show
+        can_show_analysis = True
+        data_source = "actual"
+    elif use_ai_estimation and 'channel' in df_filtered.columns:
+        # AI estimation enabled and has channel data
+        can_show_analysis = True
+        data_source = "estimated"
+    else:
+        # No data and AI estimation disabled
+        can_show_analysis = False
+        data_source = "none"
+    
+    # Prepare campaign data based on availability
+    if can_show_analysis:
+        if data_source == "actual":
+            # Use actual campaign data
+            campaign_group = df_filtered.groupby('campaign_name').agg({
+                'net_revenue': 'sum',
+                'order_id': 'nunique',
+                'user_id': 'nunique',
+                'campaign_cost': 'first' if has_campaign_cost else lambda x: 0,
+                'impressions': 'sum' if has_impressions else lambda x: 0,
+                'clicks': 'sum' if has_clicks else lambda x: 0,
+                'conversions': 'sum' if has_conversions else lambda x: 0
+            }).reset_index()
+            
+        else:  # data_source == "estimated"
+            # Use channel data with AI estimation
             campaign_group = df_filtered.groupby('channel').agg({
                 'net_revenue': 'sum',
                 'order_id': 'nunique',
@@ -2304,16 +2920,14 @@ with tab2:
             }).reset_index()
             campaign_group.rename(columns={'channel': 'campaign_name'}, inplace=True)
             
-            # Estimate missing metrics (industry averages)
-            campaign_group['campaign_cost'] = campaign_group['net_revenue'] * 0.15  # 15% of revenue
+            # AI Estimation for missing metrics
+            # Based on industry averages and data patterns
+            campaign_group['campaign_cost'] = campaign_group['net_revenue'] * 0.15  # 15% marketing cost ratio
             campaign_group['impressions'] = campaign_group['order_id'] * 50  # 1 order ≈ 50 impressions
-            campaign_group['clicks'] = campaign_group['order_id'] * 5  # 1 order ≈ 5 clicks
+            campaign_group['clicks'] = campaign_group['order_id'] * 5  # 1 order ≈ 5 clicks  
             campaign_group['conversions'] = campaign_group['order_id']  # 1 order = 1 conversion
-            
-            data_source = "estimated"
-    
-    if not campaign_group.empty:
-        # Fill missing values
+        
+        # Fill any remaining missing values
         for col in ['campaign_cost', 'impressions', 'clicks', 'conversions']:
             if col not in campaign_group.columns:
                 if col == 'campaign_cost':
@@ -2348,6 +2962,10 @@ with tab2:
         total_campaign_conversions = campaign_group['conversions'].sum()
         avg_campaign_cpa = (total_ad_spend / total_campaign_conversions) if total_campaign_conversions > 0 else 0
         
+        # Show data source badge
+        if data_source == "estimated":
+            st.info("🤖 **AI Estimation Active** - Metrics calculated from channel data using industry patterns (15% cost ratio, 50:5:1 impression:click:conversion)")
+        
         # Display summary cards
         col1, col2, col3, col4 = st.columns(4)
         
@@ -2359,7 +2977,7 @@ with tab2:
                 <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
                     ฿{total_ad_spend/1000:.0f}K
                 </div>
-                <div style='font-size: 10px; opacity: 0.8;'>Marketing Investment</div>
+                <div style='font-size: 10px; opacity: 0.8;'>{'Estimated' if data_source == 'estimated' else 'Actual'}</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -2499,11 +3117,11 @@ with tab2:
             for col in row.index:
                 if col == 'ROAS %':
                     if row[col] >= 300:
-                        colors.append('background-color: #d5f4e6')  # Green
+                        colors.append('background-color: #d5f4e6')
                     elif row[col] >= 200:
-                        colors.append('background-color: #fff3cd')  # Yellow
+                        colors.append('background-color: #fff3cd')
                     else:
-                        colors.append('background-color: #f8d7da')  # Red
+                        colors.append('background-color: #f8d7da')
                 elif col == 'Margin %':
                     if row[col] >= 50:
                         colors.append('background-color: #d5f4e6')
@@ -2543,37 +3161,36 @@ with tab2:
         
         with col1:
             st.success(f"""
-            **🏆 Best Performing Campaign:**
+            **🏆 Best Performing:**
             
             **{best_roas['campaign_name']}**
             - ROAS: {best_roas['ROAS_%']:.0f}%
             - Profit: ฿{best_roas['profit']:,.0f}
             - Margin: {best_roas['profit_margin_%']:.1f}%
             
-            💡 **Action:** Scale up budget by 25-50%! Every ฿1 spent returns ฿{best_roas['ROAS_%']/100:.2f}
+            💡 **Action:** Scale up budget by 25-50%
             """)
             
             st.info(f"""
             **💰 Most Profitable:**
             
             **{best_profit['campaign_name']}**
-            - Total Profit: ฿{best_profit['profit']:,.0f}
+            - Profit: ฿{best_profit['profit']:,.0f}
             - Revenue: ฿{best_profit['net_revenue']:,.0f}
             - ROAS: {best_profit['ROAS_%']:.0f}%
             
-            💡 **Action:** Maintain current strategy
+            💡 **Action:** Maintain strategy
             """)
         
         with col2:
             st.error(f"""
-            **⚠️ Underperforming Campaign:**
+            **⚠️ Underperforming:**
             
             **{worst_roas['campaign_name']}**
             - ROAS: {worst_roas['ROAS_%']:.0f}%
-            - Profit: ฿{worst_roas['profit']:,.0f}
-            - Margin: {worst_roas['profit_margin_%']:.1f}%
+            - Profit: ฿{worst_roas['profit']:,.0f}%
             
-            💡 **Action:** {'🛑 Pause immediately' if worst_roas['ROAS_%'] < 100 else '🔧 Optimize targeting/creative'}
+            💡 **Action:** {'🛑 Pause' if worst_roas['ROAS_%'] < 100 else '🔧 Optimize'}
             """)
             
             st.success(f"""
@@ -2582,13 +3199,12 @@ with tab2:
             **{lowest_cpa['campaign_name']}**
             - CPA: ฿{lowest_cpa['CPA']:,.0f}
             - CVR: {lowest_cpa['CVR_%']:.2f}%
-            - Conversions: {lowest_cpa['conversions']:,.0f}
             
-            💡 **Action:** Study & replicate strategy
+            💡 **Action:** Replicate strategy
             """)
         
         # Recommendations
-        st.markdown("#### 🎯 Data-Driven Recommendations")
+        st.markdown("#### 🎯 Recommendations")
         
         st.markdown("""
         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -2598,84 +3214,49 @@ with tab2:
         
         recommendations = []
         
-        # Budget reallocation
         if len(campaign_group) > 1:
             high_roas = campaign_group[campaign_group['ROAS_%'] >= 300]
             low_roas = campaign_group[campaign_group['ROAS_%'] < 150]
             
             if not high_roas.empty:
                 recommendations.append(
-                    f"💰 <b>Scale Winners:</b> Increase budget for {len(high_roas)} campaigns "
-                    f"with avg ROAS {high_roas['ROAS_%'].mean():.0f}% by 25-50%"
+                    f"💰 <b>Scale Winners:</b> {len(high_roas)} campaigns with avg ROAS {high_roas['ROAS_%'].mean():.0f}%"
                 )
             
             if not low_roas.empty:
-                potential_savings = low_roas['campaign_cost'].sum()
                 recommendations.append(
-                    f"⚠️ <b>Cut Losers:</b> Pause {len(low_roas)} underperforming campaigns. "
-                    f"Save ฿{potential_savings:,.0f}/period"
+                    f"⚠️ <b>Cut Losers:</b> {len(low_roas)} campaigns (save ฿{low_roas['campaign_cost'].sum():,.0f})"
                 )
         
-        # CTR optimization
         avg_ctr = campaign_group['CTR_%'].mean()
-        low_ctr = campaign_group[campaign_group['CTR_%'] < avg_ctr * 0.5]
-        if not low_ctr.empty and avg_ctr > 0:
-            recommendations.append(
-                f"📸 <b>Creative Refresh:</b> {len(low_ctr)} campaigns have low CTR "
-                f"(<{avg_ctr*0.5:.2f}%). Test new ad creatives"
-            )
+        if avg_ctr > 0:
+            low_ctr = campaign_group[campaign_group['CTR_%'] < avg_ctr * 0.5]
+            if not low_ctr.empty:
+                recommendations.append(f"📸 <b>Creative Refresh:</b> {len(low_ctr)} campaigns with low CTR")
         
-        # CVR improvement
         avg_cvr = campaign_group['CVR_%'].mean()
-        if avg_cvr < 2.0 and avg_cvr > 0:
-            recommendations.append(
-                f"🛒 <b>Improve Conversion:</b> CVR is {avg_cvr:.2f}%. "
-                f"Optimize landing pages, simplify checkout"
-            )
+        if 0 < avg_cvr < 2.0:
+            recommendations.append(f"🛒 <b>Improve Conversion:</b> CVR is {avg_cvr:.2f}% (optimize landing pages)")
         
-        # Overall ROAS
-        if avg_roas < 200 and avg_roas > 0:
-            recommendations.append(
-                f"📉 <b>Overall Performance:</b> Avg ROAS ({avg_roas:.0f}%) below target. "
-                f"Review targeting, pricing, and value proposition"
-            )
+        if avg_roas < 200:
+            recommendations.append(f"📉 <b>Overall:</b> Avg ROAS ({avg_roas:.0f}%) below target - review strategy")
         elif avg_roas >= 300:
-            recommendations.append(
-                f"✅ <b>Excellent!</b> Avg ROAS ({avg_roas:.0f}%) exceeds target. "
-                f"Consider scaling total ad spend by 20-30%"
-            )
+            recommendations.append(f"✅ <b>Excellent:</b> ROAS {avg_roas:.0f}% - scale ad spend by 20-30%")
         
         if recommendations:
-            st.markdown("<div style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 15px;'>", 
-                       unsafe_allow_html=True)
+            st.markdown("<div style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 15px;'>", unsafe_allow_html=True)
             for rec in recommendations:
                 st.markdown(f"<p style='margin: 8px 0; font-size: 13px;'>{rec}</p>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<p style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 15px; font-size: 13px;'>✅ All campaigns performing within acceptable range</p>", unsafe_allow_html=True)
+            st.markdown("<p style='padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; font-size: 13px;'>✅ All campaigns performing well</p>", unsafe_allow_html=True)
         
         st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ==================== MARKETING EFFICIENCY SCORE ====================
-    st.markdown("### 🏆 Marketing Efficiency Score")
-    
-    with st.expander("📖 Description", expanded=False):
-        st.markdown("""
-        <div class='metric-explanation'>
-            <b>📖 Marketing Efficiency Score:</b> คะแนนรวมประสิทธิภาพการตลาด (0-100)<br>
-            <b>📊 ประกอบด้วย:</b><br>
-            • ROAS Performance (25%) - เป้าหมาย 300%<br>
-            • Click-Through Rate (25%) - เป้าหมาย 3%<br>
-            • Conversion Rate (25%) - เป้าหมาย 5%<br>
-            • Profit Margin (25%) - เป้าหมาย 50%<br>
-            <b>🎯 Grading:</b> A (80+), B (60-80), C (40-60), D (<40)
-        </div>
-        """, unsafe_allow_html=True)
-    
-    if not campaign_group.empty:
-        # Calculate efficiency score
+        
+        # Marketing Efficiency Score
+        st.markdown("---")
+        st.markdown("### 🏆 Marketing Efficiency Score")
+        
         total_impressions = campaign_group['impressions'].sum()
         total_clicks = campaign_group['clicks'].sum()
         total_conversions = campaign_group['conversions'].sum()
@@ -2695,7 +3276,6 @@ with tab2:
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
-            # Score gauge
             if overall_score >= 80:
                 score_color = "#2ecc71"
                 score_grade = "A - Excellent"
@@ -2735,21 +3315,15 @@ with tab2:
                 }
             ))
             
-            fig.update_layout(
-                height=280,
-                margin=dict(l=20, r=20, t=50, b=20)
-            )
-            
+            fig.update_layout(height=280, margin=dict(l=20, r=20, t=50, b=20))
             st.plotly_chart(fig, use_container_width=True)
             
-            # Score breakdown
             st.markdown(f"""
             <div style='background: white; padding: 18px; border-radius: 10px; border: 2px solid {score_color};'>
                 <h6 style='text-align: center; margin-bottom: 12px;'>Score Breakdown</h6>
                 <div style='margin: 8px 0;'>
                     <div style='display: flex; justify-content: space-between; font-size: 13px;'>
-                        <span>ROAS:</span>
-                        <span><b>{score_components['ROAS']:.0f}/100</b></span>
+                        <span>ROAS:</span><span><b>{score_components['ROAS']:.0f}/100</b></span>
                     </div>
                     <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
                         <div style='background: {score_color}; width: {score_components['ROAS']}%; height: 100%; border-radius: 3px;'></div>
@@ -2757,8 +3331,7 @@ with tab2:
                 </div>
                 <div style='margin: 8px 0;'>
                     <div style='display: flex; justify-content: space-between; font-size: 13px;'>
-                        <span>CTR:</span>
-                        <span><b>{score_components['CTR']:.0f}/100</b></span>
+                        <span>CTR:</span><span><b>{score_components['CTR']:.0f}/100</b></span>
                     </div>
                     <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
                         <div style='background: {score_color}; width: {score_components['CTR']}%; height: 100%; border-radius: 3px;'></div>
@@ -2766,8 +3339,7 @@ with tab2:
                 </div>
                 <div style='margin: 8px 0;'>
                     <div style='display: flex; justify-content: space-between; font-size: 13px;'>
-                        <span>CVR:</span>
-                        <span><b>{score_components['CVR']:.0f}/100</b></span>
+                        <span>CVR:</span><span><b>{score_components['CVR']:.0f}/100</b></span>
                     </div>
                     <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
                         <div style='background: {score_color}; width: {score_components['CVR']}%; height: 100%; border-radius: 3px;'></div>
@@ -2775,8 +3347,7 @@ with tab2:
                 </div>
                 <div style='margin: 8px 0;'>
                     <div style='display: flex; justify-content: space-between; font-size: 13px;'>
-                        <span>Profit Margin:</span>
-                        <span><b>{score_components['Profit_Margin']:.0f}/100</b></span>
+                        <span>Profit Margin:</span><span><b>{score_components['Profit_Margin']:.0f}/100</b></span>
                     </div>
                     <div style='background: #f0f0f0; height: 6px; border-radius: 3px; margin-top: 4px;'>
                         <div style='background: {score_color}; width: {score_components['Profit_Margin']}%; height: 100%; border-radius: 3px;'></div>
@@ -2784,10 +3355,23 @@ with tab2:
                 </div>
             </div>
             """, unsafe_allow_html=True)
+    
     else:
-        st.info("⚠️ No campaign data available for efficiency score calculation")
+        # Cannot show analysis - no data and AI estimation disabled
+        st.error("""
+        ❌ **Cannot Display Campaign Performance**
+        
+        **Reason:** Campaign data not available and AI Estimation is disabled
+        
+        **Solutions:**
+        1. **Upload complete campaign data** with columns: `campaign_name`, `campaign_cost`, `impressions`, `clicks`, `conversions`
+        2. **Enable "AI Estimation"** in the sidebar (currently disabled)
+        3. Ensure you have at least `channel` column in your data for AI estimation to work
+        """)
 
     st.markdown("---")
+
+# ==================== CONTINUE WITH RETENTION & CHURN ====================
 
 # ==================== CONTINUE WITH EXISTING RETENTION & CHURN SECTION ====================
 # (โค้ดเดิมของ Retention & Churn ต่อไปตรงนี้...)
