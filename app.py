@@ -2975,7 +2975,7 @@ with tab2:
                         padding: 20px; border-radius: 10px; color: white; text-align: center;'>
                 <div style='font-size: 12px; opacity: 0.9;'><b>TOTAL AD SPEND</b></div>
                 <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
-                    ฿{total_ad_spend/1000:.0f}K
+                    ฿{total_ad_spend/1000000:.0f}M
                 </div>
                 <div style='font-size: 10px; opacity: 0.8;'>{'Estimated' if data_source == 'estimated' else 'Actual'}</div>
             </div>
@@ -3001,7 +3001,7 @@ with tab2:
                         padding: 20px; border-radius: 10px; color: white; text-align: center;'>
                 <div style='font-size: 12px; opacity: 0.9;'><b>CAMPAIGN PROFIT</b></div>
                 <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
-                    ฿{total_campaign_profit/1000:.0f}K
+                    ฿{total_campaign_profit/1000000:.0f}M
                 </div>
                 <div style='font-size: 10px; opacity: 0.8;'>Revenue - Ad Cost</div>
             </div>
