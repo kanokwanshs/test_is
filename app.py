@@ -4987,148 +4987,148 @@ with tab3:
 #     </div>
 #     """, unsafe_allow_html=True)
     
-    # ==================== AI CUSTOMER SEGMENTATION (RFM) ====================
-    st.markdown("### 👥 AI Customer Segmentation (RFM Analysis)")
+    # # ==================== AI CUSTOMER SEGMENTATION (RFM) ====================
+    # st.markdown("### 👥 AI Customer Segmentation (RFM Analysis)")
     
-    with st.expander("📖 Description", expanded=False):
-        st.markdown("""
-        <div class='metric-explanation'>
-            <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
-            <div class='metric-formula'>
-                • <b>Recency (R):</b> ซื้อล่าสุดเมื่อไหร่ (วัน)<br>
-                • <b>Frequency (F):</b> ซื้อบ่อยแค่ไหน (ครั้ง)<br>
-                • <b>Monetary (M):</b> ใช้จ่ายเท่าไหร่ (บาท)
-            </div>
-            <b>💡 Customer Segments:</b><br>
-            • <b style='color: #2ecc71;'>Champions:</b> ซื้อบ่อย ซื้อเยอะ ซื้อเมื่อเร็วๆ นี้<br>
-            • <b style='color: #3498db;'>Loyal:</b> ซื้อสม่ำเสมอ ใช้จ่ายดี<br>
-            • <b style='color: #f39c12;'>At Risk:</b> เคยซื้อเยอะ แต่นานไม่ซื้อแล้ว<br>
-            • <b style='color: #e74c3c;'>Lost:</b> ไม่ซื้อมานาน ต้องดึงกลับ
-        </div>
-        """, unsafe_allow_html=True)
+    # with st.expander("📖 Description", expanded=False):
+    #     st.markdown("""
+    #     <div class='metric-explanation'>
+    #         <b>📖 RFM Analysis:</b> แบ่งกลุ่มลูกค้าตามพฤติกรรมการซื้อ<br>
+    #         <div class='metric-formula'>
+    #             • <b>Recency (R):</b> ซื้อล่าสุดเมื่อไหร่ (วัน)<br>
+    #             • <b>Frequency (F):</b> ซื้อบ่อยแค่ไหน (ครั้ง)<br>
+    #             • <b>Monetary (M):</b> ใช้จ่ายเท่าไหร่ (บาท)
+    #         </div>
+    #         <b>💡 Customer Segments:</b><br>
+    #         • <b style='color: #2ecc71;'>Champions:</b> ซื้อบ่อย ซื้อเยอะ ซื้อเมื่อเร็วๆ นี้<br>
+    #         • <b style='color: #3498db;'>Loyal:</b> ซื้อสม่ำเสมอ ใช้จ่ายดี<br>
+    #         • <b style='color: #f39c12;'>At Risk:</b> เคยซื้อเยอะ แต่นานไม่ซื้อแล้ว<br>
+    #         • <b style='color: #e74c3c;'>Lost:</b> ไม่ซื้อมานาน ต้องดึงกลับ
+    #     </div>
+    #     """, unsafe_allow_html=True)
     
-    # Calculate RFM
-    analysis_date = df_filtered['order_date'].max()
+    # # Calculate RFM
+    # analysis_date = df_filtered['order_date'].max()
     
-    rfm = df_filtered.groupby('user_id').agg({
-        'order_date': lambda x: (analysis_date - x.max()).days,  # Recency
-        'order_id': 'nunique',  # Frequency
-        'net_revenue': 'sum'  # Monetary
-    }).reset_index()
+    # rfm = df_filtered.groupby('user_id').agg({
+    #     'order_date': lambda x: (analysis_date - x.max()).days,  # Recency
+    #     'order_id': 'nunique',  # Frequency
+    #     'net_revenue': 'sum'  # Monetary
+    # }).reset_index()
     
-    rfm.columns = ['user_id', 'recency', 'frequency', 'monetary']
+    # rfm.columns = ['user_id', 'recency', 'frequency', 'monetary']
 
 
-    # RFM Scoring (1-5 scale) with error handling
-    try:
-        # ใช้ rank เพื่อรองรับข้อมูลที่ซ้ำกัน
-        rfm['r_rank'] = rfm['recency'].rank(method='first')
-        rfm['f_rank'] = rfm['frequency'].rank(method='first')
-        rfm['m_rank'] = rfm['monetary'].rank(method='first')
+    # # RFM Scoring (1-5 scale) with error handling
+    # try:
+    #     # ใช้ rank เพื่อรองรับข้อมูลที่ซ้ำกัน
+    #     rfm['r_rank'] = rfm['recency'].rank(method='first')
+    #     rfm['f_rank'] = rfm['frequency'].rank(method='first')
+    #     rfm['m_rank'] = rfm['monetary'].rank(method='first')
     
-        # แบ่งเป็น 5 กลุ่ม
-        rfm['r_score'] = pd.cut(rfm['r_rank'], bins=5, labels=[5,4,3,2,1], duplicates='drop')
-        rfm['f_score'] = pd.cut(rfm['f_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
-        rfm['m_score'] = pd.cut(rfm['m_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
-    except:
-        # Fallback: ใช้ qcut แบบเดิม
-        rfm['r_score'] = pd.qcut(rfm['recency'], q=5, labels=[5,4,3,2,1], duplicates='drop')
-        rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
-        rfm['m_score'] = pd.qcut(rfm['monetary'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+    #     # แบ่งเป็น 5 กลุ่ม
+    #     rfm['r_score'] = pd.cut(rfm['r_rank'], bins=5, labels=[5,4,3,2,1], duplicates='drop')
+    #     rfm['f_score'] = pd.cut(rfm['f_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
+    #     rfm['m_score'] = pd.cut(rfm['m_rank'], bins=5, labels=[1,2,3,4,5], duplicates='drop')
+    # except:
+    #     # Fallback: ใช้ qcut แบบเดิม
+    #     rfm['r_score'] = pd.qcut(rfm['recency'], q=5, labels=[5,4,3,2,1], duplicates='drop')
+    #     rfm['f_score'] = pd.qcut(rfm['frequency'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
+    #     rfm['m_score'] = pd.qcut(rfm['monetary'].rank(method='first'), q=5, labels=[1,2,3,4,5], duplicates='drop')
     
-    rfm['rfm_score'] = rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
+    # rfm['rfm_score'] = rfm['r_score'].astype(str) + rfm['f_score'].astype(str) + rfm['m_score'].astype(str)
     
-    # Segment customers
-    def segment_customer(row):
-        r, f, m = int(row['r_score']), int(row['f_score']), int(row['m_score'])
+    # # Segment customers
+    # def segment_customer(row):
+    #     r, f, m = int(row['r_score']), int(row['f_score']), int(row['m_score'])
         
-        if r >= 4 and f >= 4 and m >= 4:
-            return 'Champions'
-        elif r >= 3 and f >= 3:
-            return 'Loyal Customers'
-        elif r >= 4 and f <= 2:
-            return 'New Customers'
-        elif r <= 2 and f >= 3:
-            return 'At Risk'
-        elif r <= 2 and f <= 2:
-            return 'Lost'
-        elif m >= 4:
-            return 'Big Spenders'
-        else:
-            return 'Others'
+    #     if r >= 4 and f >= 4 and m >= 4:
+    #         return 'Champions'
+    #     elif r >= 3 and f >= 3:
+    #         return 'Loyal Customers'
+    #     elif r >= 4 and f <= 2:
+    #         return 'New Customers'
+    #     elif r <= 2 and f >= 3:
+    #         return 'At Risk'
+    #     elif r <= 2 and f <= 2:
+    #         return 'Lost'
+    #     elif m >= 4:
+    #         return 'Big Spenders'
+    #     else:
+    #         return 'Others'
     
-    rfm['segment'] = rfm.apply(segment_customer, axis=1)
+    # rfm['segment'] = rfm.apply(segment_customer, axis=1)
     
-    # Segment summary
-    segment_summary = rfm.groupby('segment').agg({
-        'user_id': 'count',
-        'monetary': 'sum',
-        'frequency': 'mean',
-        'recency': 'mean'
-    }).reset_index()
-    segment_summary.columns = ['Segment', 'Customers', 'Total Revenue', 'Avg Frequency', 'Avg Recency']
-    segment_summary = segment_summary.sort_values('Total Revenue', ascending=False)
+    # # Segment summary
+    # segment_summary = rfm.groupby('segment').agg({
+    #     'user_id': 'count',
+    #     'monetary': 'sum',
+    #     'frequency': 'mean',
+    #     'recency': 'mean'
+    # }).reset_index()
+    # segment_summary.columns = ['Segment', 'Customers', 'Total Revenue', 'Avg Frequency', 'Avg Recency']
+    # segment_summary = segment_summary.sort_values('Total Revenue', ascending=False)
     
-    col1, col2 = st.columns([1, 2])
+    # col1, col2 = st.columns([1, 2])
     
-    with col1:
-        # Segment distribution pie chart
-        segment_colors = {
-            'Champions': '#2ecc71',
-            'Loyal Customers': '#3498db',
-            'New Customers': '#1abc9c',
-            'At Risk': '#f39c12',
-            'Lost': '#e74c3c',
-            'Big Spenders': '#9b59b6',
-            'Others': '#95a5a6'
-        }
+    # with col1:
+    #     # Segment distribution pie chart
+    #     segment_colors = {
+    #         'Champions': '#2ecc71',
+    #         'Loyal Customers': '#3498db',
+    #         'New Customers': '#1abc9c',
+    #         'At Risk': '#f39c12',
+    #         'Lost': '#e74c3c',
+    #         'Big Spenders': '#9b59b6',
+    #         'Others': '#95a5a6'
+    #     }
         
-        fig = go.Figure(data=[go.Pie(
-            labels=segment_summary['Segment'],
-            values=segment_summary['Customers'],
-            marker=dict(colors=[segment_colors.get(s, '#95a5a6') for s in segment_summary['Segment']]),
-            textinfo='label+percent',
-            textposition='inside',
-            hovertemplate='<b>%{label}</b><br>Customers: %{value:,}<br>Share: %{percent}<extra></extra>'
-        )])
+    #     fig = go.Figure(data=[go.Pie(
+    #         labels=segment_summary['Segment'],
+    #         values=segment_summary['Customers'],
+    #         marker=dict(colors=[segment_colors.get(s, '#95a5a6') for s in segment_summary['Segment']]),
+    #         textinfo='label+percent',
+    #         textposition='inside',
+    #         hovertemplate='<b>%{label}</b><br>Customers: %{value:,}<br>Share: %{percent}<extra></extra>'
+    #     )])
         
-        fig.update_layout(
-            title='<b>Customer Segment Distribution</b>',
-            height=400,
-            showlegend=True,
-            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.1)
-        )
+    #     fig.update_layout(
+    #         title='<b>Customer Segment Distribution</b>',
+    #         height=400,
+    #         showlegend=True,
+    #         legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.1)
+    #     )
         
-        st.plotly_chart(fig, use_container_width=True)
+    #     st.plotly_chart(fig, use_container_width=True)
     
-    with col2:
-        # Revenue by segment
-        segment_sorted = segment_summary.sort_values('Total Revenue', ascending=True)
-        colors_list = [segment_colors.get(s, '#95a5a6') for s in segment_sorted['Segment']]
+    # with col2:
+    #     # Revenue by segment
+    #     segment_sorted = segment_summary.sort_values('Total Revenue', ascending=True)
+    #     colors_list = [segment_colors.get(s, '#95a5a6') for s in segment_sorted['Segment']]
         
-        fig = go.Figure()
+    #     fig = go.Figure()
         
-        fig.add_trace(go.Bar(
-            y=segment_sorted['Segment'],
-            x=segment_sorted['Total Revenue'],
-            orientation='h',
-            marker=dict(color=colors_list),
-            text=segment_sorted['Total Revenue'],
-            texttemplate='฿%{text:,.0f}',
-            textposition='outside',
-            hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
-        ))
+    #     fig.add_trace(go.Bar(
+    #         y=segment_sorted['Segment'],
+    #         x=segment_sorted['Total Revenue'],
+    #         orientation='h',
+    #         marker=dict(color=colors_list),
+    #         text=segment_sorted['Total Revenue'],
+    #         texttemplate='฿%{text:,.0f}',
+    #         textposition='outside',
+    #         hovertemplate='<b>%{y}</b><br>Revenue: ฿%{x:,.0f}<extra></extra>'
+    #     ))
         
-        fig.update_layout(
-            title='<b>Revenue by Customer Segment</b>',
-            xaxis=dict(title='Total Revenue (฿)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
-            yaxis=dict(title=''),
-            plot_bgcolor='white',
-            height=400,
-            showlegend=False
-        )
+    #     fig.update_layout(
+    #         title='<b>Revenue by Customer Segment</b>',
+    #         xaxis=dict(title='Total Revenue (฿)', showgrid=True, gridcolor='rgba(0,0,0,0.05)'),
+    #         yaxis=dict(title=''),
+    #         plot_bgcolor='white',
+    #         height=400,
+    #         showlegend=False
+    #     )
         
-        st.plotly_chart(fig, use_container_width=True)
+    #     st.plotly_chart(fig, use_container_width=True)
     
 #     # AI Recommendations for each segment
 #     st.markdown("#### 🎯 AI-Powered Action Recommendations")
