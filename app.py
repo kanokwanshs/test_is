@@ -7798,8 +7798,8 @@
 
 
 # ========================================
-# ANALYTICS DASHBOARD - COMPLETE CODE
-# Professional Business Intelligence Platform
+# PART 1: IMPORTS & CLASSES
+# Copy this entire file and save as: dashboard_part1.py
 # ========================================
 
 import streamlit as st
@@ -7815,10 +7815,12 @@ warnings.filterwarnings("ignore")
 st.set_page_config(page_title="Analytics Pro", layout="wide", page_icon="📊")
 
 # ========================================
-# CLASSES
+# DATA QUALITY TRACKER CLASS
 # ========================================
 
 class DataQualityTracker:
+    """Track which data is actual vs estimated"""
+    
     def __init__(self):
         self.actual_data = []
         self.estimated_data = []
@@ -7828,9 +7830,19 @@ class DataQualityTracker:
         if metric_name not in self.actual_data:
             self.actual_data.append(metric_name)
     
-    def mark_estimated(self, metric_name, method):
+    def mark_estimated(self, metric_name, estimation_method):
         if not any(m['metric'] == metric_name for m in self.estimated_data):
-            self.estimated_data.append({'metric': metric_name, 'method': method})
+            self.estimated_data.append({
+                'metric': metric_name,
+                'method': estimation_method
+            })
+    
+    def mark_missing(self, metric_name, required_data):
+        if not any(m['metric'] == metric_name for m in self.missing_data):
+            self.missing_data.append({
+                'metric': metric_name,
+                'required': required_data
+            })
     
     def get_summary(self):
         return {
@@ -7840,7 +7852,8 @@ class DataQualityTracker:
             'total_metrics': len(self.actual_data) + len(self.estimated_data) + len(self.missing_data)
         }
     
-    def show_badge(self):
+    def show_data_quality_badge(self):
+        """Display enhanced data quality indicator"""
         summary = self.get_summary()
         if summary['total_metrics'] == 0:
             return
@@ -7848,72 +7861,103 @@ class DataQualityTracker:
         actual_pct = (summary['actual_count'] / summary['total_metrics'] * 100) if summary['total_metrics'] > 0 else 0
         
         if actual_pct >= 80:
-            color, status = "#2ecc71", "Excellent"
+            quality_color, quality_status, quality_icon = "#2ecc71", "Excellent", "🌟"
         elif actual_pct >= 60:
-            color, status = "#f39c12", "Good"
+            quality_color, quality_status, quality_icon = "#f39c12", "Good", "✅"
         else:
-            color, status = "#e74c3c", "Fair"
+            quality_color, quality_status, quality_icon = "#e74c3c", "Fair", "⚠️"
         
         st.markdown(f"""
-        <div style='background: {color}; padding: 15px; border-radius: 10px; color: white; margin-bottom: 20px;'>
+        <div style='background: linear-gradient(135deg, {quality_color} 0%, {quality_color}dd 100%); 
+                    padding: 15px 25px; border-radius: 12px; color: white; margin-bottom: 25px;'>
             <div style='display: flex; justify-content: space-between; align-items: center;'>
-                <div><b>📊 Data Quality: {status}</b></div>
-                <div style='display: flex; gap: 20px;'>
-                    <div>✅ Actual: {summary['actual_count']}</div>
-                    <div>🤖 AI: {summary['estimated_count']}</div>
-                    <div>❌ Missing: {summary['missing_count']}</div>
-                    <div style='border-left: 2px solid white; padding-left: 20px;'><b>{actual_pct:.0f}%</b> Actual</div>
+                <div style='flex: 1;'>
+                    <div style='font-size: 14px; margin-bottom: 5px;'>
+                        {quality_icon} <b>Data Quality: {quality_status}</b>
+                    </div>
+                </div>
+                <div style='flex: 2; display: flex; justify-content: space-around; text-align: center;'>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['actual_count']}</div>
+                         <div style='font-size: 10px;'>✅ Actual</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['estimated_count']}</div>
+                         <div style='font-size: 10px;'>🤖 AI</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['missing_count']}</div>
+                         <div style='font-size: 10px;'>❌ Missing</div></div>
+                    <div style='border-left: 2px solid white; padding-left: 20px;'>
+                         <div style='font-size: 28px; font-weight: bold;'>{actual_pct:.0f}%</div>
+                         <div style='font-size: 10px;'>Actual Data</div></div>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+# ========================================
+# AI ESTIMATOR CLASS
+# ========================================
+
 class AIEstimator:
-    @staticmethod
-    def estimate_ar(df, monthly_fin):
-        revenue = df['net_revenue'].sum()
-        return revenue * 0.15, "15% of revenue (industry avg)"
+    """AI-powered estimation for missing data"""
     
     @staticmethod
-    def estimate_ap(cogs, df):
-        orders = df['order_id'].nunique()
-        pct = 0.30 if orders > 1000 else 0.25 if orders > 500 else 0.20
+    def estimate_accounts_receivable(df_filtered, monthly_fin):
+        total_revenue = df_filtered['net_revenue'].sum()
+        if 'customer_type' in df_filtered.columns:
+            b2b = df_filtered[df_filtered['customer_type'] == 'B2B']['net_revenue'].sum()
+            b2c = df_filtered[df_filtered['customer_type'] == 'B2C']['net_revenue'].sum()
+            estimated_ar = (b2b * 0.35) + (b2c * 0.05)
+            method = "Customer type analysis: B2B 35%, B2C 5%"
+        else:
+            estimated_ar = total_revenue * 0.15
+            method = "Industry average: 15% of revenue"
+        return estimated_ar, method
+    
+    @staticmethod
+    def estimate_accounts_payable(cogs, df_filtered):
+        total_orders = df_filtered['order_id'].nunique()
+        if total_orders > 1000:
+            pct = 0.30
+        elif total_orders > 500:
+            pct = 0.25
+        else:
+            pct = 0.20
         return cogs * pct, f"{pct*100:.0f}% of COGS"
     
     @staticmethod
-    def estimate_inventory(df, cogs):
-        qty = df['quantity'].sum()
-        days = max((df['order_date'].max() - df['order_date'].min()).days, 1)
-        daily = qty / days
-        avg_cost = cogs / qty if qty > 0 else 0
-        return daily * 45 * avg_cost, "45 days coverage"
+    def estimate_inventory(df_filtered, cogs):
+        total_quantity = df_filtered['quantity'].sum()
+        days = max((df_filtered['order_date'].max() - df_filtered['order_date'].min()).days, 1)
+        daily_sales = total_quantity / days
+        avg_cost = cogs / total_quantity if total_quantity > 0 else 0
+        estimated_units = daily_sales * 45
+        return estimated_units * avg_cost, "45 days inventory coverage"
     
     @staticmethod
-    def estimate_marketing(df, revenue):
-        orders = df['order_id'].nunique()
-        customers = df['user_id'].nunique()
-        return {
+    def estimate_marketing_metrics(df_filtered, revenue):
+        total_orders = df_filtered['order_id'].nunique()
+        total_customers = df_filtered['user_id'].nunique()
+        
+        metrics = {
             'conversion_rate': 2.5 + np.random.uniform(-0.5, 0.5),
             'bounce_rate': 45 + np.random.uniform(-5, 5),
-            'session_duration': 180 + np.random.uniform(-30, 30),
-            'pages_per_session': 4.5 + np.random.uniform(-0.5, 0.5),
+            'avg_session_duration': 180 + np.random.uniform(-30, 30),
+            'page_views_per_session': 4.5 + np.random.uniform(-0.5, 0.5),
             'engagement_rate': 3.5 + np.random.uniform(-0.5, 0.5),
-            'follower_growth': 5 + np.random.uniform(-1, 1),
+            'follower_growth_rate': 5 + np.random.uniform(-1, 1),
             'email_open_rate': 18 + np.random.uniform(-2, 2),
             'email_ctr': 2.5 + np.random.uniform(-0.5, 0.5),
-        }, "Industry benchmarks"
+        }
+        return metrics, "Industry benchmarks (Fashion E-commerce)"
     
     @staticmethod
-    def estimate_warehouse(df, orders):
-        return {
-            'perfect_order': 92 + np.random.uniform(-2, 2),
+    def estimate_warehouse_metrics(df_filtered, total_orders):
+        metrics = {
+            'perfect_order_rate': 92 + np.random.uniform(-2, 2),
             'fill_rate': 96 + np.random.uniform(-1, 1),
             'service_level': 94 + np.random.uniform(-2, 2),
-            'stockout': 3 + np.random.uniform(-0.5, 0.5),
-            'cycle_time': 2.5 + np.random.uniform(-0.3, 0.3),
-            'accuracy': 96 + np.random.uniform(-1, 1),
-            'labor_cost': 15 + np.random.uniform(-2, 2),
-        }, "Industry averages"
+            'stockout_rate': 3 + np.random.uniform(-0.5, 0.5),
+            'inventory_accuracy': 96 + np.random.uniform(-1, 1),
+        }
+        return metrics, "Industry averages with variance"
 
 # ========================================
 # CONFIGURATION
@@ -7925,16 +7969,17 @@ CHANNEL_COLORS = {
     "Store": "#795548", "Pop-up": "#FF9800", "Website": "#607D8B",
 }
 
+# Session State
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
 if "data" not in st.session_state:
     st.session_state.data = {}
-if "tracker" not in st.session_state:
-    st.session_state.tracker = DataQualityTracker()
-if "ai" not in st.session_state:
-    st.session_state.ai = AIEstimator()
-if "use_ai" not in st.session_state:
-    st.session_state.use_ai = True
+if "quality_tracker" not in st.session_state:
+    st.session_state.quality_tracker = DataQualityTracker()
+if "ai_estimator" not in st.session_state:
+    st.session_state.ai_estimator = AIEstimator()
+if "use_ai_estimation" not in st.session_state:
+    st.session_state.use_ai_estimation = True
 if "targets" not in st.session_state:
     st.session_state.targets = {
         "monthly_revenue": 1000000,
@@ -7948,492 +7993,2306 @@ if "targets" not in st.session_state:
 st.markdown("""
 <style>
     .block-container {padding-top: 1rem;}
-    h1, h2, h3 {font-family: 'Inter', sans-serif;}
-    .badge-actual {
+    h1, h2, h3 {font-family: 'Inter', sans-serif; font-weight: 700;}
+    .quality-badge-actual {
         background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-        color: white; padding: 3px 8px; border-radius: 12px;
+        color: white; padding: 3px 10px; border-radius: 15px;
         font-size: 9px; font-weight: bold; margin-left: 5px;
     }
-    .badge-ai {
+    .quality-badge-estimated {
         background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-        color: white; padding: 3px 8px; border-radius: 12px;
+        color: white; padding: 3px 10px; border-radius: 15px;
         font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .ai-info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px; border-radius: 12px; color: white; margin: 20px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+print("✅ Part 1 Complete: Classes & Configuration loaded")
+print("📝 Next: Copy Part 2 (Data Loading Functions)")
+# ========================================
+# PART 1: IMPORTS & CLASSES
+# Copy this entire file and save as: dashboard_part1.py
+# ========================================
+
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
+import warnings
+from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
+
+warnings.filterwarnings("ignore")
+st.set_page_config(page_title="Analytics Pro", layout="wide", page_icon="📊")
+
+# ========================================
+# DATA QUALITY TRACKER CLASS
+# ========================================
+
+class DataQualityTracker:
+    """Track which data is actual vs estimated"""
+    
+    def __init__(self):
+        self.actual_data = []
+        self.estimated_data = []
+        self.missing_data = []
+        
+    def mark_actual(self, metric_name):
+        if metric_name not in self.actual_data:
+            self.actual_data.append(metric_name)
+    
+    def mark_estimated(self, metric_name, estimation_method):
+        if not any(m['metric'] == metric_name for m in self.estimated_data):
+            self.estimated_data.append({
+                'metric': metric_name,
+                'method': estimation_method
+            })
+    
+    def mark_missing(self, metric_name, required_data):
+        if not any(m['metric'] == metric_name for m in self.missing_data):
+            self.missing_data.append({
+                'metric': metric_name,
+                'required': required_data
+            })
+    
+    def get_summary(self):
+        return {
+            'actual_count': len(self.actual_data),
+            'estimated_count': len(self.estimated_data),
+            'missing_count': len(self.missing_data),
+            'total_metrics': len(self.actual_data) + len(self.estimated_data) + len(self.missing_data)
+        }
+    
+    def show_data_quality_badge(self):
+        """Display enhanced data quality indicator"""
+        summary = self.get_summary()
+        if summary['total_metrics'] == 0:
+            return
+        
+        actual_pct = (summary['actual_count'] / summary['total_metrics'] * 100) if summary['total_metrics'] > 0 else 0
+        
+        if actual_pct >= 80:
+            quality_color, quality_status, quality_icon = "#2ecc71", "Excellent", "🌟"
+        elif actual_pct >= 60:
+            quality_color, quality_status, quality_icon = "#f39c12", "Good", "✅"
+        else:
+            quality_color, quality_status, quality_icon = "#e74c3c", "Fair", "⚠️"
+        
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, {quality_color} 0%, {quality_color}dd 100%); 
+                    padding: 15px 25px; border-radius: 12px; color: white; margin-bottom: 25px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div style='flex: 1;'>
+                    <div style='font-size: 14px; margin-bottom: 5px;'>
+                        {quality_icon} <b>Data Quality: {quality_status}</b>
+                    </div>
+                </div>
+                <div style='flex: 2; display: flex; justify-content: space-around; text-align: center;'>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['actual_count']}</div>
+                         <div style='font-size: 10px;'>✅ Actual</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['estimated_count']}</div>
+                         <div style='font-size: 10px;'>🤖 AI</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['missing_count']}</div>
+                         <div style='font-size: 10px;'>❌ Missing</div></div>
+                    <div style='border-left: 2px solid white; padding-left: 20px;'>
+                         <div style='font-size: 28px; font-weight: bold;'>{actual_pct:.0f}%</div>
+                         <div style='font-size: 10px;'>Actual Data</div></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ========================================
+# AI ESTIMATOR CLASS
+# ========================================
+
+class AIEstimator:
+    """AI-powered estimation for missing data"""
+    
+    @staticmethod
+    def estimate_accounts_receivable(df_filtered, monthly_fin):
+        total_revenue = df_filtered['net_revenue'].sum()
+        if 'customer_type' in df_filtered.columns:
+            b2b = df_filtered[df_filtered['customer_type'] == 'B2B']['net_revenue'].sum()
+            b2c = df_filtered[df_filtered['customer_type'] == 'B2C']['net_revenue'].sum()
+            estimated_ar = (b2b * 0.35) + (b2c * 0.05)
+            method = "Customer type analysis: B2B 35%, B2C 5%"
+        else:
+            estimated_ar = total_revenue * 0.15
+            method = "Industry average: 15% of revenue"
+        return estimated_ar, method
+    
+    @staticmethod
+    def estimate_accounts_payable(cogs, df_filtered):
+        total_orders = df_filtered['order_id'].nunique()
+        if total_orders > 1000:
+            pct = 0.30
+        elif total_orders > 500:
+            pct = 0.25
+        else:
+            pct = 0.20
+        return cogs * pct, f"{pct*100:.0f}% of COGS"
+    
+    @staticmethod
+    def estimate_inventory(df_filtered, cogs):
+        total_quantity = df_filtered['quantity'].sum()
+        days = max((df_filtered['order_date'].max() - df_filtered['order_date'].min()).days, 1)
+        daily_sales = total_quantity / days
+        avg_cost = cogs / total_quantity if total_quantity > 0 else 0
+        estimated_units = daily_sales * 45
+        return estimated_units * avg_cost, "45 days inventory coverage"
+    
+    @staticmethod
+    def estimate_marketing_metrics(df_filtered, revenue):
+        total_orders = df_filtered['order_id'].nunique()
+        total_customers = df_filtered['user_id'].nunique()
+        
+        metrics = {
+            'conversion_rate': 2.5 + np.random.uniform(-0.5, 0.5),
+            'bounce_rate': 45 + np.random.uniform(-5, 5),
+            'avg_session_duration': 180 + np.random.uniform(-30, 30),
+            'page_views_per_session': 4.5 + np.random.uniform(-0.5, 0.5),
+            'engagement_rate': 3.5 + np.random.uniform(-0.5, 0.5),
+            'follower_growth_rate': 5 + np.random.uniform(-1, 1),
+            'email_open_rate': 18 + np.random.uniform(-2, 2),
+            'email_ctr': 2.5 + np.random.uniform(-0.5, 0.5),
+        }
+        return metrics, "Industry benchmarks (Fashion E-commerce)"
+    
+    @staticmethod
+    def estimate_warehouse_metrics(df_filtered, total_orders):
+        metrics = {
+            'perfect_order_rate': 92 + np.random.uniform(-2, 2),
+            'fill_rate': 96 + np.random.uniform(-1, 1),
+            'service_level': 94 + np.random.uniform(-2, 2),
+            'stockout_rate': 3 + np.random.uniform(-0.5, 0.5),
+            'inventory_accuracy': 96 + np.random.uniform(-1, 1),
+        }
+        return metrics, "Industry averages with variance"
+
+# ========================================
+# CONFIGURATION
+# ========================================
+
+CHANNEL_COLORS = {
+    "TikTok": "#000000", "Shopee": "#FF5722", "Lazada": "#1E88E5",
+    "LINE Shopping": "#00C300", "Instagram": "#9C27B0", "Facebook": "#1877F2",
+    "Store": "#795548", "Pop-up": "#FF9800", "Website": "#607D8B",
+}
+
+# Session State
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+if "data" not in st.session_state:
+    st.session_state.data = {}
+if "quality_tracker" not in st.session_state:
+    st.session_state.quality_tracker = DataQualityTracker()
+if "ai_estimator" not in st.session_state:
+    st.session_state.ai_estimator = AIEstimator()
+if "use_ai_estimation" not in st.session_state:
+    st.session_state.use_ai_estimation = True
+if "targets" not in st.session_state:
+    st.session_state.targets = {
+        "monthly_revenue": 1000000,
+        "profit_margin": 20,
+    }
+
+# ========================================
+# CUSTOM CSS
+# ========================================
+
+st.markdown("""
+<style>
+    .block-container {padding-top: 1rem;}
+    h1, h2, h3 {font-family: 'Inter', sans-serif; font-weight: 700;}
+    .quality-badge-actual {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .quality-badge-estimated {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .ai-info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px; border-radius: 12px; color: white; margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ========================================
-# FUNCTIONS
+# PART 2: DATA LOADING FUNCTIONS
+# Paste this AFTER Part 1
 # ========================================
 
 def load_data():
+    """Load and validate CSV data"""
     st.sidebar.title("📊 Analytics Dashboard")
     st.sidebar.markdown("### 📁 Data Upload")
-    
-    uploaded = st.sidebar.file_uploader("CSV Files", type=["csv"], accept_multiple_files=True)
-    
-    if uploaded and st.sidebar.button("🔄 Load Data", type="primary"):
+    st.sidebar.markdown("Upload your CSV files to begin analysis")
+    st.sidebar.markdown("---")
+
+    uploaded = st.sidebar.file_uploader(
+        "Choose CSV Files",
+        type=["csv"],
+        accept_multiple_files=True,
+        key="csv_uploader_main",
+    )
+
+    if uploaded and st.sidebar.button("🔄 Load Data", type="primary", key="load_data_btn"):
         data = {}
         mapping = {
             "users.csv": "users",
-            "products.csv": "products", 
+            "products.csv": "products",
             "orders.csv": "orders",
             "order_items.csv": "order_items",
+            "inventory_movements.csv": "inventory",
+            "balance_sheet.csv": "balance_sheet",
         }
-        
+
+        with st.sidebar:
+            st.markdown("**Loading Status:**")
+
         for file in uploaded:
             if file.name in mapping:
                 try:
-                    data[mapping[file.name]] = pd.read_csv(file)
+                    df = pd.read_csv(file)
+                    data[mapping[file.name]] = df
                     st.sidebar.success(f"✅ {file.name}")
                 except Exception as e:
                     st.sidebar.error(f"❌ {file.name}")
-        
+                    st.sidebar.caption(str(e))
+
         if all(t in data for t in ["users", "products", "orders", "order_items"]):
             st.session_state.data = data
             st.session_state.data_loaded = True
+            st.sidebar.markdown("---")
+            st.sidebar.success("✅ **All data loaded successfully!**")
             st.rerun()
         else:
-            st.sidebar.error("❌ Missing required files")
-    
+            st.sidebar.error("❌ Missing required tables")
+            missing = [t for t in ["users", "products", "orders", "order_items"] if t not in data]
+            st.sidebar.caption(f"Need: {', '.join(missing)}.csv")
+
     if st.session_state.data_loaded:
         st.sidebar.markdown("---")
-        st.sidebar.markdown("### 🤖 AI Settings")
-        st.session_state.use_ai = st.sidebar.checkbox("Enable AI Estimation", value=True)
+        st.sidebar.markdown("### ✅ Data Status")
+        st.sidebar.success("Data loaded and ready")
         
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("### 🎯 Targets")
-        with st.sidebar.expander("Revenue Target"):
-            st.session_state.targets["monthly_revenue"] = st.number_input(
-                "Monthly (฿)", value=st.session_state.targets["monthly_revenue"], step=100000)
+        st.sidebar.markdown("**Optional Data:**")
+        if "balance_sheet" in st.session_state.data:
+            st.sidebar.success("✅ Balance Sheet")
+        else:
+            st.sidebar.info("ℹ️ Balance Sheet: AI estimation")
     
+        if "inventory" in st.session_state.data:
+            st.sidebar.success("✅ Inventory Movements")
+        else:
+            st.sidebar.info("ℹ️ Inventory: AI estimation")
+    
+        # AI Toggle
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🤖 AI Settings")
+        use_ai = st.sidebar.checkbox(
+            "Enable AI Estimation",
+            value=True,
+            help="Use AI to estimate missing data"
+        )
+        st.session_state.use_ai_estimation = use_ai
+
+        if st.session_state.data:
+            total_orders = len(st.session_state.data.get("orders", []))
+            total_customers = len(st.session_state.data.get("users", []))
+            total_products = len(st.session_state.data.get("products", []))
+
+            st.sidebar.markdown(f"""
+            - **Orders:** {total_orders:,}
+            - **Customers:** {total_customers:,}
+            - **Products:** {total_products:,}
+            """)
+
+        # Target Settings
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🎯 Target Settings")
+
+        with st.sidebar.expander("Sales Target"):
+            st.session_state.targets["monthly_revenue"] = st.number_input(
+                "Monthly Revenue (฿)",
+                min_value=0,
+                value=st.session_state.targets["monthly_revenue"],
+                step=100000,
+                format="%d"
+            )
+
+        with st.sidebar.expander("Financial Target"):
+            st.session_state.targets["profit_margin"] = st.number_input(
+                "Profit Margin (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.targets["profit_margin"]),
+                step=1.0
+            )
+
     return st.session_state.data if st.session_state.data_loaded else None
+
 
 @st.cache_data
 def merge_data(data):
+    """Merge all data tables"""
     df = data["order_items"].copy()
     df = df.merge(data["orders"], on="order_id", how="left", suffixes=("", "_o"))
     df = df.merge(data["products"], on="product_id", how="left", suffixes=("", "_p"))
     df = df.merge(data["users"], on="user_id", how="left", suffixes=("", "_u"))
-    
+
     for col in ["order_date", "created_at"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
-    
+
     if "order_date" in df.columns:
         df["order_month"] = df["order_date"].dt.to_period("M")
-    
+        df["order_year"] = df["order_date"].dt.year
+
+    online = ["Shopee", "Lazada", "TikTok", "LINE Shopping"]
+    df["channel_type"] = df["channel"].apply(
+        lambda x: "Online" if x in online else "Offline"
+    )
+
     return df
 
+
+print("✅ Part 2 Complete: Data Loading Functions ready")
+print("📝 Next: Request Part 3 (Main Dashboard)")
 # ========================================
-# MAIN APP
+# PART 1: IMPORTS & CLASSES
+# Copy this entire file and save as: dashboard_part1.py
 # ========================================
 
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
+import warnings
+from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
+
+warnings.filterwarnings("ignore")
+st.set_page_config(page_title="Analytics Pro", layout="wide", page_icon="📊")
+
+# ========================================
+# DATA QUALITY TRACKER CLASS
+# ========================================
+
+class DataQualityTracker:
+    """Track which data is actual vs estimated"""
+    
+    def __init__(self):
+        self.actual_data = []
+        self.estimated_data = []
+        self.missing_data = []
+        
+    def mark_actual(self, metric_name):
+        if metric_name not in self.actual_data:
+            self.actual_data.append(metric_name)
+    
+    def mark_estimated(self, metric_name, estimation_method):
+        if not any(m['metric'] == metric_name for m in self.estimated_data):
+            self.estimated_data.append({
+                'metric': metric_name,
+                'method': estimation_method
+            })
+    
+    def mark_missing(self, metric_name, required_data):
+        if not any(m['metric'] == metric_name for m in self.missing_data):
+            self.missing_data.append({
+                'metric': metric_name,
+                'required': required_data
+            })
+    
+    def get_summary(self):
+        return {
+            'actual_count': len(self.actual_data),
+            'estimated_count': len(self.estimated_data),
+            'missing_count': len(self.missing_data),
+            'total_metrics': len(self.actual_data) + len(self.estimated_data) + len(self.missing_data)
+        }
+    
+    def show_data_quality_badge(self):
+        """Display enhanced data quality indicator"""
+        summary = self.get_summary()
+        if summary['total_metrics'] == 0:
+            return
+        
+        actual_pct = (summary['actual_count'] / summary['total_metrics'] * 100) if summary['total_metrics'] > 0 else 0
+        
+        if actual_pct >= 80:
+            quality_color, quality_status, quality_icon = "#2ecc71", "Excellent", "🌟"
+        elif actual_pct >= 60:
+            quality_color, quality_status, quality_icon = "#f39c12", "Good", "✅"
+        else:
+            quality_color, quality_status, quality_icon = "#e74c3c", "Fair", "⚠️"
+        
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, {quality_color} 0%, {quality_color}dd 100%); 
+                    padding: 15px 25px; border-radius: 12px; color: white; margin-bottom: 25px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div style='flex: 1;'>
+                    <div style='font-size: 14px; margin-bottom: 5px;'>
+                        {quality_icon} <b>Data Quality: {quality_status}</b>
+                    </div>
+                </div>
+                <div style='flex: 2; display: flex; justify-content: space-around; text-align: center;'>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['actual_count']}</div>
+                         <div style='font-size: 10px;'>✅ Actual</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['estimated_count']}</div>
+                         <div style='font-size: 10px;'>🤖 AI</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['missing_count']}</div>
+                         <div style='font-size: 10px;'>❌ Missing</div></div>
+                    <div style='border-left: 2px solid white; padding-left: 20px;'>
+                         <div style='font-size: 28px; font-weight: bold;'>{actual_pct:.0f}%</div>
+                         <div style='font-size: 10px;'>Actual Data</div></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ========================================
+# AI ESTIMATOR CLASS
+# ========================================
+
+class AIEstimator:
+    """AI-powered estimation for missing data"""
+    
+    @staticmethod
+    def estimate_accounts_receivable(df_filtered, monthly_fin):
+        total_revenue = df_filtered['net_revenue'].sum()
+        if 'customer_type' in df_filtered.columns:
+            b2b = df_filtered[df_filtered['customer_type'] == 'B2B']['net_revenue'].sum()
+            b2c = df_filtered[df_filtered['customer_type'] == 'B2C']['net_revenue'].sum()
+            estimated_ar = (b2b * 0.35) + (b2c * 0.05)
+            method = "Customer type analysis: B2B 35%, B2C 5%"
+        else:
+            estimated_ar = total_revenue * 0.15
+            method = "Industry average: 15% of revenue"
+        return estimated_ar, method
+    
+    @staticmethod
+    def estimate_accounts_payable(cogs, df_filtered):
+        total_orders = df_filtered['order_id'].nunique()
+        if total_orders > 1000:
+            pct = 0.30
+        elif total_orders > 500:
+            pct = 0.25
+        else:
+            pct = 0.20
+        return cogs * pct, f"{pct*100:.0f}% of COGS"
+    
+    @staticmethod
+    def estimate_inventory(df_filtered, cogs):
+        total_quantity = df_filtered['quantity'].sum()
+        days = max((df_filtered['order_date'].max() - df_filtered['order_date'].min()).days, 1)
+        daily_sales = total_quantity / days
+        avg_cost = cogs / total_quantity if total_quantity > 0 else 0
+        estimated_units = daily_sales * 45
+        return estimated_units * avg_cost, "45 days inventory coverage"
+    
+    @staticmethod
+    def estimate_marketing_metrics(df_filtered, revenue):
+        total_orders = df_filtered['order_id'].nunique()
+        total_customers = df_filtered['user_id'].nunique()
+        
+        metrics = {
+            'conversion_rate': 2.5 + np.random.uniform(-0.5, 0.5),
+            'bounce_rate': 45 + np.random.uniform(-5, 5),
+            'avg_session_duration': 180 + np.random.uniform(-30, 30),
+            'page_views_per_session': 4.5 + np.random.uniform(-0.5, 0.5),
+            'engagement_rate': 3.5 + np.random.uniform(-0.5, 0.5),
+            'follower_growth_rate': 5 + np.random.uniform(-1, 1),
+            'email_open_rate': 18 + np.random.uniform(-2, 2),
+            'email_ctr': 2.5 + np.random.uniform(-0.5, 0.5),
+        }
+        return metrics, "Industry benchmarks (Fashion E-commerce)"
+    
+    @staticmethod
+    def estimate_warehouse_metrics(df_filtered, total_orders):
+        metrics = {
+            'perfect_order_rate': 92 + np.random.uniform(-2, 2),
+            'fill_rate': 96 + np.random.uniform(-1, 1),
+            'service_level': 94 + np.random.uniform(-2, 2),
+            'stockout_rate': 3 + np.random.uniform(-0.5, 0.5),
+            'inventory_accuracy': 96 + np.random.uniform(-1, 1),
+        }
+        return metrics, "Industry averages with variance"
+
+# ========================================
+# CONFIGURATION
+# ========================================
+
+CHANNEL_COLORS = {
+    "TikTok": "#000000", "Shopee": "#FF5722", "Lazada": "#1E88E5",
+    "LINE Shopping": "#00C300", "Instagram": "#9C27B0", "Facebook": "#1877F2",
+    "Store": "#795548", "Pop-up": "#FF9800", "Website": "#607D8B",
+}
+
+# Session State
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+if "data" not in st.session_state:
+    st.session_state.data = {}
+if "quality_tracker" not in st.session_state:
+    st.session_state.quality_tracker = DataQualityTracker()
+if "ai_estimator" not in st.session_state:
+    st.session_state.ai_estimator = AIEstimator()
+if "use_ai_estimation" not in st.session_state:
+    st.session_state.use_ai_estimation = True
+if "targets" not in st.session_state:
+    st.session_state.targets = {
+        "monthly_revenue": 1000000,
+        "profit_margin": 20,
+    }
+
+# ========================================
+# CUSTOM CSS
+# ========================================
+
+st.markdown("""
+<style>
+    .block-container {padding-top: 1rem;}
+    h1, h2, h3 {font-family: 'Inter', sans-serif; font-weight: 700;}
+    .quality-badge-actual {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .quality-badge-estimated {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .ai-info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px; border-radius: 12px; color: white; margin: 20px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ========================================
+# PART 2: DATA LOADING FUNCTIONS
+# Paste this AFTER Part 1
+# ========================================
+
+def load_data():
+    """Load and validate CSV data"""
+    st.sidebar.title("📊 Analytics Dashboard")
+    st.sidebar.markdown("### 📁 Data Upload")
+    st.sidebar.markdown("Upload your CSV files to begin analysis")
+    st.sidebar.markdown("---")
+
+    uploaded = st.sidebar.file_uploader(
+        "Choose CSV Files",
+        type=["csv"],
+        accept_multiple_files=True,
+        key="csv_uploader_main",
+    )
+
+    if uploaded and st.sidebar.button("🔄 Load Data", type="primary", key="load_data_btn"):
+        data = {}
+        mapping = {
+            "users.csv": "users",
+            "products.csv": "products",
+            "orders.csv": "orders",
+            "order_items.csv": "order_items",
+            "inventory_movements.csv": "inventory",
+            "balance_sheet.csv": "balance_sheet",
+        }
+
+        with st.sidebar:
+            st.markdown("**Loading Status:**")
+
+        for file in uploaded:
+            if file.name in mapping:
+                try:
+                    df = pd.read_csv(file)
+                    data[mapping[file.name]] = df
+                    st.sidebar.success(f"✅ {file.name}")
+                except Exception as e:
+                    st.sidebar.error(f"❌ {file.name}")
+                    st.sidebar.caption(str(e))
+
+        if all(t in data for t in ["users", "products", "orders", "order_items"]):
+            st.session_state.data = data
+            st.session_state.data_loaded = True
+            st.sidebar.markdown("---")
+            st.sidebar.success("✅ **All data loaded successfully!**")
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Missing required tables")
+            missing = [t for t in ["users", "products", "orders", "order_items"] if t not in data]
+            st.sidebar.caption(f"Need: {', '.join(missing)}.csv")
+
+    if st.session_state.data_loaded:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### ✅ Data Status")
+        st.sidebar.success("Data loaded and ready")
+        
+        st.sidebar.markdown("**Optional Data:**")
+        if "balance_sheet" in st.session_state.data:
+            st.sidebar.success("✅ Balance Sheet")
+        else:
+            st.sidebar.info("ℹ️ Balance Sheet: AI estimation")
+    
+        if "inventory" in st.session_state.data:
+            st.sidebar.success("✅ Inventory Movements")
+        else:
+            st.sidebar.info("ℹ️ Inventory: AI estimation")
+    
+        # AI Toggle
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🤖 AI Settings")
+        use_ai = st.sidebar.checkbox(
+            "Enable AI Estimation",
+            value=True,
+            help="Use AI to estimate missing data"
+        )
+        st.session_state.use_ai_estimation = use_ai
+
+        if st.session_state.data:
+            total_orders = len(st.session_state.data.get("orders", []))
+            total_customers = len(st.session_state.data.get("users", []))
+            total_products = len(st.session_state.data.get("products", []))
+
+            st.sidebar.markdown(f"""
+            - **Orders:** {total_orders:,}
+            - **Customers:** {total_customers:,}
+            - **Products:** {total_products:,}
+            """)
+
+        # Target Settings
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🎯 Target Settings")
+
+        with st.sidebar.expander("Sales Target"):
+            st.session_state.targets["monthly_revenue"] = st.number_input(
+                "Monthly Revenue (฿)",
+                min_value=0,
+                value=st.session_state.targets["monthly_revenue"],
+                step=100000,
+                format="%d"
+            )
+
+        with st.sidebar.expander("Financial Target"):
+            st.session_state.targets["profit_margin"] = st.number_input(
+                "Profit Margin (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.targets["profit_margin"]),
+                step=1.0
+            )
+
+    return st.session_state.data if st.session_state.data_loaded else None
+
+
+@st.cache_data
+def merge_data(data):
+    """Merge all data tables"""
+    df = data["order_items"].copy()
+    df = df.merge(data["orders"], on="order_id", how="left", suffixes=("", "_o"))
+    df = df.merge(data["products"], on="product_id", how="left", suffixes=("", "_p"))
+    df = df.merge(data["users"], on="user_id", how="left", suffixes=("", "_u"))
+
+    for col in ["order_date", "created_at"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+
+    if "order_date" in df.columns:
+        df["order_month"] = df["order_date"].dt.to_period("M")
+        df["order_year"] = df["order_date"].dt.year
+
+    online = ["Shopee", "Lazada", "TikTok", "LINE Shopping"]
+    df["channel_type"] = df["channel"].apply(
+        lambda x: "Online" if x in online else "Offline"
+    )
+
+    return df
+
+
+print("✅ Part 2 Complete: Data Loading Functions ready")
+print("📝 Next: Request Part 3 (Main Dashboard)")
+
+# ========================================
+# PART 3: MAIN DASHBOARD & FILTERS
+# Paste this AFTER Part 2
+# ========================================
+
+# Load data
 data = load_data()
 
 if not data:
+    # Hero Section
     st.markdown("""
-    <div style='text-align: center; padding: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 20px; color: white;'>
-        <h1 style='font-size: 48px;'>📊 Analytics Dashboard</h1>
-        <p style='font-size: 20px;'>Professional Business Intelligence Platform</p>
-        <p style='font-size: 16px; margin-top: 10px;'>👈 Upload CSV files in sidebar to begin</p>
+    <div style='text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 20px; color: white; margin-bottom: 40px;'>
+        <h1 style='font-size: 48px; margin-bottom: 20px;'>📊 Analytics Dashboard</h1>
+        <p style='font-size: 20px; opacity: 0.9;'>Professional Business Intelligence Platform</p>
+        <p style='font-size: 16px; opacity: 0.8; margin-top: 10px;'>
+            👈 Upload your data files in the sidebar to begin
+        </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
+
+    # Features Section
     col1, col2, col3, col4 = st.columns(4)
-    features = [
-        ("💼", "Sales Analytics", "Revenue & Growth"),
-        ("📢", "Marketing ROI", "CAC & CLV"),
-        ("💰", "Financial Health", "Margins & CCC"),
-        ("🔮", "AI Forecasting", "Predict Trends")
-    ]
+
+    with col1:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>💼</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Sales Analytics</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Revenue & Growth</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>📢</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Marketing ROI</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>CAC & CLV</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>💰</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Financial Health</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Margins & CCC</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>🔮</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>AI Forecasting</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Predict Trends</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    for col, (icon, title, desc) in zip([col1, col2, col3, col4], features):
-        with col:
-            st.markdown(f"""
-            <div style='text-align: center; padding: 30px; background: white; border-radius: 10px;'>
-                <div style='font-size: 48px;'>{icon}</div>
-                <h3 style='font-size: 18px;'>{title}</h3>
-                <p style='font-size: 13px; color: #7f8c8d;'>{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
+    st.markdown("""
+    <div style='text-align: center; padding: 40px; background: #f8f9fa; border-radius: 15px; border: 2px dashed #3498db;'>
+        <h2 style='color: #2c3e50; margin-bottom: 15px;'>👈 Get Started</h2>
+        <p style='color: #7f8c8d; font-size: 16px;'>Upload your CSV files using the sidebar to begin</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
-# Load & prepare data
-tracker = st.session_state.tracker
-ai = st.session_state.ai
-df = merge_data(data)
+# Initialize
+quality_tracker = st.session_state.quality_tracker
+ai_estimator = st.session_state.ai_estimator
+df_master = merge_data(data)
 
 # Header
 st.title("📊 Analytics Dashboard")
-tracker.show_badge()
+quality_tracker.show_data_quality_badge()
 st.markdown("---")
 
-# Filters
-st.markdown("### 🔍 Filters")
-min_date = df["order_date"].min().date()
-max_date = df["order_date"].max().date()
+# ==================== FILTERS ====================
+st.markdown("### 🔍 Filter Data")
+
+min_date = df_master["order_date"].min().date()
+max_date = df_master["order_date"].max().date()
 
 col1, col2, col3 = st.columns([2, 2, 1])
 
 with col1:
-    period = st.selectbox("📅 Period", ["Last 30 Days", "Last 90 Days", "This Month", "All Time"])
+    period_options = [
+        "Custom Range",
+        "Last 7 Days",
+        "Last 30 Days",
+        "Last 90 Days",
+        "This Month",
+        "Last Month",
+        "This Quarter",
+        "This Year",
+        "All Time",
+    ]
+    selected_period = st.selectbox("📅 Time Period", period_options, index=2, key="period_selector")
 
 with col2:
-    if period == "Last 30 Days":
-        start, end = max_date - timedelta(days=30), max_date
-    elif period == "Last 90 Days":
-        start, end = max_date - timedelta(days=90), max_date
-    elif period == "This Month":
-        start, end = max_date.replace(day=1), max_date
+    if selected_period == "Last 7 Days":
+        start_date = max_date - timedelta(days=7)
+        end_date = max_date
+    elif selected_period == "Last 30 Days":
+        start_date = max_date - timedelta(days=30)
+        end_date = max_date
+    elif selected_period == "Last 90 Days":
+        start_date = max_date - timedelta(days=90)
+        end_date = max_date
+    elif selected_period == "This Month":
+        start_date = max_date.replace(day=1)
+        end_date = max_date
+    elif selected_period == "Last Month":
+        first_day_this_month = max_date.replace(day=1)
+        end_date = first_day_this_month - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+    elif selected_period == "This Quarter":
+        quarter = (max_date.month - 1) // 3
+        start_date = datetime(max_date.year, quarter * 3 + 1, 1).date()
+        end_date = max_date
+    elif selected_period == "This Year":
+        start_date = datetime(max_date.year, 1, 1).date()
+        end_date = max_date
+    elif selected_period == "All Time":
+        start_date = min_date
+        end_date = max_date
     else:
-        start, end = min_date, max_date
-    
-    st.info(f"📆 {start.strftime('%d %b %Y')} → {end.strftime('%d %b %Y')}")
+        date_range = st.date_input(
+            "Custom Date Range",
+            [min_date, max_date],
+            min_value=min_date,
+            max_value=max_date,
+            key="custom_date_range",
+        )
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+        else:
+            start_date, end_date = min_date, max_date
+
+    st.info(f"📆 **{start_date.strftime('%d %b %Y')}** → **{end_date.strftime('%d %b %Y')}**")
 
 with col3:
-    if st.button("🔄 Reset", use_container_width=True):
+    if st.button("🔄 Reset All", key="reset_filters", use_container_width=True):
         st.rerun()
 
-df_filtered = df[(df["order_date"].dt.date >= start) & (df["order_date"].dt.date <= end)]
+df_filtered = df_master[
+    (df_master["order_date"].dt.date >= start_date) &
+    (df_master["order_date"].dt.date <= end_date)
+]
 
 col1, col2, col3 = st.columns(3)
+
 with col1:
-    channels = st.multiselect("🏪 Channel", df["channel"].unique(), df["channel"].unique())
+    channels = st.multiselect(
+        "🏪 Sales Channel",
+        df_master["channel"].unique(),
+        df_master["channel"].unique(),
+        key="channel_filter",
+    )
     df_filtered = df_filtered[df_filtered["channel"].isin(channels)]
+
 with col2:
-    statuses = st.multiselect("📦 Status", df["status"].unique(), ["Completed"])
+    statuses = st.multiselect(
+        "📦 Order Status",
+        df_master["status"].unique(),
+        ["Completed"],
+        key="status_filter",
+    )
     df_filtered = df_filtered[df_filtered["status"].isin(statuses)]
+
 with col3:
     if "category" in df_filtered.columns:
-        cats = st.multiselect("🏷️ Category", df["category"].unique(), df["category"].unique())
-        df_filtered = df_filtered[df_filtered["category"].isin(cats)]
+        categories = st.multiselect(
+            "🏷️ Product Category",
+            df_master["category"].unique(),
+            df_master["category"].unique(),
+            key="category_filter",
+        )
+        df_filtered = df_filtered[df_filtered["category"].isin(categories)]
 
+# Data Validation
 if df_filtered.empty:
-    st.error("❌ No data")
+    st.error("❌ ไม่มีข้อมูลในช่วงเวลาที่เลือก กรุณาเลือกช่วงเวลาใหม่")
     st.stop()
 
-# Summary
+if df_filtered['order_id'].nunique() < 10:
+    st.warning("⚠️ ข้อมูลมีน้อยเกินไป (< 10 orders) ผลลัพธ์อาจไม่แม่นยำ")
+
+# ==================== SUMMARY METRICS ====================
 st.markdown("---")
-st.markdown("### 📊 Summary")
+st.markdown("### 📊 Summary Statistics")
 
 revenue = df_filtered["net_revenue"].sum()
 profit = df_filtered["profit"].sum()
 cogs = df_filtered["cost"].sum()
-orders = df_filtered["order_id"].nunique()
-customers = df_filtered["user_id"].nunique()
-margin = (profit / revenue * 100) if revenue > 0 else 0
-aov = revenue / orders if orders > 0 else 0
+total_orders = df_filtered["order_id"].nunique()
+total_customers = df_filtered["user_id"].nunique()
+gross_profit = revenue - cogs
+profit_margin = (profit / revenue * 100) if revenue > 0 else 0
+avg_order_value = revenue / total_orders if total_orders > 0 else 0
 
 col1, col2, col3, col4, col5, col6 = st.columns(6)
-col1.metric("💰 Revenue", f"฿{revenue/1e6:.1f}M")
-col2.metric("💵 Profit", f"฿{profit/1e6:.1f}M")
-col3.metric("📝 Orders", f"{orders:,}")
-col4.metric("👥 Customers", f"{customers:,}")
-col5.metric("📊 Margin", f"{margin:.1f}%")
-col6.metric("🛒 AOV", f"฿{aov:,.0f}")
+
+with col1:
+    st.metric("💰 Revenue", f"฿{revenue/1000000:,.0f}M")
+with col2:
+    st.metric("💵 Profit", f"฿{profit/1000000:,.0f}M")
+with col3:
+    st.metric("📝 Orders", f"{total_orders:,}")
+with col4:
+    st.metric("👥 Customers", f"{total_customers:,}")
+with col5:
+    st.metric("📊 Margin", f"{profit_margin:.1f}%")
+with col6:
+    st.metric("🛒 AOV", f"฿{avg_order_value:,.0f}")
 
 st.markdown("---")
 
+print("✅ Part 3 Complete: Main Dashboard & Filters ready")
+print("📝 Next: Request Part 4 (Tabs)")
 # ========================================
-# TABS
+# PART 1: IMPORTS & CLASSES
+# Copy this entire file and save as: dashboard_part1.py
 # ========================================
 
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
+import warnings
+from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
+
+warnings.filterwarnings("ignore")
+st.set_page_config(page_title="Analytics Pro", layout="wide", page_icon="📊")
+
+# ========================================
+# DATA QUALITY TRACKER CLASS
+# ========================================
+
+class DataQualityTracker:
+    """Track which data is actual vs estimated"""
+    
+    def __init__(self):
+        self.actual_data = []
+        self.estimated_data = []
+        self.missing_data = []
+        
+    def mark_actual(self, metric_name):
+        if metric_name not in self.actual_data:
+            self.actual_data.append(metric_name)
+    
+    def mark_estimated(self, metric_name, estimation_method):
+        if not any(m['metric'] == metric_name for m in self.estimated_data):
+            self.estimated_data.append({
+                'metric': metric_name,
+                'method': estimation_method
+            })
+    
+    def mark_missing(self, metric_name, required_data):
+        if not any(m['metric'] == metric_name for m in self.missing_data):
+            self.missing_data.append({
+                'metric': metric_name,
+                'required': required_data
+            })
+    
+    def get_summary(self):
+        return {
+            'actual_count': len(self.actual_data),
+            'estimated_count': len(self.estimated_data),
+            'missing_count': len(self.missing_data),
+            'total_metrics': len(self.actual_data) + len(self.estimated_data) + len(self.missing_data)
+        }
+    
+    def show_data_quality_badge(self):
+        """Display enhanced data quality indicator"""
+        summary = self.get_summary()
+        if summary['total_metrics'] == 0:
+            return
+        
+        actual_pct = (summary['actual_count'] / summary['total_metrics'] * 100) if summary['total_metrics'] > 0 else 0
+        
+        if actual_pct >= 80:
+            quality_color, quality_status, quality_icon = "#2ecc71", "Excellent", "🌟"
+        elif actual_pct >= 60:
+            quality_color, quality_status, quality_icon = "#f39c12", "Good", "✅"
+        else:
+            quality_color, quality_status, quality_icon = "#e74c3c", "Fair", "⚠️"
+        
+        st.markdown(f"""
+        <div style='background: linear-gradient(135deg, {quality_color} 0%, {quality_color}dd 100%); 
+                    padding: 15px 25px; border-radius: 12px; color: white; margin-bottom: 25px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div style='flex: 1;'>
+                    <div style='font-size: 14px; margin-bottom: 5px;'>
+                        {quality_icon} <b>Data Quality: {quality_status}</b>
+                    </div>
+                </div>
+                <div style='flex: 2; display: flex; justify-content: space-around; text-align: center;'>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['actual_count']}</div>
+                         <div style='font-size: 10px;'>✅ Actual</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['estimated_count']}</div>
+                         <div style='font-size: 10px;'>🤖 AI</div></div>
+                    <div><div style='font-size: 24px; font-weight: bold;'>{summary['missing_count']}</div>
+                         <div style='font-size: 10px;'>❌ Missing</div></div>
+                    <div style='border-left: 2px solid white; padding-left: 20px;'>
+                         <div style='font-size: 28px; font-weight: bold;'>{actual_pct:.0f}%</div>
+                         <div style='font-size: 10px;'>Actual Data</div></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ========================================
+# AI ESTIMATOR CLASS
+# ========================================
+
+class AIEstimator:
+    """AI-powered estimation for missing data"""
+    
+    @staticmethod
+    def estimate_accounts_receivable(df_filtered, monthly_fin):
+        total_revenue = df_filtered['net_revenue'].sum()
+        if 'customer_type' in df_filtered.columns:
+            b2b = df_filtered[df_filtered['customer_type'] == 'B2B']['net_revenue'].sum()
+            b2c = df_filtered[df_filtered['customer_type'] == 'B2C']['net_revenue'].sum()
+            estimated_ar = (b2b * 0.35) + (b2c * 0.05)
+            method = "Customer type analysis: B2B 35%, B2C 5%"
+        else:
+            estimated_ar = total_revenue * 0.15
+            method = "Industry average: 15% of revenue"
+        return estimated_ar, method
+    
+    @staticmethod
+    def estimate_accounts_payable(cogs, df_filtered):
+        total_orders = df_filtered['order_id'].nunique()
+        if total_orders > 1000:
+            pct = 0.30
+        elif total_orders > 500:
+            pct = 0.25
+        else:
+            pct = 0.20
+        return cogs * pct, f"{pct*100:.0f}% of COGS"
+    
+    @staticmethod
+    def estimate_inventory(df_filtered, cogs):
+        total_quantity = df_filtered['quantity'].sum()
+        days = max((df_filtered['order_date'].max() - df_filtered['order_date'].min()).days, 1)
+        daily_sales = total_quantity / days
+        avg_cost = cogs / total_quantity if total_quantity > 0 else 0
+        estimated_units = daily_sales * 45
+        return estimated_units * avg_cost, "45 days inventory coverage"
+    
+    @staticmethod
+    def estimate_marketing_metrics(df_filtered, revenue):
+        total_orders = df_filtered['order_id'].nunique()
+        total_customers = df_filtered['user_id'].nunique()
+        
+        metrics = {
+            'conversion_rate': 2.5 + np.random.uniform(-0.5, 0.5),
+            'bounce_rate': 45 + np.random.uniform(-5, 5),
+            'avg_session_duration': 180 + np.random.uniform(-30, 30),
+            'page_views_per_session': 4.5 + np.random.uniform(-0.5, 0.5),
+            'engagement_rate': 3.5 + np.random.uniform(-0.5, 0.5),
+            'follower_growth_rate': 5 + np.random.uniform(-1, 1),
+            'email_open_rate': 18 + np.random.uniform(-2, 2),
+            'email_ctr': 2.5 + np.random.uniform(-0.5, 0.5),
+        }
+        return metrics, "Industry benchmarks (Fashion E-commerce)"
+    
+    @staticmethod
+    def estimate_warehouse_metrics(df_filtered, total_orders):
+        metrics = {
+            'perfect_order_rate': 92 + np.random.uniform(-2, 2),
+            'fill_rate': 96 + np.random.uniform(-1, 1),
+            'service_level': 94 + np.random.uniform(-2, 2),
+            'stockout_rate': 3 + np.random.uniform(-0.5, 0.5),
+            'inventory_accuracy': 96 + np.random.uniform(-1, 1),
+        }
+        return metrics, "Industry averages with variance"
+
+# ========================================
+# CONFIGURATION
+# ========================================
+
+CHANNEL_COLORS = {
+    "TikTok": "#000000", "Shopee": "#FF5722", "Lazada": "#1E88E5",
+    "LINE Shopping": "#00C300", "Instagram": "#9C27B0", "Facebook": "#1877F2",
+    "Store": "#795548", "Pop-up": "#FF9800", "Website": "#607D8B",
+}
+
+# Session State
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+if "data" not in st.session_state:
+    st.session_state.data = {}
+if "quality_tracker" not in st.session_state:
+    st.session_state.quality_tracker = DataQualityTracker()
+if "ai_estimator" not in st.session_state:
+    st.session_state.ai_estimator = AIEstimator()
+if "use_ai_estimation" not in st.session_state:
+    st.session_state.use_ai_estimation = True
+if "targets" not in st.session_state:
+    st.session_state.targets = {
+        "monthly_revenue": 1000000,
+        "profit_margin": 20,
+    }
+
+# ========================================
+# CUSTOM CSS
+# ========================================
+
+st.markdown("""
+<style>
+    .block-container {padding-top: 1rem;}
+    h1, h2, h3 {font-family: 'Inter', sans-serif; font-weight: 700;}
+    .quality-badge-actual {
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .quality-badge-estimated {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white; padding: 3px 10px; border-radius: 15px;
+        font-size: 9px; font-weight: bold; margin-left: 5px;
+    }
+    .ai-info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px; border-radius: 12px; color: white; margin: 20px 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ========================================
+# PART 2: DATA LOADING FUNCTIONS
+# Paste this AFTER Part 1
+# ========================================
+
+def load_data():
+    """Load and validate CSV data"""
+    st.sidebar.title("📊 Analytics Dashboard")
+    st.sidebar.markdown("### 📁 Data Upload")
+    st.sidebar.markdown("Upload your CSV files to begin analysis")
+    st.sidebar.markdown("---")
+
+    uploaded = st.sidebar.file_uploader(
+        "Choose CSV Files",
+        type=["csv"],
+        accept_multiple_files=True,
+        key="csv_uploader_main",
+    )
+
+    if uploaded and st.sidebar.button("🔄 Load Data", type="primary", key="load_data_btn"):
+        data = {}
+        mapping = {
+            "users.csv": "users",
+            "products.csv": "products",
+            "orders.csv": "orders",
+            "order_items.csv": "order_items",
+            "inventory_movements.csv": "inventory",
+            "balance_sheet.csv": "balance_sheet",
+        }
+
+        with st.sidebar:
+            st.markdown("**Loading Status:**")
+
+        for file in uploaded:
+            if file.name in mapping:
+                try:
+                    df = pd.read_csv(file)
+                    data[mapping[file.name]] = df
+                    st.sidebar.success(f"✅ {file.name}")
+                except Exception as e:
+                    st.sidebar.error(f"❌ {file.name}")
+                    st.sidebar.caption(str(e))
+
+        if all(t in data for t in ["users", "products", "orders", "order_items"]):
+            st.session_state.data = data
+            st.session_state.data_loaded = True
+            st.sidebar.markdown("---")
+            st.sidebar.success("✅ **All data loaded successfully!**")
+            st.rerun()
+        else:
+            st.sidebar.error("❌ Missing required tables")
+            missing = [t for t in ["users", "products", "orders", "order_items"] if t not in data]
+            st.sidebar.caption(f"Need: {', '.join(missing)}.csv")
+
+    if st.session_state.data_loaded:
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### ✅ Data Status")
+        st.sidebar.success("Data loaded and ready")
+        
+        st.sidebar.markdown("**Optional Data:**")
+        if "balance_sheet" in st.session_state.data:
+            st.sidebar.success("✅ Balance Sheet")
+        else:
+            st.sidebar.info("ℹ️ Balance Sheet: AI estimation")
+    
+        if "inventory" in st.session_state.data:
+            st.sidebar.success("✅ Inventory Movements")
+        else:
+            st.sidebar.info("ℹ️ Inventory: AI estimation")
+    
+        # AI Toggle
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🤖 AI Settings")
+        use_ai = st.sidebar.checkbox(
+            "Enable AI Estimation",
+            value=True,
+            help="Use AI to estimate missing data"
+        )
+        st.session_state.use_ai_estimation = use_ai
+
+        if st.session_state.data:
+            total_orders = len(st.session_state.data.get("orders", []))
+            total_customers = len(st.session_state.data.get("users", []))
+            total_products = len(st.session_state.data.get("products", []))
+
+            st.sidebar.markdown(f"""
+            - **Orders:** {total_orders:,}
+            - **Customers:** {total_customers:,}
+            - **Products:** {total_products:,}
+            """)
+
+        # Target Settings
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🎯 Target Settings")
+
+        with st.sidebar.expander("Sales Target"):
+            st.session_state.targets["monthly_revenue"] = st.number_input(
+                "Monthly Revenue (฿)",
+                min_value=0,
+                value=st.session_state.targets["monthly_revenue"],
+                step=100000,
+                format="%d"
+            )
+
+        with st.sidebar.expander("Financial Target"):
+            st.session_state.targets["profit_margin"] = st.number_input(
+                "Profit Margin (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.targets["profit_margin"]),
+                step=1.0
+            )
+
+    return st.session_state.data if st.session_state.data_loaded else None
+
+
+@st.cache_data
+def merge_data(data):
+    """Merge all data tables"""
+    df = data["order_items"].copy()
+    df = df.merge(data["orders"], on="order_id", how="left", suffixes=("", "_o"))
+    df = df.merge(data["products"], on="product_id", how="left", suffixes=("", "_p"))
+    df = df.merge(data["users"], on="user_id", how="left", suffixes=("", "_u"))
+
+    for col in ["order_date", "created_at"]:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+
+    if "order_date" in df.columns:
+        df["order_month"] = df["order_date"].dt.to_period("M")
+        df["order_year"] = df["order_date"].dt.year
+
+    online = ["Shopee", "Lazada", "TikTok", "LINE Shopping"]
+    df["channel_type"] = df["channel"].apply(
+        lambda x: "Online" if x in online else "Offline"
+    )
+
+    return df
+
+
+print("✅ Part 2 Complete: Data Loading Functions ready")
+print("📝 Next: Request Part 3 (Main Dashboard)")
+
+# ========================================
+# PART 3: MAIN DASHBOARD & FILTERS
+# Paste this AFTER Part 2
+# ========================================
+
+# Load data
+data = load_data()
+
+if not data:
+    # Hero Section
+    st.markdown("""
+    <div style='text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 20px; color: white; margin-bottom: 40px;'>
+        <h1 style='font-size: 48px; margin-bottom: 20px;'>📊 Analytics Dashboard</h1>
+        <p style='font-size: 20px; opacity: 0.9;'>Professional Business Intelligence Platform</p>
+        <p style='font-size: 16px; opacity: 0.8; margin-top: 10px;'>
+            👈 Upload your data files in the sidebar to begin
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Features Section
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>💼</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Sales Analytics</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Revenue & Growth</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>📢</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Marketing ROI</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>CAC & CLV</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>💰</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>Financial Health</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Margins & CCC</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("""
+        <div style='text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+            <div style='font-size: 48px; margin-bottom: 15px;'>🔮</div>
+            <h3 style='font-size: 18px; color: #2c3e50;'>AI Forecasting</h3>
+            <p style='font-size: 13px; color: #7f8c8d;'>Predict Trends</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style='text-align: center; padding: 40px; background: #f8f9fa; border-radius: 15px; border: 2px dashed #3498db;'>
+        <h2 style='color: #2c3e50; margin-bottom: 15px;'>👈 Get Started</h2>
+        <p style='color: #7f8c8d; font-size: 16px;'>Upload your CSV files using the sidebar to begin</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.stop()
+
+# Initialize
+quality_tracker = st.session_state.quality_tracker
+ai_estimator = st.session_state.ai_estimator
+df_master = merge_data(data)
+
+# Header
+st.title("📊 Analytics Dashboard")
+quality_tracker.show_data_quality_badge()
+st.markdown("---")
+
+# ==================== FILTERS ====================
+st.markdown("### 🔍 Filter Data")
+
+min_date = df_master["order_date"].min().date()
+max_date = df_master["order_date"].max().date()
+
+col1, col2, col3 = st.columns([2, 2, 1])
+
+with col1:
+    period_options = [
+        "Custom Range",
+        "Last 7 Days",
+        "Last 30 Days",
+        "Last 90 Days",
+        "This Month",
+        "Last Month",
+        "This Quarter",
+        "This Year",
+        "All Time",
+    ]
+    selected_period = st.selectbox("📅 Time Period", period_options, index=2, key="period_selector")
+
+with col2:
+    if selected_period == "Last 7 Days":
+        start_date = max_date - timedelta(days=7)
+        end_date = max_date
+    elif selected_period == "Last 30 Days":
+        start_date = max_date - timedelta(days=30)
+        end_date = max_date
+    elif selected_period == "Last 90 Days":
+        start_date = max_date - timedelta(days=90)
+        end_date = max_date
+    elif selected_period == "This Month":
+        start_date = max_date.replace(day=1)
+        end_date = max_date
+    elif selected_period == "Last Month":
+        first_day_this_month = max_date.replace(day=1)
+        end_date = first_day_this_month - timedelta(days=1)
+        start_date = end_date.replace(day=1)
+    elif selected_period == "This Quarter":
+        quarter = (max_date.month - 1) // 3
+        start_date = datetime(max_date.year, quarter * 3 + 1, 1).date()
+        end_date = max_date
+    elif selected_period == "This Year":
+        start_date = datetime(max_date.year, 1, 1).date()
+        end_date = max_date
+    elif selected_period == "All Time":
+        start_date = min_date
+        end_date = max_date
+    else:
+        date_range = st.date_input(
+            "Custom Date Range",
+            [min_date, max_date],
+            min_value=min_date,
+            max_value=max_date,
+            key="custom_date_range",
+        )
+        if len(date_range) == 2:
+            start_date, end_date = date_range
+        else:
+            start_date, end_date = min_date, max_date
+
+    st.info(f"📆 **{start_date.strftime('%d %b %Y')}** → **{end_date.strftime('%d %b %Y')}**")
+
+with col3:
+    if st.button("🔄 Reset All", key="reset_filters", use_container_width=True):
+        st.rerun()
+
+df_filtered = df_master[
+    (df_master["order_date"].dt.date >= start_date) &
+    (df_master["order_date"].dt.date <= end_date)
+]
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    channels = st.multiselect(
+        "🏪 Sales Channel",
+        df_master["channel"].unique(),
+        df_master["channel"].unique(),
+        key="channel_filter",
+    )
+    df_filtered = df_filtered[df_filtered["channel"].isin(channels)]
+
+with col2:
+    statuses = st.multiselect(
+        "📦 Order Status",
+        df_master["status"].unique(),
+        ["Completed"],
+        key="status_filter",
+    )
+    df_filtered = df_filtered[df_filtered["status"].isin(statuses)]
+
+with col3:
+    if "category" in df_filtered.columns:
+        categories = st.multiselect(
+            "🏷️ Product Category",
+            df_master["category"].unique(),
+            df_master["category"].unique(),
+            key="category_filter",
+        )
+        df_filtered = df_filtered[df_filtered["category"].isin(categories)]
+
+# Data Validation
+if df_filtered.empty:
+    st.error("❌ ไม่มีข้อมูลในช่วงเวลาที่เลือก กรุณาเลือกช่วงเวลาใหม่")
+    st.stop()
+
+if df_filtered['order_id'].nunique() < 10:
+    st.warning("⚠️ ข้อมูลมีน้อยเกินไป (< 10 orders) ผลลัพธ์อาจไม่แม่นยำ")
+
+# ==================== SUMMARY METRICS ====================
+st.markdown("---")
+st.markdown("### 📊 Summary Statistics")
+
+revenue = df_filtered["net_revenue"].sum()
+profit = df_filtered["profit"].sum()
+cogs = df_filtered["cost"].sum()
+total_orders = df_filtered["order_id"].nunique()
+total_customers = df_filtered["user_id"].nunique()
+gross_profit = revenue - cogs
+profit_margin = (profit / revenue * 100) if revenue > 0 else 0
+avg_order_value = revenue / total_orders if total_orders > 0 else 0
+
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+with col1:
+    st.metric("💰 Revenue", f"฿{revenue/1000000:,.0f}M")
+with col2:
+    st.metric("💵 Profit", f"฿{profit/1000000:,.0f}M")
+with col3:
+    st.metric("📝 Orders", f"{total_orders:,}")
+with col4:
+    st.metric("👥 Customers", f"{total_customers:,}")
+with col5:
+    st.metric("📊 Margin", f"{profit_margin:.1f}%")
+with col6:
+    st.metric("🛒 AOV", f"฿{avg_order_value:,.0f}")
+
+st.markdown("---")
+
+print("✅ Part 3 Complete: Main Dashboard & Filters ready")
+print("📝 Next: Request Part 4 (Tabs)")
+
+# ========================================
+# PART 4: TABS - SALES & MARKETING
+# Paste this AFTER Part 3
+# ========================================
+
+# Create Tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "💼 Sales", "📢 Marketing", "💰 Financial", 
-    "📦 Warehouse", "🔮 Forecast", "🤖 AI"
+    "💼 Sales Analytics",
+    "📢 Marketing Analytics", 
+    "💰 Financial Analytics",
+    "📦 Warehouse Analytics",
+    "🔮 Forecasting",
+    "🤖 AI Insights"
 ])
 
-# TAB 1: SALES
+# ==================== TAB 1: SALES ANALYTICS ====================
 with tab1:
-    st.markdown("## 💼 Sales Analytics")
+    st.markdown("# 💼 Sales Analytics")
     st.markdown("---")
-    
-    # Monthly Growth
-    st.markdown("### 📈 Monthly Growth")
-    monthly = df_filtered.groupby("order_month")["net_revenue"].sum().reset_index()
-    monthly["order_month"] = monthly["order_month"].dt.to_timestamp()
-    monthly["label"] = monthly["order_month"].dt.strftime("%b %Y")
-    monthly["growth"] = monthly["net_revenue"].pct_change() * 100
-    
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=monthly["label"], y=monthly["net_revenue"], 
-                         name="Revenue", marker_color="#3498db"))
-    fig.add_trace(go.Scatter(x=monthly["label"], y=monthly["growth"],
-                             name="Growth %", yaxis="y2", 
-                             line=dict(color="#e74c3c", width=3)))
-    
-    fig.update_layout(
-        yaxis=dict(title="Revenue (฿)"),
-        yaxis2=dict(title="Growth (%)", overlaying="y", side="right"),
-        height=400, plot_bgcolor="white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Channels
-    st.markdown("### 🏪 Channel Performance")
-    ch = df_filtered.groupby("channel").agg({
+
+    # Monthly Sales Growth
+    st.markdown("### 📈 Monthly Sales Growth")
+
+    monthly_sales = df_filtered.groupby("order_month").agg({"net_revenue": "sum"}).reset_index()
+    monthly_sales["order_month"] = monthly_sales["order_month"].dt.to_timestamp()
+    monthly_sales["month_label"] = monthly_sales["order_month"].dt.strftime("%b %Y")
+    monthly_sales["growth_%"] = monthly_sales["net_revenue"].pct_change() * 100
+
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        fig = go.Figure()
+
+        fig.add_trace(go.Bar(
+            x=monthly_sales["month_label"],
+            y=monthly_sales["net_revenue"],
+            name="Revenue",
+            marker=dict(color=monthly_sales["net_revenue"], colorscale="Blues", showscale=False),
+            text=monthly_sales["net_revenue"],
+            texttemplate="฿%{text:,.0f}",
+            textposition="outside",
+        ))
+
+        fig.add_trace(go.Scatter(
+            x=monthly_sales["month_label"],
+            y=monthly_sales["growth_%"],
+            name="Growth %",
+            mode="lines+markers",
+            line=dict(color="#e74c3c", width=3),
+            marker=dict(size=10),
+            yaxis="y2",
+        ))
+
+        fig.update_layout(
+            title="<b>Monthly Sales Revenue & Growth Rate</b>",
+            xaxis=dict(title="", showgrid=False),
+            yaxis=dict(title="Revenue (฿)", showgrid=True),
+            yaxis2=dict(title="Growth (%)", overlaying="y", side="right"),
+            plot_bgcolor="white",
+            height=400,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        latest_growth = monthly_sales["growth_%"].iloc[-1] if len(monthly_sales) > 1 else 0
+        arrow = "📈" if latest_growth > 0 else "📉"
+        color = "#2ecc71" if latest_growth > 0 else "#e74c3c"
+
+        st.markdown(f"""
+        <div style='background: white; padding: 30px; border-radius: 10px; 
+                    border: 3px solid {color}; height: 400px;
+                    display: flex; flex-direction: column; justify-content: center; align-items: center;'>
+            <div style='font-size: 60px;'>{arrow}</div>
+            <div style='font-size: 48px; font-weight: bold; color: {color}; margin: 20px 0;'>
+                {latest_growth:+.1f}%
+            </div>
+            <div style='font-size: 16px; color: #7f8c8d; text-align: center;'>
+                <b>Current Month Growth</b>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Sales by Channel
+    st.markdown("### 🏪 Sales by Channel")
+
+    channel_sales = df_filtered.groupby("channel").agg({
         "net_revenue": "sum", 
         "profit": "sum", 
         "order_id": "nunique"
     }).reset_index()
-    ch.columns = ["Channel", "Revenue", "Profit", "Orders"]
-    ch["Margin %"] = (ch["Profit"] / ch["Revenue"] * 100).round(1)
-    ch = ch.sort_values("Revenue", ascending=False)
-    
-    st.dataframe(ch.style.format({
-        "Revenue": "฿{:,.0f}", 
+    channel_sales.columns = ["Channel", "Revenue", "Profit", "Orders"]
+    channel_sales["Margin_%"] = (channel_sales["Profit"] / channel_sales["Revenue"] * 100).round(1)
+    channel_sales["AOV"] = (channel_sales["Revenue"] / channel_sales["Orders"]).round(0)
+    channel_sales = channel_sales.sort_values("Revenue", ascending=False)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        ch_sorted = channel_sales.sort_values("Revenue", ascending=True)
+        colors_list = [CHANNEL_COLORS.get(ch, "#95a5a6") for ch in ch_sorted["Channel"]]
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=ch_sorted["Channel"],
+            x=ch_sorted["Revenue"],
+            orientation="h",
+            marker=dict(color=colors_list),
+            text=ch_sorted["Revenue"],
+            texttemplate="฿%{text:,.0f}",
+            textposition="outside",
+        ))
+
+        fig.update_layout(
+            title="<b>Revenue by Channel</b>",
+            xaxis=dict(title="Revenue (฿)"),
+            yaxis=dict(title=""),
+            plot_bgcolor="white",
+            height=400,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=channel_sales["Channel"],
+            y=channel_sales["Profit"],
+            name="Profit",
+            marker_color="#2ecc71",
+        ))
+
+        fig.add_trace(go.Bar(
+            x=channel_sales["Channel"],
+            y=channel_sales["Revenue"] - channel_sales["Profit"],
+            name="Cost",
+            marker_color="#e74c3c",
+        ))
+
+        fig.update_layout(
+            title="<b>Revenue Breakdown</b>",
+            barmode="stack",
+            plot_bgcolor="white",
+            height=400,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("#### 📊 Channel Performance")
+    st.dataframe(channel_sales.style.format({
+        "Revenue": "฿{:,.0f}",
         "Profit": "฿{:,.0f}",
         "Orders": "{:,}",
-        "Margin %": "{:.1f}%"
+        "Margin_%": "{:.1f}%",
+        "AOV": "฿{:,.0f}",
     }), use_container_width=True)
 
-# TAB 2: MARKETING
+# ==================== TAB 2: MARKETING ANALYTICS ====================
 with tab2:
-    st.markdown("## 📢 Marketing Analytics")
+    st.markdown("# 📢 Marketing Analytics")
     
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        use_mkt_ai = st.checkbox("🤖 AI", value=True, key="mkt_ai")
+    # AI Toggle
+    col_header1, col_header2 = st.columns([3, 1])
     
-    st.markdown("---")
+    with col_header1:
+        st.markdown("---")
     
-    if use_mkt_ai:
-        metrics, method = ai.estimate_marketing(df_filtered, revenue)
-        tracker.mark_estimated("Marketing", method)
-        
-        st.markdown("### 🌐 Website Analytics")
+    with col_header2:
+        use_marketing_ai = st.checkbox(
+            "🤖 AI Estimation",
+            value=True,
+            help="Enable AI to estimate missing marketing metrics",
+            key="marketing_ai_toggle"
+        )
+    
+    # Get AI metrics
+    if use_marketing_ai:
+        marketing_metrics, marketing_method = ai_estimator.estimate_marketing_metrics(df_filtered, revenue)
+        quality_tracker.mark_estimated("Marketing Metrics", marketing_method)
+    
+    st.markdown("### 🌐 Website Performance")
+    
+    if use_marketing_ai:
         col1, col2, col3, col4 = st.columns(4)
         
-        items = [
-            ("CONVERSION", metrics['conversion_rate'], "%", "#2ecc71"),
-            ("BOUNCE", metrics['bounce_rate'], "%", "#f39c12"),
-            ("SESSION", metrics['session_duration']/60, "m", "#3498db"),
-            ("PAGES", metrics['pages_per_session'], "", "#9b59b6"),
-        ]
-        
-        for col, (label, value, unit, color) in zip([col1, col2, col3, col4], items):
-            with col:
-                st.markdown(f"""
-                <div style='background: white; padding: 20px; border-radius: 10px; 
-                            border-left: 5px solid {color};'>
-                    <div style='font-size: 11px; color: #7f8c8d;'>
-                        <b>{label}</b> <span class='badge-ai'>🤖</span>
-                    </div>
-                    <div style='font-size: 32px; font-weight: bold; color: {color};'>
-                        {value:.1f}{unit}
-                    </div>
+        with col1:
+            conv_rate = marketing_metrics['conversion_rate']
+            conv_color = "#2ecc71" if conv_rate >= 2.5 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; 
+                        border-left: 5px solid {conv_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                <div style='font-size: 11px; color: #7f8c8d;'>
+                    <b>CONVERSION RATE</b>
+                    <span class='quality-badge-estimated'>🤖 AI</span>
                 </div>
-                """, unsafe_allow_html=True)
+                <div style='font-size: 32px; font-weight: bold; color: {conv_color};'>
+                    {conv_rate:.1f}%
+                </div>
+                <div style='font-size: 10px; color: #95a5a6;'>Visitors → Customers</div>
+            </div>
+            """, unsafe_allow_html=True)
         
+        with col2:
+            bounce = marketing_metrics['bounce_rate']
+            bounce_color = "#2ecc71" if bounce <= 45 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; 
+                        border-left: 5px solid {bounce_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                <div style='font-size: 11px; color: #7f8c8d;'>
+                    <b>BOUNCE RATE</b>
+                    <span class='quality-badge-estimated'>🤖 AI</span>
+                </div>
+                <div style='font-size: 32px; font-weight: bold; color: {bounce_color};'>
+                    {bounce:.1f}%
+                </div>
+                <div style='font-size: 10px; color: #95a5a6;'>Single-page visits</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            session = marketing_metrics['avg_session_duration'] / 60
+            session_color = "#2ecc71" if session >= 3 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; 
+                        border-left: 5px solid {session_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                <div style='font-size: 11px; color: #7f8c8d;'>
+                    <b>AVG SESSION</b>
+                    <span class='quality-badge-estimated'>🤖 AI</span>
+                </div>
+                <div style='font-size: 32px; font-weight: bold; color: {session_color};'>
+                    {session:.1f}m
+                </div>
+                <div style='font-size: 10px; color: #95a5a6;'>Time on site</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            pages = marketing_metrics['page_views_per_session']
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; 
+                        border-left: 5px solid #3498db; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                <div style='font-size: 11px; color: #7f8c8d;'>
+                    <b>PAGES/SESSION</b>
+                    <span class='quality-badge-estimated'>🤖 AI</span>
+                </div>
+                <div style='font-size: 32px; font-weight: bold; color: #3498db;'>
+                    {pages:.1f}
+                </div>
+                <div style='font-size: 10px; color: #95a5a6;'>Engagement</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Social Media & Email
+        st.markdown("### 📱 Social Media & Email")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📱 Social Media")
+            engagement = marketing_metrics['engagement_rate']
+            growth = marketing_metrics['follower_growth_rate']
+            
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; margin: 10px 0;'>
+                <div style='font-size: 12px; color: #7f8c8d;'>
+                    <b>Engagement Rate</b> <span class='quality-badge-estimated'>🤖</span>
+                </div>
+                <div style='font-size: 28px; font-weight: bold; color: #e74c3c;'>
+                    {engagement:.1f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; margin: 10px 0;'>
+                <div style='font-size: 12px; color: #7f8c8d;'>
+                    <b>Follower Growth</b> <span class='quality-badge-estimated'>🤖</span>
+                </div>
+                <div style='font-size: 28px; font-weight: bold; color: #3498db;'>
+                    {growth:+.1f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("#### 📧 Email Marketing")
+            open_rate = marketing_metrics['email_open_rate']
+            ctr = marketing_metrics['email_ctr']
+            
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; margin: 10px 0;'>
+                <div style='font-size: 12px; color: #7f8c8d;'>
+                    <b>Open Rate</b> <span class='quality-badge-estimated'>🤖</span>
+                </div>
+                <div style='font-size: 28px; font-weight: bold; color: #9b59b6;'>
+                    {open_rate:.1f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; margin: 10px 0;'>
+                <div style='font-size: 12px; color: #7f8c8d;'>
+                    <b>Click Rate</b> <span class='quality-badge-estimated'>🤖</span>
+                </div>
+                <div style='font-size: 28px; font-weight: bold; color: #f39c12;'>
+                    {ctr:.1f}%
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Footer
         st.markdown(f"""
-        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 20px; border-radius: 12px; color: white; margin-top: 20px;'>
+        <div class='ai-info-box'>
             <h5>🤖 AI Estimation Active</h5>
-            <p><b>Method:</b> {method}</p>
+            <p><b>Method:</b> {marketing_method}</p>
+            <p style='font-size: 12px;'>Based on industry benchmarks for fashion e-commerce</p>
         </div>
         """, unsafe_allow_html=True)
 
-# TAB 3: FINANCIAL
+print("✅ Part 4 Complete: Sales & Marketing Tabs ready")
+print("📝 Next: Request Part 5 (Financial & Warehouse Tabs)")
+# ========================================
+# PART 5: FINANCIAL & WAREHOUSE TABS
+# Paste this AFTER Part 4
+# ========================================
+
+# ==================== TAB 3: FINANCIAL ANALYTICS ====================
 with tab3:
-    st.markdown("## 💰 Financial Analytics")
+    st.markdown("# 💰 Financial Analytics")
     st.markdown("---")
-    
-    st.markdown("### 📊 Margins")
-    gross = revenue - cogs
-    gross_margin = (gross / revenue * 100) if revenue > 0 else 0
-    
+
+    # Profit Margins
+    st.markdown("### 📊 Profit Margin Analysis")
+
+    gross_margin = (gross_profit / revenue * 100) if revenue > 0 else 0
+    net_margin = (profit / revenue * 100) if revenue > 0 else 0
+    target_margin = st.session_state.targets["profit_margin"]
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         fig = go.Figure(go.Waterfall(
-            x=["Revenue", "COGS", "Other", "Profit"],
-            y=[revenue, -cogs, -(gross-profit), profit],
+            orientation="v",
+            measure=["relative", "relative", "relative", "total"],
+            x=["Revenue", "COGS", "Other Costs", "Net Profit"],
+            y=[revenue, -cogs, -(gross_profit - profit), profit],
+            text=[f"฿{revenue:,.0f}", f"-฿{cogs:,.0f}", f"-฿{(gross_profit - profit):,.0f}", f"฿{profit:,.0f}"],
+            textposition="outside",
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+            decreasing={"marker": {"color": "#e74c3c"}},
+            increasing={"marker": {"color": "#2ecc71"}},
+            totals={"marker": {"color": "#3498db"}},
         ))
-        fig.update_layout(height=300)
+
+        fig.update_layout(
+            title="<b>Profit Waterfall</b>",
+            plot_bgcolor="white",
+            height=300,
+            showlegend=False,
+        )
+
         st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                     padding: 30px; border-radius: 10px; color: white; text-align: center; height: 300px;
                     display: flex; flex-direction: column; justify-content: center;'>
-            <div>GROSS MARGIN</div>
-            <div style='font-size: 52px; font-weight: bold;'>{gross_margin:.1f}%</div>
+            <div style='font-size: 14px; opacity: 0.9;'>GROSS PROFIT MARGIN</div>
+            <div style='font-size: 52px; font-weight: bold; margin: 15px 0;'>
+                {gross_margin:.1f}%
+            </div>
+            <div style='font-size: 12px; opacity: 0.8;'>(Revenue - COGS) / Revenue</div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     with col3:
+        margin_color = "#2ecc71" if net_margin >= target_margin else "#e74c3c"
         st.markdown(f"""
         <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
                     padding: 30px; border-radius: 10px; color: white; text-align: center; height: 300px;
                     display: flex; flex-direction: column; justify-content: center;'>
-            <div>NET MARGIN</div>
-            <div style='font-size: 52px; font-weight: bold;'>{margin:.1f}%</div>
+            <div style='font-size: 14px; opacity: 0.9;'>NET PROFIT MARGIN</div>
+            <div style='font-size: 52px; font-weight: bold; margin: 15px 0;'>
+                {net_margin:.1f}%
+            </div>
+            <div style='font-size: 11px; margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;'>
+                Target: {target_margin:.0f}%<br>
+                {'✅ Above Target' if net_margin >= target_margin else '⚠️ Below Target'}
+            </div>
         </div>
         """, unsafe_allow_html=True)
-    
-    # CCC
+
     st.markdown("---")
+
+    # Cash Conversion Cycle
     st.markdown("### 💼 Cash Conversion Cycle")
     
-    if st.session_state.use_ai:
-        inv_val, _ = ai.estimate_inventory(df_filtered, cogs)
-        ar_val, _ = ai.estimate_ar(df_filtered, pd.DataFrame())
-        ap_val, _ = ai.estimate_ap(cogs, df_filtered)
+    use_ai = st.session_state.use_ai_estimation
+    
+    if use_ai:
+        avg_inventory, _ = ai_estimator.estimate_inventory(df_filtered, cogs)
+        avg_ar, _ = ai_estimator.estimate_accounts_receivable(df_filtered, pd.DataFrame())
+        avg_ap, _ = ai_estimator.estimate_accounts_payable(cogs, df_filtered)
         
-        dio = 365 / (cogs / inv_val) if inv_val > 0 else 0
-        dso = 365 / ((revenue * 0.3) / ar_val) if ar_val > 0 else 0
-        dpo = 365 / (cogs / ap_val) if ap_val > 0 else 0
+        inventory_turnover = cogs / avg_inventory if avg_inventory > 0 else 0
+        dio = 365 / inventory_turnover if inventory_turnover > 0 else 0
+        
+        ar_turnover = (revenue * 0.3) / avg_ar if avg_ar > 0 else 0
+        dso = 365 / ar_turnover if ar_turnover > 0 else 0
+        
+        ap_turnover = cogs / avg_ap if avg_ap > 0 else 0
+        dpo = 365 / ap_turnover if ap_turnover > 0 else 0
+        
         ccc = dio + dso - dpo
         
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            color = "#2ecc71" if ccc < 60 else "#f39c12" if ccc < 90 else "#e74c3c"
+            ccc_color = "#2ecc71" if ccc < 60 else "#f39c12" if ccc < 90 else "#e74c3c"
             st.markdown(f"""
-            <div style='background: {color}; padding: 30px; border-radius: 15px; 
-                        color: white; text-align: center; height: 300px;
+            <div style='background: linear-gradient(135deg, {ccc_color} 0%, {ccc_color}dd 100%); 
+                        padding: 30px; border-radius: 15px; color: white; text-align: center; height: 350px;
                         display: flex; flex-direction: column; justify-content: center;'>
-                <div style='font-size: 16px;'><b>CCC</b></div>
-                <div style='font-size: 72px; font-weight: bold;'>{ccc:.0f}</div>
+                <div style='font-size: 16px; margin-bottom: 15px;'><b>CASH CONVERSION CYCLE</b></div>
+                <div style='font-size: 72px; font-weight: bold; margin: 20px 0;'>{ccc:.0f}</div>
                 <div style='font-size: 14px;'>days</div>
-                <div style='font-size: 11px; margin-top: 10px;'>🤖 AI</div>
+                <div style='font-size: 11px; margin-top: 15px;'>🤖 AI Estimated</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             fig = go.Figure(go.Waterfall(
-                x=["DSO", "DIO", "DPO", "CCC"],
+                x=["DSO<br>(Collection)", "DIO<br>(Inventory)", "DPO<br>(Payment)", "CCC<br>(Net)"],
                 y=[dso, dio, -dpo, ccc],
                 text=[f"{dso:.0f}d", f"{dio:.0f}d", f"-{dpo:.0f}d", f"{ccc:.0f}d"],
                 textposition="outside",
+                connector={"line": {"color": "gray"}},
+                increasing={"marker": {"color": "#e74c3c"}},
+                decreasing={"marker": {"color": "#2ecc71"}},
+                totals={"marker": {"color": ccc_color}},
             ))
-            fig.update_layout(height=300)
+            
+            fig.update_layout(
+                title="<b>CCC Breakdown</b>",
+                yaxis=dict(title="Days"),
+                plot_bgcolor='white',
+                height=350,
+                showlegend=False,
+            )
+            
             st.plotly_chart(fig, use_container_width=True)
-
-# TAB 4: WAREHOUSE
-with tab4:
-    st.markdown("## 📦 Warehouse Analytics")
-    
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        use_wh_ai = st.checkbox("🤖 AI", value=True, key="wh_ai")
-    
-    st.markdown("---")
-    
-    if use_wh_ai:
-        wh, method = ai.estimate_warehouse(df_filtered, orders)
-        tracker.mark_estimated("Warehouse", method)
         
-        st.markdown("### 📊 KPIs")
+        quality_tracker.mark_estimated("Cash Conversion Cycle", "AI estimated based on industry patterns")
+
+# ==================== TAB 4: WAREHOUSE ANALYTICS ====================
+with tab4:
+    st.markdown("# 📦 Warehouse Analytics")
+    
+    # AI Toggle
+    col_header1, col_header2 = st.columns([3, 1])
+    with col_header1:
+        st.markdown("---")
+    with col_header2:
+        use_warehouse_ai = st.checkbox(
+            "🤖 AI Estimation",
+            value=True,
+            key="warehouse_ai_toggle"
+        )
+    
+    if use_warehouse_ai:
+        warehouse_metrics, warehouse_method = ai_estimator.estimate_warehouse_metrics(df_filtered, total_orders)
+        quality_tracker.mark_estimated("Warehouse Metrics", warehouse_method)
+        
+        st.markdown("### 📊 Operational Excellence KPIs")
+        
         col1, col2, col3 = st.columns(3)
         
-        items = [
-            ("PERFECT ORDER", wh['perfect_order'], "%"),
-            ("FILL RATE", wh['fill_rate'], "%"),
-            ("SERVICE LEVEL", wh['service_level'], "%"),
-        ]
-        
-        for col, (label, value, unit) in zip([col1, col2, col3], items):
-            with col:
-                color = "#2ecc71" if value >= 92 else "#f39c12"
-                st.markdown(f"""
-                <div style='background: {color}; padding: 25px; border-radius: 10px; 
-                            color: white; text-align: center;'>
-                    <div style='font-size: 13px;'>
-                        <b>{label}</b>
-                        <span style='font-size: 10px; display: block;'>🤖 AI</span>
-                    </div>
-                    <div style='font-size: 42px; font-weight: bold;'>{value:.1f}{unit}</div>
+        with col1:
+            perfect = warehouse_metrics['perfect_order_rate']
+            perfect_color = "#2ecc71" if perfect >= 92 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {perfect_color} 0%, {perfect_color}dd 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9;'>
+                    <b>PERFECT ORDER RATE</b>
+                    <span style='font-size: 10px; display: block; margin-top: 3px;'>🤖 AI</span>
                 </div>
-                """, unsafe_allow_html=True)
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {perfect:.1f}%
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>
+                    {'✅ Excellent' if perfect >= 92 else '⚠️ Needs Improvement'}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            fill = warehouse_metrics['fill_rate']
+            fill_color = "#2ecc71" if fill >= 96 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {fill_color} 0%, {fill_color}dd 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9;'>
+                    <b>FILL RATE</b>
+                    <span style='font-size: 10px; display: block; margin-top: 3px;'>🤖 AI</span>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {fill:.1f}%
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>Items fulfilled completely</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            service = warehouse_metrics['service_level']
+            service_color = "#2ecc71" if service >= 94 else "#f39c12"
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {service_color} 0%, {service_color}dd 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 13px; opacity: 0.9;'>
+                    <b>SERVICE LEVEL</b>
+                    <span style='font-size: 10px; display: block; margin-top: 3px;'>🤖 AI</span>
+                </div>
+                <div style='font-size: 42px; font-weight: bold; margin: 10px 0;'>
+                    {service:.1f}%
+                </div>
+                <div style='font-size: 11px; opacity: 0.8;'>On-time delivery</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown(f"""
-        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 20px; border-radius: 12px; color: white; margin-top: 20px;'>
+        <div class='ai-info-box' style='margin-top: 30px;'>
             <h5>🤖 AI Estimation Active</h5>
-            <p><b>Method:</b> {method}</p>
+            <p><b>Method:</b> {warehouse_method}</p>
+            <p style='font-size: 12px;'>Warehouse metrics estimated using industry averages</p>
         </div>
         """, unsafe_allow_html=True)
 
-# TAB 5: FORECAST
+print("✅ Part 5 Complete: Financial & Warehouse Tabs ready")
+print("📝 Next: Request Part 6 (Forecasting & AI Tabs + Footer)")
+# ========================================
+# PART 6 (FINAL): FORECASTING & AI TABS
+# Paste this AFTER Part 5
+# ========================================
+
+# ==================== TAB 5: FORECASTING ====================
 with tab5:
-    st.markdown("## 🔮 Forecasting")
+    st.markdown("# 🔮 Forecasting & Planning")
     st.markdown("---")
     
-    st.markdown("### 📈 Revenue Forecast (12 Months)")
+    st.markdown("### 📈 Revenue Forecast (Next 12 Months)")
     
-    monthly = df_filtered.groupby("order_month")["net_revenue"].sum().reset_index()
-    monthly["order_month"] = monthly["order_month"].dt.to_timestamp()
+    monthly_sales_fc = df_filtered.groupby("order_month").agg({"net_revenue": "sum"}).reset_index()
+    monthly_sales_fc["order_month"] = monthly_sales_fc["order_month"].dt.to_timestamp()
     
-    if len(monthly) >= 3:
-        X = np.arange(len(monthly)).reshape(-1, 1)
-        y = monthly["net_revenue"].values
+    if len(monthly_sales_fc) >= 3:
+        X = np.arange(len(monthly_sales_fc)).reshape(-1, 1)
+        y = monthly_sales_fc["net_revenue"].values
         
-        model = LinearRegression().fit(X, y)
+        model = LinearRegression()
+        model.fit(X, y)
         
-        future_X = np.arange(len(monthly), len(monthly) + 12).reshape(-1, 1)
-        forecast = model.predict(future_X)
+        future_months = 12
+        future_X = np.arange(len(monthly_sales_fc), len(monthly_sales_fc) + future_months).reshape(-1, 1)
+        forecast_values = model.predict(future_X)
         
-        last_date = monthly["order_month"].iloc[-1]
-        forecast_dates = pd.date_range(last_date + pd.DateOffset(months=1), periods=12, freq="MS")
+        last_date = monthly_sales_fc["order_month"].iloc[-1]
+        forecast_dates = pd.date_range(start=last_date + pd.DateOffset(months=1), 
+                                       periods=future_months, freq="MS")
+        
+        forecast_df = pd.DataFrame({
+            "Month": forecast_dates,
+            "Forecast": forecast_values
+        })
         
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=monthly["order_month"], y=monthly["net_revenue"],
-                                 name="Actual", line=dict(color="#3498db", width=3)))
-        fig.add_trace(go.Scatter(x=forecast_dates, y=forecast,
-                                 name="Forecast", line=dict(color="#e74c3c", width=3, dash="dash")))
         
-        fig.update_layout(height=400, plot_bgcolor="white")
+        fig.add_trace(go.Scatter(
+            x=monthly_sales_fc["order_month"],
+            y=monthly_sales_fc["net_revenue"],
+            name="Actual",
+            mode="lines+markers",
+            line=dict(color="#3498db", width=3),
+            marker=dict(size=8),
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=forecast_df["Month"],
+            y=forecast_df["Forecast"],
+            name="Forecast",
+            mode="lines+markers",
+            line=dict(color="#e74c3c", width=3, dash="dash"),
+            marker=dict(size=8, symbol="diamond"),
+        ))
+        
+        fig.update_layout(
+            title="<b>Revenue Forecast - Next 12 Months</b>",
+            xaxis=dict(title=""),
+            yaxis=dict(title="Revenue (฿)"),
+            plot_bgcolor="white",
+            height=400,
+        )
+        
         st.plotly_chart(fig, use_container_width=True)
         
-        st.success(f"📊 12-Month Forecast: ฿{forecast.sum()/1e6:.1f}M")
-
-# TAB 6: AI
-with tab6:
-    st.markdown("## 🤖 AI Insights")
-    st.markdown("---")
-    
-    insights = []
-    
-    if len(monthly) > 1:
-        growth = monthly["net_revenue"].pct_change().iloc[-1] * 100
-        if growth > 0:
-            insights.append(f"📈 Growing {growth:.1f}% MoM")
-        else:
-            insights.append(f"📉 Declining {abs(growth):.1f}% - action needed")
-    
-    if margin < 20:
-        insights.append(f"⚠️ Low margin ({margin:.1f}%) - optimize costs")
+        total_forecast = forecast_df["Forecast"].sum()
+        avg_monthly = forecast_df["Forecast"].mean()
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 14px; opacity: 0.9;'>12-MONTH TOTAL</div>
+                <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                    ฿{total_forecast/1000000:.1f}M
+                </div>
+                <div style='font-size: 12px; opacity: 0.8;'>Forecasted Revenue</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 14px; opacity: 0.9;'>AVG MONTHLY</div>
+                <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                    ฿{avg_monthly/1000000:.2f}M
+                </div>
+                <div style='font-size: 12px; opacity: 0.8;'>Average per month</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            growth = ((forecast_values[-1] - monthly_sales_fc["net_revenue"].iloc[-1]) / 
+                     monthly_sales_fc["net_revenue"].iloc[-1] * 100)
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                        padding: 25px; border-radius: 10px; color: white; text-align: center;'>
+                <div style='font-size: 14px; opacity: 0.9;'>EXPECTED GROWTH</div>
+                <div style='font-size: 36px; font-weight: bold; margin: 10px 0;'>
+                    {growth:+.1f}%
+                </div>
+                <div style='font-size: 12px; opacity: 0.8;'>From current</div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
-        insights.append(f"✅ Healthy margin ({margin:.1f}%)")
-    
-    top_ch = ch["Channel"].iloc[0]
-    top_pct = (ch["Revenue"].iloc[0] / ch["Revenue"].sum() * 100)
-    insights.append(f"🏪 {top_ch} drives {top_pct:.0f}% revenue")
+        st.warning("⚠️ Need at least 3 months of data for forecasting")
+
+# ==================== TAB 6: AI INSIGHTS ====================
+with tab6:
+    st.markdown("# 🤖 AI Insights & Recommendations")
+    st.markdown("---")
     
     st.markdown("""
     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 padding: 30px; border-radius: 15px; color: white;'>
-        <h3>🤖 Key Insights</h3>
+        <h3 style='margin: 0 0 20px 0;'>🤖 Machine Learning Insights</h3>
     """, unsafe_allow_html=True)
     
-    for insight in insights:
-        st.markdown(f"<p style='font-size: 14px; margin: 10px 0;'>{insight}</p>", unsafe_allow_html=True)
+    insights = []
+    
+    # Sales insights
+    if len(monthly_sales) > 1:
+        latest_growth = monthly_sales["net_revenue"].pct_change().iloc[-1] * 100
+        if latest_growth > 0:
+            insights.append(f"📈 <b>Sales Trend:</b> Growing at {latest_growth:.1f}% month-over-month")
+        else:
+            insights.append(f"📉 <b>Sales Alert:</b> Declining by {abs(latest_growth):.1f}% - action needed")
+    
+    # Margin insights
+    if profit_margin < 20:
+        insights.append(f"⚠️ <b>Margin Alert:</b> Current margin {profit_margin:.1f}% is below healthy threshold (20%)")
+    else:
+        insights.append(f"✅ <b>Healthy Margins:</b> {profit_margin:.1f}% profit margin is strong")
+    
+    # Channel insights
+    top_channel = channel_sales["Channel"].iloc[0]
+    top_channel_pct = (channel_sales["Revenue"].iloc[0] / channel_sales["Revenue"].sum() * 100)
+    insights.append(f"🏪 <b>Top Channel:</b> {top_channel} drives {top_channel_pct:.0f}% of revenue")
+    
+    # Customer insights
+    if total_customers > 0:
+        repeat_rate = ((total_orders - total_customers) / total_customers * 100)
+        if repeat_rate > 30:
+            insights.append(f"🔄 <b>Strong Retention:</b> {repeat_rate:.0f}% repeat purchase rate")
+        else:
+            insights.append(f"⚠️ <b>Retention Alert:</b> Only {repeat_rate:.0f}% repeat rate - improve loyalty")
+    
+    if insights:
+        st.markdown("<div style='padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px;'>", 
+                   unsafe_allow_html=True)
+        for insight in insights:
+            st.markdown(f"<p style='margin: 10px 0; font-size: 14px;'>{insight}</p>", 
+                       unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Recommendations
+    st.markdown("### 💡 AI Recommendations")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.success("""
+        **🎯 Growth Opportunities:**
+        
+        • Scale top-performing channels
+        • Optimize product mix for higher margins
+        • Improve inventory turnover
+        • Enhance customer retention programs
+        • Expand successful categories
+        """)
+    
+    with col2:
+        st.info("""
+        **⚠️ Areas for Improvement:**
+        
+        • Monitor cash conversion cycle
+        • Reduce operational costs
+        • Improve warehouse efficiency
+        • Enhance marketing ROI
+        • Focus on repeat customers
+        """)
 
-# Footer
+# ========================================
+# FOOTER
+# ========================================
+
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             border-radius: 12px; color: white;'>
-    <h3>🤖 AI-Powered Analytics Dashboard</h3>
-    <p>Real-time Intelligence • Machine Learning • Data-Driven Decisions</p>
+    <h3 style='margin: 0;'>🤖 AI-Powered Analytics Dashboard</h3>
+    <p style='margin: 10px 0 0 0; font-size: 14px;'>
+        Real-time Intelligence • Machine Learning • Data-Driven Decisions
+    </p>
 </div>
 """, unsafe_allow_html=True)
+
+print("=" * 80)
+print("🎉 COMPLETE! All 6 parts are now loaded")
+print("=" * 80)
+print("✅ Part 1: Classes & Configuration")
+print("✅ Part 2: Data Loading Functions")
+print("✅ Part 3: Main Dashboard & Filters")
+print("✅ Part 4: Sales & Marketing Tabs")
+print("✅ Part 5: Financial & Warehouse Tabs")
+print("✅ Part 6: Forecasting & AI Tabs + Footer")
+print("=" * 80)
+print("🚀 Your dashboard is ready!")
+print("📝 Save all parts as one file: dashboard.py")
+print("🏃 Run with: streamlit run dashboard.py")
+print("=" * 80)
